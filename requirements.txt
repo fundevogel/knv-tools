@@ -1,0 +1,8 @@
+knv-paypal-matcher @ git+https://github.com/fundevogel/knv-pypal@96480054d480c932da3e890d87053c6fc2047ebd
+numpy==1.20.2
+pandas==1.2.4
+PyPDF2==1.26.0
+python-dateutil==2.8.1
+pytz==2021.1
+PyYAML==5.4.1
+six==1.15.0

@@ -1,0 +1,5 @@
+data/*
+!data/index.html
+build
+imports
+backup*

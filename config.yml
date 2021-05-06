@@ -1,0 +1,13 @@
+# Input
+payment_dir: data/payments
+payment_regex: Download*.CSV
+order_dir: data/orders
+order_regex: Orders_*.csv
+info_dir: data/infos
+info_regex: OrdersInfo_*.csv
+invoice_dir: data/invoices
+import_dir: imports
+
+# Output
+dist: build
+invoice_file: invoices.pdf
