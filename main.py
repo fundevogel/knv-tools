@@ -48,5 +48,28 @@ def update(config: str):
     click.echo('Update complete!')
 
 
+@click.option('-c', '--config', help='Path to configuration file.')
+@click.option('-y', '--year', help='Year.')
+@click.option('-q', '--quarter', help='Quarter.')
+@cli.command()
+def match(
+    config: str,
+    year: int = None,
+    quarter: int = None,
+):
+    """Matches payments & invoices"""
+
+    # Load config
+    config = load_config(config)
+
+    # Initialize object
+    handler = Inspector(config)
+
+    # Load & match data sources
+    click.echo('Matching data ..')
+    handler.match(year, quarter)
+    click.echo(' done!')
+
+
 if __name__ == '__main__':
     cli()
