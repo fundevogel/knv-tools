@@ -37,10 +37,10 @@ class Inspector:
 
         # Filter & merge matched invoices
         invoices = build_path(self.config['invoice_dir'], '*.pdf')
-        self.export_pdf(matches, invoices)
+        self.export_invoices(matches, invoices)
 
         # Write results to CSV files
-        self.export_csv(matches, self.config['match_dir'])
+        self.export_matches(matches, self.config['match_dir'])
 
 
     def match_payments(self, payments, orders, infos) -> list:
@@ -131,9 +131,7 @@ class Inspector:
         return []
 
 
-    # PDF tasks
-
-    def export_pdf(self, matches, invoice_list) -> None:
+    def export_invoices(self, matches, invoice_list) -> None:
         # Prepare invoice data
         invoices = {basename(invoice).split('-')[2][:-4]: invoice for invoice in invoice_list}
 
@@ -165,11 +163,58 @@ class Inspector:
             merger.write(invoice_file)
 
 
-    def export_csv(self, raw, base_dir):
-        csv_data = dedupe(raw)
-
-        for code, data in group_data(csv_data).items():
+    def export_matches(self, matches, base_dir):
+        for code, data in group_data(matches).items():
+            # Assign CSV file path & create directory if necessary
             csv_file = join(base_dir, code, code + '.csv')
             create_path(csv_file)
 
+            # Write matches to CSV file
             DataFrame(data).to_csv(csv_file, index=False)
+
+
+    def rank(self, year, quarter) -> None:
+        # Select order files to be analyzed
+        order_files = build_path(self.config['order_dir'], year=year, quarter=quarter)
+
+        # Fetch their content
+        orders = load_json(order_files)
+
+        data = {}
+
+        # Sum up number of sold articles
+        for order in orders:
+            for isbn, quantity in order['Bestellung'].items():
+                if isbn not in data:
+                    data[isbn] = quantity
+
+                else:
+                    data[isbn] = data[isbn] + quantity
+
+        ranking = []
+
+        for isbn, quantity in data.items():
+            item = {}
+
+            item['ISBN'] = isbn
+            item['Anzahl'] = quantity
+
+            ranking.append(item)
+
+        # Sort sold articles by quantity & in descending order
+        ranking.sort(key=itemgetter('Anzahl'), reverse=True)
+
+        # Generate unique filename
+        file_name = basename(order_files[0])[:-5] + '_' + basename(order_files[-1])[:-5] + '_' + str(sum(data.values()))
+
+        # Write ranking to CSV file
+        self.export_csv(ranking, file_name)
+
+
+    def export_csv(self, ranking, identifier) -> None:
+        # Assign CSV file path & create directory if necessary
+        csv_file = join(self.config['rank_dir'], identifier + '.csv')
+        create_path(csv_file)
+
+        # Write CSV file
+        DataFrame(ranking).to_csv(csv_file, index=False)

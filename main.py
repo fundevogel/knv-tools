@@ -71,5 +71,28 @@ def match(
     click.echo(' done!')
 
 
+@click.option('-c', '--config', help='Path to configuration file.')
+@click.option('-y', '--year', help='Year.')
+@click.option('-q', '--quarter', help='Quarter.')
+@cli.command()
+def rank(
+    config: str,
+    year: int = None,
+    quarter: int = None,
+):
+    """Ranks sold books"""
+
+    # Load config
+    config = load_config(config)
+
+    # Initialize object
+    handler = Inspector(config)
+
+    # Load & match data sources
+    click.echo('Ranking data ..', nl=False)
+    handler.rank(year, quarter)
+    click.echo(' done!')
+
+
 if __name__ == '__main__':
     cli()
