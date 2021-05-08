@@ -86,10 +86,16 @@ def flush(config):
     click.echo(' done.')
 
 
+@cli.group()
+def ex():
+    """Extraction tasks"""
+    pass
+
+
 @click.option('-c', '--config', help='Path to configuration file.')
 @click.option('-y', '--year', help='Year.')
 @click.option('-q', '--quarter', help='Quarter.')
-@cli.command()
+@ex.command()
 def match(
     config: str,
     year: int = None,
@@ -112,7 +118,7 @@ def match(
 @click.option('-c', '--config', help='Path to configuration file.')
 @click.option('-y', '--year', help='Year.')
 @click.option('-q', '--quarter', help='Quarter.')
-@cli.command()
+@ex.command()
 def rank(
     config: str,
     year: int = None,
@@ -134,7 +140,7 @@ def rank(
 
 @click.option('-c', '--config', help='Path to configuration file.')
 @click.option('-d', '--date', help='Cutoff date in ISO date format, eg \'YYYY-MM-DD\'. Default: today two years ago')
-@cli.command()
+@ex.command()
 def contacts(config: str, date: str = None):
     """Generates mailmerge-ready contact list"""
 
