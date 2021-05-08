@@ -70,6 +70,23 @@ def update(config):
 
 
 @click.option('-c', '--config', help='Path to configuration file.')
+@db.command()
+def flush(config):
+    """Flushes database"""
+
+    # Load config
+    config = load_config(config)
+
+    # Initialize object
+    handler = Database(config)
+
+    # Import payment files
+    click.echo('Flushing database ..', nl=False)
+    handler.flush()
+    click.echo(' done.')
+
+
+@click.option('-c', '--config', help='Path to configuration file.')
 @click.option('-y', '--year', help='Year.')
 @click.option('-q', '--quarter', help='Quarter.')
 @cli.command()

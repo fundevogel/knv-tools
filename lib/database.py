@@ -2,6 +2,7 @@
 # ~*~ coding=utf-8 ~*~
 
 
+from os import remove
 from os.path import join
 from datetime import datetime
 from operator import itemgetter
@@ -30,6 +31,13 @@ class Database:
         self.order_dir = join(self.data_dir, 'orders')
         self.info_dir = join(self.data_dir, 'infos')
         self.invoice_dir = join(self.data_dir, 'invoices')
+
+
+    def flush(self) -> None:
+        files = build_path(self.payment_dir) + build_path(self.order_dir) + build_path(self.info_dir)
+
+        for file in files:
+            remove(file)
 
 
     def process_payments(self, data) -> list:
