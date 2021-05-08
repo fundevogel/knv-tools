@@ -7,13 +7,29 @@ from datetime import datetime
 from operator import itemgetter
 from shutil import move
 
-from lib.handlers import load_csv, load_json, dump_json
-from lib.utilities import build_path, dedupe, load_config, group_data
+from lib.utils import load_csv, load_json, dump_json
+from lib.utils import build_path, dedupe, group_data
 
 
 class Database:
+    # Provide sensible defaults
+    import_dir = 'imports'
+    data_dir = 'data'
+    payment_regex = 'Download*.CSV'
+    order_regex = 'Orders_*.csv'
+    info_regex = 'OrdersInfo_*.csv'
+
     def __init__(self, config: dict) -> None:
-        self.config = config
+        # Import relevant configuration
+        if 'database' in config:
+            for key, value in config['database'].items():
+                setattr(self, key, value)
+
+        # Expose useful directories
+        self.payment_dir = join(self.data_dir, 'payments')
+        self.order_dir = join(self.data_dir, 'orders')
+        self.info_dir = join(self.data_dir, 'infos')
+        self.invoice_dir = join(self.data_dir, 'invoices')
 
 
     def process_payments(self, data) -> list:
@@ -22,7 +38,6 @@ class Database:
 
         for item in data:
             # Skip withdrawals
-            # TODO: Could be 'Auswirkung auf Guthaben' != 'Haben' instead, gotta investigate ..
             if item['Brutto'][:1] == '-':
                 continue
 
@@ -31,24 +46,19 @@ class Database:
 
             payment = {}
 
-            try:
-                payment['ID'] = code
-                payment['Datum'] = self.convert_date(item['Datum'])
-                payment['Vorgang'] = 'nicht zugeordnet'
-                payment['Name'] = item['Name']
-                payment['Email'] = item['Absender E-Mail-Adresse']
-                payment['Brutto'] = self.convert_cost(item['Brutto'])
-                payment['Gebühr'] = self.convert_cost(item['Gebühr'])
-                payment['Netto'] = self.convert_cost(item['Netto'])
-                payment['Währung'] = item['Währung']
+            payment['ID'] = code
+            payment['Datum'] = self.convert_date(item['Datum'])
+            payment['Vorgang'] = 'nicht zugeordnet'
+            payment['Name'] = item['Name']
+            payment['Email'] = item['Absender E-Mail-Adresse']
+            payment['Brutto'] = self.convert_cost(item['Brutto'])
+            payment['Gebühr'] = self.convert_cost(item['Gebühr'])
+            payment['Netto'] = self.convert_cost(item['Netto'])
+            payment['Währung'] = item['Währung']
 
-                if code not in codes:
-                    codes.add(code)
-                    payments.append(payment)
-
-            except AttributeError:
-                # TODO: That really a thing?
-                pass
+            if code not in codes:
+                codes.add(code)
+                payments.append(payment)
 
         return payments
 
@@ -76,6 +86,8 @@ class Database:
                 order['ID'] = code
                 order['Datum'] = item['timeplaced'][:10]
                 order['Anrede'] = item['rechnungaddresstitle']
+                order['Vorname'] = item['rechnungaddressfirstname']
+                order['Nachname'] = item['rechnungaddresslastname']
                 order['Name'] = ' '.join([item['rechnungaddressfirstname'], item['rechnungaddresslastname']])
                 order['Email'] = item['rechnungaddressemail']
                 order['Bestellung'] = {clean_isbn: item['quantity']}
@@ -128,7 +140,7 @@ class Database:
 
     def import_payments(self) -> None:
         # Select payment files to be imported
-        import_files = build_path(self.config['import_dir'], self.config['payment_regex'])
+        import_files = build_path(self.import_dir, self.payment_regex)
 
         # Generate payment data by ..
         # (1) .. fetching their content
@@ -139,7 +151,7 @@ class Database:
         import_data = self.process_payments(dedupe(import_data))
 
         # Load database files
-        db_files = build_path(self.config['payment_dir'])
+        db_files = build_path(self.payment_dir)
         payments = load_json(db_files)
 
         # Compare existing & imported data if database was built before ..
@@ -161,12 +173,12 @@ class Database:
 
         # Split payments per-month & export them
         for code, data in group_data(payments).items():
-            dump_json(data, join(self.config['payment_dir'], code + '.json'))
+            dump_json(data, join(self.payment_dir, code + '.json'))
 
 
     def import_orders(self) -> None:
         # Select order files to be imported
-        import_files = build_path(self.config['import_dir'], self.config['order_regex'])
+        import_files = build_path(self.import_dir, self.order_regex)
 
         # Generate order data by ..
         # (1) .. fetching their content
@@ -177,7 +189,7 @@ class Database:
         import_data = self.process_orders(dedupe(import_data))
 
         # Load database files
-        db_files = build_path(self.config['order_dir'])
+        db_files = build_path(self.order_dir)
         orders = load_json(db_files)
 
         # Compare existing & imported data if database was built before ..
@@ -199,12 +211,12 @@ class Database:
 
         # Split orders per-month & export them
         for code, data in group_data(orders).items():
-            dump_json(data, join(self.config['order_dir'], code + '.json'))
+            dump_json(data, join(self.order_dir, code + '.json'))
 
 
     def import_infos(self) -> None:
         # Select info files to be imported
-        import_files = build_path(self.config['import_dir'], self.config['info_regex'])
+        import_files = build_path(self.import_dir, self.info_regex)
 
         # Generate info data by ..
         # (1) .. fetching their content
@@ -215,7 +227,7 @@ class Database:
         import_data = self.process_infos(dedupe(import_data))
 
         # Load database files
-        db_files = build_path(self.config['info_dir'])
+        db_files = build_path(self.info_dir)
         infos = load_json(db_files)
 
         # Compare existing & imported data if database was built before ..
@@ -237,16 +249,16 @@ class Database:
 
         # Split infos per-month & export them
         for code, data in group_data(infos).items():
-            dump_json(data, join(self.config['info_dir'], code + '.json'))
+            dump_json(data, join(self.info_dir, code + '.json'))
 
 
     def import_invoices(self) -> None:
         # Select invoice files to be imported
-        invoice_files = build_path(self.config['import_dir'], '*.pdf')
+        invoice_files = build_path(self.import_dir, '*.pdf')
 
         # Move them
         for invoice_file in invoice_files:
-            move(invoice_file, self.config['invoice_dir'])
+            move(invoice_file, self.invoice_dir)
 
 
     # Helper tasks

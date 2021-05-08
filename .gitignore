@@ -1,3 +1,11 @@
+# Cache files
+__pycache__/
+
+# Development files
+.vscode
+.env
+
+# Sensitive information
 data/*
 !data/index.html
 build

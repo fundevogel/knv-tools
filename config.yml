@@ -1,14 +1,13 @@
 # Input
-payment_dir: data/payments
-payment_regex: Download*.CSV
-order_dir: data/orders
-order_regex: Orders_*.csv
-info_dir: data/infos
-info_regex: OrdersInfo_*.csv
-invoice_dir: data/invoices
-import_dir: imports
+database:
+  import_dir: imports
+  data_dir: data
+  payment_regex: Download*.CSV
+  order_regex: Orders_*.csv
+  info_regex: OrdersInfo_*.csv
 
 # Output
-invoice_file: invoices.pdf
-match_dir: build/matches
-rank_dir: build/rankings
+output:
+  invoice_file: invoices.pdf
+  match_dir: build/matches
+  rank_dir: build/rankings

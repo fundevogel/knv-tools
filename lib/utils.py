@@ -2,13 +2,52 @@
 # ~*~ coding=utf-8 ~*~
 
 
+import json
 from glob import glob
 from hashlib import md5
 from os import makedirs
 from os.path import abspath, exists, dirname, join, realpath
 
-from yaml import safe_load, YAMLError
+from pandas import concat, read_csv
 
+
+# CSV tasks
+
+def load_csv(csv_files, encoding='iso-8859-1', delimiter=';') -> list:
+    try:
+        df = concat(map(lambda file: read_csv(file, sep=delimiter, encoding=encoding, low_memory=False), csv_files))
+
+    except ValueError:
+        return []
+
+    return df.to_dict('records')
+
+
+# JSON tasks
+
+def load_json(json_files) -> list:
+    data = []
+
+    for json_file in json_files:
+        try:
+            with open(json_file, 'r') as file:
+                data.extend(json.load(file))
+
+        except json.decoder.JSONDecodeError:
+            raise Exception
+
+        except FileNotFoundError:
+            pass
+
+    return data
+
+
+def dump_json(data, json_file) -> None:
+    with open(json_file, 'w') as file:
+        json.dump(data, file, ensure_ascii=False, indent=4)
+
+
+# Helper functions
 
 def build_path(
     base_path: str,
@@ -82,17 +121,3 @@ def group_data(ungrouped_data) -> dict:
         grouped_data[code].append(item)
 
     return grouped_data
-
-
-def load_config(config_file: str = None):
-    if config_file is None or not exists(realpath(config_file)):
-        config_path = dirname(dirname(abspath(__file__)))
-        config_file = join(config_path, 'config.yml')
-
-    with open(config_file, 'r') as file:
-        try:
-            config = safe_load(file)
-        except YAMLError:
-            pass
-
-    return config

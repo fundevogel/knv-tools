@@ -9,8 +9,8 @@ from os.path import basename, join
 from pandas import DataFrame
 from PyPDF2 import PdfFileReader, PdfFileMerger
 
-from lib.handlers import load_json
-from lib.utilities import build_path, create_path, dedupe, group_data
+from lib.utils import load_json
+from lib.utils import build_path, create_path, dedupe, group_data
 
 
 class Inspector:
@@ -173,6 +173,14 @@ class Inspector:
             DataFrame(data).to_csv(csv_file, index=False)
 
 
+    def export_csv(self, data, csv_file) -> None:
+        # Create directory if necessary
+        create_path(csv_file)
+
+        # Write CSV file
+        DataFrame(data).to_csv(csv_file, index=False)
+
+
     def rank(self, year, quarter) -> None:
         # Select order files to be analyzed
         order_files = build_path(self.config['order_dir'], year=year, quarter=quarter)
@@ -204,17 +212,8 @@ class Inspector:
         # Sort sold articles by quantity & in descending order
         ranking.sort(key=itemgetter('Anzahl'), reverse=True)
 
-        # Generate unique filename
-        file_name = basename(order_files[0])[:-5] + '_' + basename(order_files[-1])[:-5] + '_' + str(sum(data.values()))
-
         # Write ranking to CSV file
-        self.export_csv(ranking, file_name)
+        file_name = basename(order_files[0])[:-5] + '_' + basename(order_files[-1])[:-5] + '_' + str(sum(data.values()))
+        ranking_file = join(self.config['rank_dir'], file_name + '.csv')
 
-
-    def export_csv(self, ranking, identifier) -> None:
-        # Assign CSV file path & create directory if necessary
-        csv_file = join(self.config['rank_dir'], identifier + '.csv')
-        create_path(csv_file)
-
-        # Write CSV file
-        DataFrame(ranking).to_csv(csv_file, index=False)
+        self.export_csv(ranking, ranking_file)

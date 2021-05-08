@@ -2,11 +2,27 @@
 # ~*~ coding=utf-8 ~*~
 
 
+from os.path import abspath, dirname, exists, join, realpath
+
 import click
+from yaml import safe_load, YAMLError
 
 from lib.database import Database
 from lib.inspector import Inspector
-from lib.utilities import load_config
+
+
+def load_config(config_file: str = None):
+    if config_file is None or not exists(realpath(config_file)):
+        config_path = dirname(dirname(abspath(__file__)))
+        config_file = join(config_path, 'config.yml')
+
+    with open(config_file, 'r') as file:
+        try:
+            config = safe_load(file)
+        except YAMLError:
+            pass
+
+    return config
 
 
 @click.group()
@@ -14,9 +30,14 @@ def cli():
     """Useful tools for handling data exported from KNV / pcbis.de"""
 
 
+@cli.group()
+def db():
+    """Database tasks"""
+    pass
+
 @click.option('-c', '--config', help='Path to configuration file.')
-@cli.command()
-def update(config: str):
+@db.command()
+def update(config):
     """Updates database"""
 
     # Load config
