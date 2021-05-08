@@ -6,6 +6,7 @@ from datetime import datetime, timedelta
 from operator import itemgetter
 from os.path import basename, join
 
+import pendulum
 from pandas import DataFrame
 from PyPDF2 import PdfFileReader, PdfFileMerger
 
@@ -217,3 +218,54 @@ class Inspector:
         ranking_file = join(self.config['rank_dir'], file_name + '.csv')
 
         self.export_csv(ranking, ranking_file)
+
+
+    def contacts(self, cutoff_date):
+        today = pendulum.today()
+
+        # Set default date
+        if cutoff_date is None:
+            cutoff_date = today.subtract(years=2).to_datetime_string()[:10]
+
+        # Select order files to be analyzed
+        order_files = build_path(self.config['order_dir'])
+
+        # Fetch their content
+        orders = load_json(order_files)
+
+        # Load blacklisted mail addresses
+        with open('blocklist.txt', 'r') as file:
+            blocklist = file.read().splitlines()
+
+        codes = set()
+        contacts  = []
+
+        for order in sorted(orders, key=itemgetter('Datum'), reverse=True):
+            mail_address = order['Email']
+
+            if mail_address in blocklist:
+                continue
+
+            # Throw out everything before cutoff date
+            if order['Datum'] < cutoff_date:
+                continue
+
+            # Prepare dictionary
+            contact = {}
+
+            contact['Anrede'] = order['Anrede']
+            contact['Vorname'] = order['Vorname']
+            contact['Nachname'] = order['Nachname']
+            contact['Name'] = order['Name']
+            contact['Email'] = order['Email']
+            contact['Letzte Bestelltung'] = order['Datum']
+
+            if mail_address not in codes:
+                codes.add(mail_address)
+                contacts.append(contact)
+
+        # Write ranking to CSV file
+        file_name = cutoff_date + '_' + today.to_datetime_string()[:10]
+        contacts_file = join(self.config['contacts_dir'], file_name + '.csv')
+
+        self.export_csv(contacts, contacts_file)

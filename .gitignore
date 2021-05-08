@@ -11,3 +11,4 @@ data/*
 build
 imports
 backup*
+blocklist.txt

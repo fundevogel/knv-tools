@@ -11,3 +11,4 @@ output:
   invoice_file: invoices.pdf
   match_dir: build/matches
   rank_dir: build/rankings
+  contacts_dir: build/contacts

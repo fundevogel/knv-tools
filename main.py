@@ -132,5 +132,23 @@ def rank(
     click.echo(' done!')
 
 
+@click.option('-c', '--config', help='Path to configuration file.')
+@click.option('-d', '--date', help='Cutoff date in ISO date format, eg \'YYYY-MM-DD\'. Default: today two years ago')
+@cli.command()
+def contacts(config: str, date: str = None):
+    """Generates mailmerge-ready contact list"""
+
+    # Load config
+    config = load_config(config)
+
+    # Initialize object
+    handler = Inspector(config)
+
+    # Load & match data sources
+    click.echo('Generating contact list ..', nl=False)
+    handler.contacts(date)
+    click.echo(' done!')
+
+
 if __name__ == '__main__':
     cli()
