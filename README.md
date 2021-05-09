@@ -6,18 +6,19 @@ Simply run `setup.bash` and you're set!
 WIP
 
 ```ini
-[database]
+[DEFAULT]
+data_dir      = ./src
+verbose       = off
+
+[import]
 import_dir    = ./imports
-data_dir      = ./data
 payment_regex = Download*.CSV
 order_regex   = Orders_*.csv
 info_regex    = OrdersInfo_*.csv
-invoice_file  = invoices.pdf
 
-[inspector]
-match_dir     = ./build/matches
-rank_dir      = ./build/rankings
-contacts_dir  = ./build/contacts
+[export]
+export_dir    = ./dist
+invoice_file  = invoices.pdf
 ```
 
 :copyright: Fundevogel Kinder- und Jugendbuchhandlung

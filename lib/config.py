@@ -9,28 +9,23 @@ from xdg import xdg_config_home
 
 class Config(object):
     def __init__(self):
-        # Initialize config & provide sensible defaults
-        # TODO: This should be handled waaay more nicely ..
+        # Provide sensible defaults
         config = SafeConfigParser()
         config['DEFAULT'] = {
-            'data_dir': './data',
-            'debug': 'off'
+            'data_dir': './src',
+            'verbose': 'off'
         }
 
-        # .. database tasks
-        config['database'] = {
+        config['import'] = {
             'import_dir': './imports',
             'payment_regex': 'Download*.CSV',
             'order_regex': 'Orders_*.csv',
             'info_regex': 'OrdersInfo_*.csv',
         }
 
-        # .. inspector tasks
-        config['extraction'] = {
+        config['export'] = {
+            'export_dir': './dist',
             'invoice_file': 'invoices.pdf',
-            'matches_dir': './build/matches',
-            'rankings_dir': './build/rankings',
-            'contacts_dir': './build/contacts',
         }
 
         # Load config provided by user
@@ -39,11 +34,25 @@ class Config(object):
         if isfile(config_file):
             config.read(config_file)
 
-        self.config = config
+        # Apply resulting config
+        for section in config.sections():
+            for option in config[section]:
+                setattr(self, option, config.get(section, option))
 
+        # Expose useful directories ..
+        # (1) .. when establishing the database
+        self.payment_dir = join(self.data_dir, 'payments')
+        self.order_dir = join(self.data_dir, 'orders')
+        self.info_dir = join(self.data_dir, 'infos')
+        self.invoice_dir = join(self.data_dir, 'invoices')
+
+        # (2) .. when generating data
+        self.matches_dir = join(self.export_dir, 'matches')
+        self.rankings_dir = join(self.export_dir, 'rankings')
+        self.contacts_dir = join(self.export_dir, 'contacts')
 
     def get(self, section: str, option: str):
-        booleans = ['debug']
+        booleans = ['verbose']
 
         if self.config.has_option(section, option):
             if option in booleans:

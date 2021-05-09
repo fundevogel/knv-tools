@@ -1,4 +1,3 @@
-#! /usr/bin/python
 # ~*~ coding=utf-8 ~*~
 
 
@@ -16,32 +15,33 @@ from lib.utils import build_path, create_path, dedupe, group_data
 
 class Inspector:
     def __init__(self, config: dict) -> None:
+        # Import config
         self.config = config
 
 
     def match(self, year, quarter) -> None:
         # Generate data from ..
         # (1) .. payment sources
-        payment_files = build_path(self.config['payment_dir'], year=year, quarter=quarter)
+        payment_files = build_path(self.config.payment_dir, year=year, quarter=quarter)
         payments = load_json(payment_files)
 
         # (2) .. order sources
-        order_files = build_path(self.config['order_dir'])
+        order_files = build_path(self.config.order_dir)
         orders = load_json(order_files)
 
         # (3) .. info sources
-        info_files = build_path(self.config['info_dir'])
+        info_files = build_path(self.config.info_dir)
         infos = load_json(info_files)
 
         # Match payments with orders & infos
         matches = self.match_payments(payments, orders, infos)
 
         # Filter & merge matched invoices
-        invoices = build_path(self.config['invoice_dir'], '*.pdf')
+        invoices = build_path(self.config.invoice_dir, '*.pdf')
         self.export_invoices(matches, invoices)
 
         # Write results to CSV files
-        self.export_matches(matches, self.config['match_dir'])
+        self.export_matches(matches, self.config.matches_dir)
 
 
     def match_payments(self, payments, orders, infos) -> list:
@@ -159,7 +159,7 @@ class Inspector:
                         merger.append(PdfFileReader(file))
 
             # Write merged PDF to disk
-            invoice_file = join(self.config['match_dir'], code, self.config['invoice_file'])
+            invoice_file = join(self.config.matches_dir, code, self.config.invoice_file)
             create_path(invoice_file)
             merger.write(invoice_file)
 
@@ -184,7 +184,7 @@ class Inspector:
 
     def rank(self, year, quarter) -> None:
         # Select order files to be analyzed
-        order_files = build_path(self.config['order_dir'], year=year, quarter=quarter)
+        order_files = build_path(self.config.order_dir, year=year, quarter=quarter)
 
         # Fetch their content
         orders = load_json(order_files)
@@ -215,7 +215,7 @@ class Inspector:
 
         # Write ranking to CSV file
         file_name = basename(order_files[0])[:-5] + '_' + basename(order_files[-1])[:-5] + '_' + str(sum(data.values()))
-        ranking_file = join(self.config['rank_dir'], file_name + '.csv')
+        ranking_file = join(self.config.rankings_dir, file_name + '.csv')
 
         self.export_csv(ranking, ranking_file)
 
@@ -228,12 +228,13 @@ class Inspector:
             cutoff_date = today.subtract(years=2).to_datetime_string()[:10]
 
         # Select order files to be analyzed
-        order_files = build_path(self.config['order_dir'])
+        order_files = build_path(self.config.order_dir)
 
         # Fetch their content
         orders = load_json(order_files)
 
         # Load blacklisted mail addresses
+        # TODO: Make this a CLI parameter
         with open('blocklist.txt', 'r') as file:
             blocklist = file.read().splitlines()
 
@@ -266,6 +267,6 @@ class Inspector:
 
         # Write ranking to CSV file
         file_name = cutoff_date + '_' + today.to_datetime_string()[:10]
-        contacts_file = join(self.config['contacts_dir'], file_name + '.csv')
+        contacts_file = join(self.config.contacts_dir, file_name + '.csv')
 
         self.export_csv(contacts, contacts_file)

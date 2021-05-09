@@ -15,8 +15,12 @@ pass_config = click.make_pass_decorator(Config, ensure=True)
 
 @click.group()
 @pass_config
-def cli(config):
+@click.option('-v', '--verbose', is_flag=True, help='Activates verbose mode.')
+def cli(config, verbose):
     """Provides tools for handling KNV data"""
+
+    # Apply CLI options
+    config.verbose = verbose
 
 
 # DATABASE tasks
@@ -24,7 +28,6 @@ def cli(config):
 @cli.group()
 def db():
     """Database tasks"""
-    pass
 
 
 @db.command()
@@ -77,18 +80,13 @@ def flush(config):
 @cli.group()
 def ex():
     """Extraction tasks"""
-    pass
 
 
 @ex.command()
 @pass_config
 @click.option('-y', '--year', help='Year.')
 @click.option('-q', '--quarter', help='Quarter.')
-def match(
-    config: str,
-    year: int = None,
-    quarter: int = None,
-):
+def match(config, year = None, quarter = None):
     """Matches payments & invoices"""
 
     # Initialize object
@@ -104,11 +102,7 @@ def match(
 @pass_config
 @click.option('-y', '--year', help='Year.')
 @click.option('-q', '--quarter', help='Quarter.')
-def rank(
-    config: str,
-    year: int = None,
-    quarter: int = None,
-):
+def rank(config, year = None, quarter = None):
     """Ranks sold books"""
 
     # Initialize object
@@ -123,7 +117,7 @@ def rank(
 @ex.command()
 @pass_config
 @click.option('-d', '--date', help='Cutoff date in ISO date format, eg \'YYYY-MM-DD\'. Default: today two years ago')
-def contacts(config: str, date: str = None):
+def contacts(config, date = None):
     """Generates mailmerge-ready contact list"""
 
     # Initialize object
