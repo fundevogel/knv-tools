@@ -1,47 +1,39 @@
-#! /usr/bin/python
 # ~*~ coding=utf-8 ~*~
 
 
+from configparser import SafeConfigParser
 from os.path import abspath, dirname, exists, join, realpath
 
 import click
-from yaml import safe_load, YAMLError
 
+from lib.config import Config
 from lib.database import Database
 from lib.inspector import Inspector
 
-
-def load_config(config_file: str = None):
-    if config_file is None or not exists(realpath(config_file)):
-        config_path = dirname(dirname(abspath(__file__)))
-        config_file = join(config_path, 'config.yml')
-
-    with open(config_file, 'r') as file:
-        try:
-            config = safe_load(file)
-        except YAMLError:
-            pass
-
-    return config
+pass_config = click.make_pass_decorator(Config, ensure=True)
 
 
 @click.group()
-def cli():
-    """Useful tools for handling data exported from KNV / pcbis.de"""
+@pass_config
+@click.option('-v', '--verbose', is_flag=True, help='Activates verbose mode.')
+def cli(config, verbose):
+    """Provides tools for handling KNV data"""
 
+    # Apply CLI options
+    config.verbose = verbose
+
+
+# DATABASE tasks
 
 @cli.group()
 def db():
     """Database tasks"""
-    pass
 
-@click.option('-c', '--config', help='Path to configuration file.')
+
 @db.command()
+@pass_config
 def update(config):
     """Updates database"""
-
-    # Load config
-    config = load_config(config)
 
     # Initialize object
     handler = Database(config)
@@ -69,13 +61,10 @@ def update(config):
     click.echo('Update complete!')
 
 
-@click.option('-c', '--config', help='Path to configuration file.')
 @db.command()
+@pass_config
 def flush(config):
     """Flushes database"""
-
-    # Load config
-    config = load_config(config)
 
     # Initialize object
     handler = Database(config)
@@ -86,25 +75,19 @@ def flush(config):
     click.echo(' done.')
 
 
+# EXTRACTION tasks
+
 @cli.group()
 def ex():
     """Extraction tasks"""
-    pass
 
 
-@click.option('-c', '--config', help='Path to configuration file.')
+@ex.command()
+@pass_config
 @click.option('-y', '--year', help='Year.')
 @click.option('-q', '--quarter', help='Quarter.')
-@ex.command()
-def match(
-    config: str,
-    year: int = None,
-    quarter: int = None,
-):
+def match(config, year = None, quarter = None):
     """Matches payments & invoices"""
-
-    # Load config
-    config = load_config(config)
 
     # Initialize object
     handler = Inspector(config)
@@ -115,19 +98,12 @@ def match(
     click.echo(' done!')
 
 
-@click.option('-c', '--config', help='Path to configuration file.')
+@ex.command()
+@pass_config
 @click.option('-y', '--year', help='Year.')
 @click.option('-q', '--quarter', help='Quarter.')
-@ex.command()
-def rank(
-    config: str,
-    year: int = None,
-    quarter: int = None,
-):
+def rank(config, year = None, quarter = None):
     """Ranks sold books"""
-
-    # Load config
-    config = load_config(config)
 
     # Initialize object
     handler = Inspector(config)
@@ -138,14 +114,11 @@ def rank(
     click.echo(' done!')
 
 
-@click.option('-c', '--config', help='Path to configuration file.')
-@click.option('-d', '--date', help='Cutoff date in ISO date format, eg \'YYYY-MM-DD\'. Default: today two years ago')
 @ex.command()
-def contacts(config: str, date: str = None):
+@pass_config
+@click.option('-d', '--date', help='Cutoff date in ISO date format, eg \'YYYY-MM-DD\'. Default: today two years ago')
+def contacts(config, date = None):
     """Generates mailmerge-ready contact list"""
-
-    # Load config
-    config = load_config(config)
 
     # Initialize object
     handler = Inspector(config)
@@ -154,7 +127,3 @@ def contacts(config: str, date: str = None):
     click.echo('Generating contact list ..', nl=False)
     handler.contacts(date)
     click.echo(' done!')
-
-
-if __name__ == '__main__':
-    cli()

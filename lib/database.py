@@ -1,4 +1,3 @@
-#! /usr/bin/python
 # ~*~ coding=utf-8 ~*~
 
 
@@ -13,28 +12,13 @@ from lib.utils import build_path, dedupe, group_data
 
 
 class Database:
-    # Provide sensible defaults
-    import_dir = 'imports'
-    data_dir = 'data'
-    payment_regex = 'Download*.CSV'
-    order_regex = 'Orders_*.csv'
-    info_regex = 'OrdersInfo_*.csv'
-
     def __init__(self, config: dict) -> None:
-        # Import relevant configuration
-        if 'database' in config:
-            for key, value in config['database'].items():
-                setattr(self, key, value)
-
-        # Expose useful directories
-        self.payment_dir = join(self.data_dir, 'payments')
-        self.order_dir = join(self.data_dir, 'orders')
-        self.info_dir = join(self.data_dir, 'infos')
-        self.invoice_dir = join(self.data_dir, 'invoices')
+        # Import config
+        self.config = config
 
 
     def flush(self) -> None:
-        files = build_path(self.payment_dir) + build_path(self.order_dir) + build_path(self.info_dir)
+        files = build_path(self.config.payment_dir) + build_path(self.config.order_dir) + build_path(self.config.info_dir)
 
         for file in files:
             remove(file)
@@ -148,7 +132,7 @@ class Database:
 
     def import_payments(self) -> None:
         # Select payment files to be imported
-        import_files = build_path(self.import_dir, self.payment_regex)
+        import_files = build_path(self.config.import_dir, self.config.payment_regex)
 
         # Generate payment data by ..
         # (1) .. fetching their content
@@ -159,7 +143,7 @@ class Database:
         import_data = self.process_payments(dedupe(import_data))
 
         # Load database files
-        db_files = build_path(self.payment_dir)
+        db_files = build_path(self.config.payment_dir)
         payments = load_json(db_files)
 
         # Compare existing & imported data if database was built before ..
@@ -181,12 +165,12 @@ class Database:
 
         # Split payments per-month & export them
         for code, data in group_data(payments).items():
-            dump_json(data, join(self.payment_dir, code + '.json'))
+            dump_json(data, join(self.config.payment_dir, code + '.json'))
 
 
     def import_orders(self) -> None:
         # Select order files to be imported
-        import_files = build_path(self.import_dir, self.order_regex)
+        import_files = build_path(self.config.import_dir, self.config.order_regex)
 
         # Generate order data by ..
         # (1) .. fetching their content
@@ -197,7 +181,7 @@ class Database:
         import_data = self.process_orders(dedupe(import_data))
 
         # Load database files
-        db_files = build_path(self.order_dir)
+        db_files = build_path(self.config.order_dir)
         orders = load_json(db_files)
 
         # Compare existing & imported data if database was built before ..
@@ -219,12 +203,12 @@ class Database:
 
         # Split orders per-month & export them
         for code, data in group_data(orders).items():
-            dump_json(data, join(self.order_dir, code + '.json'))
+            dump_json(data, join(self.config.order_dir, code + '.json'))
 
 
     def import_infos(self) -> None:
         # Select info files to be imported
-        import_files = build_path(self.import_dir, self.info_regex)
+        import_files = build_path(self.config.import_dir, self.config.info_regex)
 
         # Generate info data by ..
         # (1) .. fetching their content
@@ -235,7 +219,7 @@ class Database:
         import_data = self.process_infos(dedupe(import_data))
 
         # Load database files
-        db_files = build_path(self.info_dir)
+        db_files = build_path(self.config.info_dir)
         infos = load_json(db_files)
 
         # Compare existing & imported data if database was built before ..
@@ -257,16 +241,16 @@ class Database:
 
         # Split infos per-month & export them
         for code, data in group_data(infos).items():
-            dump_json(data, join(self.info_dir, code + '.json'))
+            dump_json(data, join(self.config.info_dir, code + '.json'))
 
 
     def import_invoices(self) -> None:
         # Select invoice files to be imported
-        invoice_files = build_path(self.import_dir, '*.pdf')
+        invoice_files = build_path(self.config.import_dir, '*.pdf')
 
         # Move them
         for invoice_file in invoice_files:
-            move(invoice_file, self.invoice_dir)
+            move(invoice_file, self.config.invoice_dir)
 
 
     # Helper tasks

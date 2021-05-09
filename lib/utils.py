@@ -43,6 +43,8 @@ def load_json(json_files) -> list:
 
 
 def dump_json(data, json_file) -> None:
+    create_path(json_file)
+
     with open(json_file, 'w') as file:
         json.dump(data, file, ensure_ascii=False, indent=4)
 
@@ -56,9 +58,8 @@ def build_path(
     quarter: int = None,
     months: list = None,
 ) -> list:
-    # Check if directory exists
-    if not exists(base_path):
-        raise Exception
+    # Create directory if necessary
+    create_path(base_path)
 
     # No year => all files
     if year is None:
