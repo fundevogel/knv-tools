@@ -1,10 +1,12 @@
 # ~*~ coding=utf-8 ~*~
 
-
 from configparser import SafeConfigParser
-from os.path import isfile, join, realpath
+from os import getcwd
+from os.path import expanduser, isfile, join, realpath
 
-from xdg import xdg_config_home
+from xdg import xdg_config_home, xdg_data_home
+
+from lib.utils import create_path
 
 
 class Config(object):
@@ -12,8 +14,8 @@ class Config(object):
         # Provide sensible defaults
         config = SafeConfigParser()
         config['DEFAULT'] = {
-            'data_dir': './src',
-            'verbose': 'off'
+            'data_dir': join(xdg_data_home(), 'knv-cli'),
+            'verbose': 'off',
         }
 
         config['import'] = {
@@ -29,15 +31,17 @@ class Config(object):
         }
 
         # Load config provided by user
-        config_file = realpath(join(xdg_config_home(), 'knv-cli' 'config.ini'))
+        config_file = realpath(join(xdg_config_home(), 'knv-cli', 'config'))
 
         if isfile(config_file):
             config.read(config_file)
 
         # Apply resulting config
+        self.config = config
+
         for section in config.sections():
             for option in config[section]:
-                setattr(self, option, config.get(section, option))
+                setattr(self, option, self.get(section, option))
 
         # Expose useful directories ..
         # (1) .. when establishing the database
@@ -50,6 +54,16 @@ class Config(object):
         self.matches_dir = join(self.export_dir, 'matches')
         self.rankings_dir = join(self.export_dir, 'rankings')
         self.contacts_dir = join(self.export_dir, 'contacts')
+
+        # Load blocklist if one exists
+        self.blocklist = []
+
+        block_file = realpath(join(getcwd(), 'blocklist.txt'))
+
+        if isfile(block_file):
+            with open(block_file, 'r') as file:
+                self.blocklist = file.read().splitlines()
+
 
     def get(self, section: str, option: str):
         booleans = ['verbose']

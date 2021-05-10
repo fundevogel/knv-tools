@@ -1,6 +1,6 @@
 #!/bin/bash
 
-cd build || exit
+cd dist || exit
 
 for dir in *
 do
