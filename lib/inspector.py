@@ -189,9 +189,23 @@ class Inspector:
         # Fetch their content
         orders = load_json(order_files)
 
+        # Rank sales for given period
+        ranking = self.rank_sales(orders)
+
+        # Count total
+        count = sum([item['Anzahl'] for item in ranking])
+
+        # Write ranking to CSV file
+        file_name = basename(order_files[0])[:-5] + '_' + basename(order_files[-1])[:-5] + '_' + str(count)
+        ranking_file = join(self.config.rankings_dir, file_name + '.csv')
+
+        self.export_csv(ranking, ranking_file)
+
+
+    def rank_sales(self, orders: list) -> list:
         data = {}
 
-        # Sum up number of sold articles
+        # Sum up number of sales
         for order in orders:
             for isbn, quantity in order['Bestellung'].items():
                 if isbn not in data:
@@ -210,20 +224,16 @@ class Inspector:
 
             ranking.append(item)
 
-        # Sort sold articles by quantity & in descending order
+        # Sort sales by quantity & in descending order
         ranking.sort(key=itemgetter('Anzahl'), reverse=True)
 
-        # Write ranking to CSV file
-        file_name = basename(order_files[0])[:-5] + '_' + basename(order_files[-1])[:-5] + '_' + str(sum(data.values()))
-        ranking_file = join(self.config.rankings_dir, file_name + '.csv')
-
-        self.export_csv(ranking, ranking_file)
+        return ranking
 
 
-    def task_create_contacts(self, cutoff_date):
+    def task_create_contacts(self, cutoff_date: str):
+        # Set default date
         today = pendulum.today()
 
-        # Set default date
         if cutoff_date is None:
             cutoff_date = today.subtract(years=2).to_datetime_string()[:10]
 
@@ -233,17 +243,35 @@ class Inspector:
         # Fetch their content
         orders = load_json(order_files)
 
+        contacts = self.create_contacts(orders, cutoff_date, self.config.blocklist)
+
+        # Write ranking to CSV file
+        file_name = cutoff_date + '_' + today.to_datetime_string()[:10]
+        contacts_file = join(self.config.contacts_dir, file_name + '.csv')
+
+        self.export_csv(contacts, contacts_file)
+
+
+    def create_contacts(self, orders: list, cutoff_date: str = None, blocklist = []) -> list:
+        # Set default date
+        if cutoff_date is None:
+            today = pendulum.today()
+            cutoff_date = today.subtract(years=2).to_datetime_string()[:10]
+
+        # Sort orders by date & in descending order
+        orders.sort(key=itemgetter('Datum'), reverse=True)
+
         codes = set()
         contacts  = []
 
-        for order in sorted(orders, key=itemgetter('Datum'), reverse=True):
+        for order in orders:
             mail_address = order['Email']
 
             # Check for blocklisted mail addresses
-            if mail_address in self.config.blocklist:
+            if mail_address in blocklist:
                 continue
 
-            # Throw out everything before cutoff date
+            # Throw out everything before cutoff date (if provided)
             if order['Datum'] < cutoff_date:
                 continue
 
@@ -261,8 +289,4 @@ class Inspector:
                 codes.add(mail_address)
                 contacts.append(contact)
 
-        # Write ranking to CSV file
-        file_name = cutoff_date + '_' + today.to_datetime_string()[:10]
-        contacts_file = join(self.config.contacts_dir, file_name + '.csv')
-
-        self.export_csv(contacts, contacts_file)
+        return contacts
