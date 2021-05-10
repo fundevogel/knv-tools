@@ -8,19 +8,74 @@ import click
 
 from lib.config import Config
 from lib.database import Database
-from lib.inspector import Inspector
+from lib.tasks import Tasks
 
 pass_config = click.make_pass_decorator(Config, ensure=True)
 
 
 @click.group()
 @pass_config
-@click.option('-v', '--verbose', is_flag=True, help='Activates verbose mode.')
+@click.option('-v', '--verbose', is_flag=True, default = None, help='Activate verbose mode.')
 def cli(config, verbose):
-    """Provides tools for handling KNV data"""
+    """Tools for handling KNV data"""
 
     # Apply CLI options
-    config.verbose = verbose
+    if verbose is not None:
+        config.verbose = verbose
+
+
+# GENERAL tasks
+
+@cli.command()
+@pass_config
+@click.option('-y', '--year', help='Year.')
+@click.option('-q', '--quarter', help='Quarter.')
+def match(config, year = None, quarter = None):
+    """Match payments & invoices"""
+
+    # Initialize object
+    handler = Tasks(config)
+
+    # Load & match data sources
+    click.echo('Matching data ..', nl=False)
+    handler.task_match_payments(year, quarter)
+    click.echo(' done!')
+
+
+@cli.command()
+@pass_config
+@click.option('-y', '--year', help='Year.')
+@click.option('-q', '--quarter', help='Quarter.')
+def rank(config, year = None, quarter = None):
+    """Rank sales"""
+
+    # Initialize object
+    handler = Tasks(config)
+
+    # Load & match data sources
+    click.echo('Ranking data ..', nl=False)
+    handler.task_rank_sales(year, quarter)
+    click.echo(' done!')
+
+
+@cli.command()
+@pass_config
+@click.option('-d', '--date', help='Cutoff date in ISO date format, eg \'YYYY-MM-DD\'. Default: today two years ago')
+@click.option('-b', '--blocklist', type=click.File('r'), help='Path to file containing mail addresses that should be ignored.')
+def contacts(config, date = None, blocklist = None):
+    """Generate customer contact list"""
+
+    # Apply 'blocklist' CLI option
+    if blocklist is not None:
+        config.blocklist = blocklist.read().splitlines()
+
+    # Initialize object
+    handler = Tasks(config)
+
+    # Load & match data sources
+    click.echo('Generating contact list ..', nl=config.verbose)
+    handler.task_create_contacts(date)
+    click.echo(' done!')
 
 
 # DATABASE tasks
@@ -33,7 +88,7 @@ def db():
 @db.command()
 @pass_config
 def update(config):
-    """Updates database"""
+    """Update database"""
 
     # Initialize object
     handler = Database(config)
@@ -63,8 +118,15 @@ def update(config):
 
 @db.command()
 @pass_config
+def stats():
+    """Show statistics"""
+    pass
+
+
+@db.command()
+@pass_config
 def flush(config):
-    """Flushes database"""
+    """Flush database"""
 
     # Initialize object
     handler = Database(config)
@@ -73,62 +135,3 @@ def flush(config):
     click.echo('Flushing database ..', nl=False)
     handler.flush()
     click.echo(' done.')
-
-
-# EXTRACTION tasks
-
-@cli.group()
-def ex():
-    """Extraction tasks"""
-
-
-@ex.command()
-@pass_config
-@click.option('-y', '--year', help='Year.')
-@click.option('-q', '--quarter', help='Quarter.')
-def match(config, year = None, quarter = None):
-    """Matches payments & invoices"""
-
-    # Initialize object
-    handler = Inspector(config)
-
-    # Load & match data sources
-    click.echo('Matching data ..', nl=False)
-    handler.task_match_payments(year, quarter)
-    click.echo(' done!')
-
-
-@ex.command()
-@pass_config
-@click.option('-y', '--year', help='Year.')
-@click.option('-q', '--quarter', help='Quarter.')
-def rank(config, year = None, quarter = None):
-    """Ranks sales"""
-
-    # Initialize object
-    handler = Inspector(config)
-
-    # Load & match data sources
-    click.echo('Ranking data ..', nl=False)
-    handler.task_rank_sales(year, quarter)
-    click.echo(' done!')
-
-
-@ex.command()
-@pass_config
-@click.option('-d', '--date', help='Cutoff date in ISO date format, eg \'YYYY-MM-DD\'. Default: today two years ago')
-@click.option('-b', '--blocklist', type=click.File('r'), help='Path to file containing mail addresses that should be ignored.')
-def contacts(config, date = None, blocklist = None):
-    """Generates mailmerge-ready contact list"""
-
-    # Apply 'blocklist' CLI option
-    if blocklist is not None:
-        config.blocklist = blocklist.read().splitlines()
-
-    # Initialize object
-    handler = Inspector(config)
-
-    # Load & match data sources
-    click.echo('Generating contact list ..', nl=False)
-    handler.task_create_contacts(date)
-    click.echo(' done!')

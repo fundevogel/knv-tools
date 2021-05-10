@@ -37,9 +37,11 @@ class Config(object):
             config.read(config_file)
 
         # Apply resulting config
+        self.config = config
+
         for section in config.sections():
             for option in config[section]:
-                setattr(self, option, config.get(section, option))
+                setattr(self, option, self.get(section, option))
 
         # Expose useful directories ..
         # (1) .. when establishing the database
