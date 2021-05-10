@@ -7,7 +7,7 @@ WIP
 
 ```ini
 [DEFAULT]
-data_dir      = ./src
+data_dir      = ${XDG_DATA_HOME}/knv-cli  # defaults to /home/$USER/.config/knv-cli
 verbose       = off
 
 [import]

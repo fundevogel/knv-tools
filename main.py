@@ -93,8 +93,8 @@ def match(config, year = None, quarter = None):
     handler = Inspector(config)
 
     # Load & match data sources
-    click.echo('Matching data ..')
-    handler.match(year, quarter)
+    click.echo('Matching data ..', nl=False)
+    handler.task_match_payments(year, quarter)
     click.echo(' done!')
 
 
@@ -103,27 +103,33 @@ def match(config, year = None, quarter = None):
 @click.option('-y', '--year', help='Year.')
 @click.option('-q', '--quarter', help='Quarter.')
 def rank(config, year = None, quarter = None):
-    """Ranks sold books"""
+    """Ranks sales"""
 
     # Initialize object
     handler = Inspector(config)
 
     # Load & match data sources
     click.echo('Ranking data ..', nl=False)
-    handler.rank(year, quarter)
+    handler.task_rank_sales(year, quarter)
     click.echo(' done!')
 
 
 @ex.command()
 @pass_config
 @click.option('-d', '--date', help='Cutoff date in ISO date format, eg \'YYYY-MM-DD\'. Default: today two years ago')
-def contacts(config, date = None):
+@click.option('-b', '--blocklist', type=click.File('r'), help='Path to file containing mail addresses that should be ignored.')
+def contacts(config, date = None, blocklist = None):
     """Generates mailmerge-ready contact list"""
+
+    # Apply 'blocklist' CLI option
+    if blocklist is not None:
+        for entry in blocklist.read().splitlines():
+            config.blocklist.append(entry)
 
     # Initialize object
     handler = Inspector(config)
 
     # Load & match data sources
     click.echo('Generating contact list ..', nl=False)
-    handler.contacts(date)
+    handler.task_create_contacts(date)
     click.echo(' done!')

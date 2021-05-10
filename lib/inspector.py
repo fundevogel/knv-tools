@@ -19,7 +19,7 @@ class Inspector:
         self.config = config
 
 
-    def match(self, year, quarter) -> None:
+    def task_match_payments(self, year, quarter) -> None:
         # Generate data from ..
         # (1) .. payment sources
         payment_files = build_path(self.config.payment_dir, year=year, quarter=quarter)
@@ -164,7 +164,7 @@ class Inspector:
             merger.write(invoice_file)
 
 
-    def export_matches(self, matches, base_dir):
+    def export_matches(self, matches, base_dir) -> None:
         for code, data in group_data(matches).items():
             # Assign CSV file path & create directory if necessary
             csv_file = join(base_dir, code, code + '.csv')
@@ -182,7 +182,7 @@ class Inspector:
         DataFrame(data).to_csv(csv_file, index=False)
 
 
-    def rank(self, year, quarter) -> None:
+    def task_rank_sales(self, year, quarter) -> None:
         # Select order files to be analyzed
         order_files = build_path(self.config.order_dir, year=year, quarter=quarter)
 
@@ -220,7 +220,7 @@ class Inspector:
         self.export_csv(ranking, ranking_file)
 
 
-    def contacts(self, cutoff_date):
+    def task_create_contacts(self, cutoff_date):
         today = pendulum.today()
 
         # Set default date
@@ -233,18 +233,14 @@ class Inspector:
         # Fetch their content
         orders = load_json(order_files)
 
-        # Load blacklisted mail addresses
-        # TODO: Make this a CLI parameter
-        with open('blocklist.txt', 'r') as file:
-            blocklist = file.read().splitlines()
-
         codes = set()
         contacts  = []
 
         for order in sorted(orders, key=itemgetter('Datum'), reverse=True):
             mail_address = order['Email']
 
-            if mail_address in blocklist:
+            # Check for blocklisted mail addresses
+            if mail_address in self.config.blocklist:
                 continue
 
             # Throw out everything before cutoff date
