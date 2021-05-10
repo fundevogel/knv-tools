@@ -123,8 +123,7 @@ def contacts(config, date = None, blocklist = None):
 
     # Apply 'blocklist' CLI option
     if blocklist is not None:
-        for entry in blocklist.read().splitlines():
-            config.blocklist.append(entry)
+        config.blocklist = blocklist.read().splitlines()
 
     # Initialize object
     handler = Inspector(config)

@@ -1,8 +1,8 @@
 # ~*~ coding=utf-8 ~*~
 
-
 from configparser import SafeConfigParser
-from os.path import isfile, join, realpath
+from os import getcwd
+from os.path import expanduser, isfile, join, realpath
 
 from xdg import xdg_config_home, xdg_data_home
 
@@ -56,10 +56,10 @@ class Config(object):
         # Load blocklist if one exists
         self.blocklist = []
 
-        blocklist_file = realpath(join(xdg_config_home(), 'knv-cli', 'blocklist'))
+        block_file = realpath(join(getcwd(), 'blocklist.txt'))
 
-        if isfile(blocklist_file):
-            with open(blocklist_file, 'r') as file:
+        if isfile(block_file):
+            with open(block_file, 'r') as file:
                 self.blocklist = file.read().splitlines()
 
 
