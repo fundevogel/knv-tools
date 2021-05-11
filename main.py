@@ -6,9 +6,9 @@ from os.path import abspath, dirname, exists, join, realpath
 
 import click
 
-from lib.config import Config
-from lib.database import Database
-from lib.tasks import Tasks
+from core.config import Config
+from core.database import Database
+from core.tasks import Tasks
 
 pass_config = click.make_pass_decorator(Config, ensure=True)
 

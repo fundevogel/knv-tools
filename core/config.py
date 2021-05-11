@@ -1,12 +1,13 @@
 # ~*~ coding=utf-8 ~*~
 
+
 from configparser import SafeConfigParser
 from os import getcwd
-from os.path import expanduser, isfile, join, realpath
+from os.path import isfile, join, realpath
 
 from xdg import xdg_config_home, xdg_data_home
 
-from lib.utils import create_path
+from core.utils import create_path
 
 
 class Config(object):
