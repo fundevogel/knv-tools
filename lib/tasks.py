@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 from operator import itemgetter
 from os.path import basename, join
 
+import click
 import pendulum
 from pandas import DataFrame
 from PyPDF2 import PdfFileReader, PdfFileMerger
@@ -36,12 +37,17 @@ class Tasks:
         # Match payments with orders & infos
         matches = self.match_payments(payments, orders, infos)
 
-        # Filter & merge matched invoices
-        invoices = build_path(self.config.invoice_dir, '*.pdf')
-        self.export_invoices(matches, invoices)
+        if self.config.verbose:
+            # Write m<tches to stdout
+            click.echo(matches)
 
-        # Write results to CSV files
-        self.export_matches(matches, self.config.matches_dir)
+        else:
+            # Filter & merge matched invoices
+            invoices = build_path(self.config.invoice_dir, '*.pdf')
+            self.export_invoices(matches, invoices)
+
+            # Write results to CSV files
+            self.export_matches(matches, self.config.matches_dir)
 
 
     def match_payments(self, payments, orders, infos) -> list:
@@ -192,14 +198,19 @@ class Tasks:
         # Rank sales for given period
         ranking = self.rank_sales(orders)
 
-        # Count total
-        count = sum([item['Anzahl'] for item in ranking])
+        if self.config.verbose:
+            # Write ranking to stdout
+            click.echo(ranking)
 
-        # Write ranking to CSV file
-        file_name = basename(order_files[0])[:-5] + '_' + basename(order_files[-1])[:-5] + '_' + str(count)
-        ranking_file = join(self.config.rankings_dir, file_name + '.csv')
+        else:
+            # Count total
+            count = sum([item['Anzahl'] for item in ranking])
 
-        self.export_csv(ranking, ranking_file)
+            # Write ranking to CSV file
+            file_name = basename(order_files[0])[:-5] + '_' + basename(order_files[-1])[:-5] + '_' + str(count)
+            ranking_file = join(self.config.rankings_dir, file_name + '.csv')
+
+            self.export_csv(ranking, ranking_file)
 
 
     def rank_sales(self, orders: list) -> list:
@@ -246,11 +257,11 @@ class Tasks:
         contacts = self.create_contacts(orders, cutoff_date, self.config.blocklist)
 
         if self.config.verbose:
-            # Write ranking to stdout
-            print(contacts)
+            # Write contacts to stdout
+            click.echo(contacts)
 
         else:
-            # Write ranking to CSV file
+            # Write contacts to CSV file
             file_name = cutoff_date + '_' + today.to_datetime_string()[:10]
             contacts_file = join(self.config.contacts_dir, file_name + '.csv')
 
