@@ -282,10 +282,14 @@ class Tasks:
             contact['Nachname'] = order['Nachname']
             contact['Name'] = order['Name']
             contact['Email'] = order['Email']
-            contact['Letzte Bestelltung'] = order['Datum']
+            contact['Letzte Bestelltung'] = self.convert_date(order['Datum'])
 
             if mail_address not in codes:
                 codes.add(mail_address)
                 contacts.append(contact)
 
         return contacts
+
+
+    def convert_date(self, string: str) -> str:
+        return datetime.strptime(string, '%Y-%m-%d').strftime('%d.%m.%Y')

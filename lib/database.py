@@ -255,7 +255,7 @@ class Database:
 
     # Helper tasks
 
-    def convert_date(self, string) -> str:
+    def convert_date(self, string: str) -> str:
         return datetime.strptime(string, '%d.%m.%Y').strftime('%Y-%m-%d')
 
 
