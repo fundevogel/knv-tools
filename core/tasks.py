@@ -9,8 +9,8 @@ import click
 import pendulum
 from PyPDF2 import PdfFileReader, PdfFileMerger
 
-from lib.utils import dump_csv, load_json
-from lib.utils import build_path, create_path, dedupe, group_data
+from core.utils import dump_csv, load_json
+from core.utils import build_path, create_path, dedupe, group_data
 
 
 class Tasks:
@@ -47,7 +47,7 @@ class Tasks:
 
             # Write results to CSV files
             for code, data in group_data(matches).items():
-                csv_file = join(base_dir, code, code + '.csv')
+                csv_file = join(self.config.matches_dir, code, code + '.csv')
                 dump_csv(data, csv_file)
 
 

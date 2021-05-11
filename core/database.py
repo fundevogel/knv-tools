@@ -7,8 +7,8 @@ from datetime import datetime
 from operator import itemgetter
 from shutil import move
 
-from lib.utils import load_csv, load_json, dump_json
-from lib.utils import build_path, dedupe, group_data
+from core.utils import load_csv, load_json, dump_json
+from core.utils import build_path, dedupe, group_data
 
 
 class Database:
