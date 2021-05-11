@@ -7,10 +7,9 @@ from os.path import basename, join
 
 import click
 import pendulum
-from pandas import DataFrame
 from PyPDF2 import PdfFileReader, PdfFileMerger
 
-from lib.utils import load_json
+from lib.utils import dump_csv, load_json
 from lib.utils import build_path, create_path, dedupe, group_data
 
 
@@ -47,7 +46,9 @@ class Tasks:
             self.export_invoices(matches, invoices)
 
             # Write results to CSV files
-            self.export_matches(matches, self.config.matches_dir)
+            for code, data in group_data(matches).items():
+                csv_file = join(base_dir, code, code + '.csv')
+                dump_csv(data, csv_file)
 
 
     def match_payments(self, payments, orders, infos) -> list:
@@ -170,24 +171,6 @@ class Tasks:
             merger.write(invoice_file)
 
 
-    def export_matches(self, matches, base_dir) -> None:
-        for code, data in group_data(matches).items():
-            # Assign CSV file path & create directory if necessary
-            csv_file = join(base_dir, code, code + '.csv')
-            create_path(csv_file)
-
-            # Write matches to CSV file
-            DataFrame(data).to_csv(csv_file, index=False)
-
-
-    def export_csv(self, data, csv_file) -> None:
-        # Create directory if necessary
-        create_path(csv_file)
-
-        # Write CSV file
-        DataFrame(data).to_csv(csv_file, index=False)
-
-
     def task_rank_sales(self, year, quarter) -> None:
         # Select order files to be analyzed
         order_files = build_path(self.config.order_dir, year=year, quarter=quarter)
@@ -210,7 +193,7 @@ class Tasks:
             file_name = basename(order_files[0])[:-5] + '_' + basename(order_files[-1])[:-5] + '_' + str(count)
             ranking_file = join(self.config.rankings_dir, file_name + '.csv')
 
-            self.export_csv(ranking, ranking_file)
+            dump_csv(ranking, ranking_file)
 
 
     def rank_sales(self, orders: list) -> list:
@@ -265,7 +248,7 @@ class Tasks:
             file_name = cutoff_date + '_' + today.to_datetime_string()[:10]
             contacts_file = join(self.config.contacts_dir, file_name + '.csv')
 
-            self.export_csv(contacts, contacts_file)
+            dump_csv(contacts, contacts_file)
 
 
     def create_contacts(self, orders: list, cutoff_date: str = None, blocklist = []) -> list:

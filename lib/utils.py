@@ -8,7 +8,7 @@ from hashlib import md5
 from os import makedirs
 from os.path import abspath, exists, dirname, join, realpath
 
-from pandas import concat, read_csv
+from pandas import DataFrame, concat, read_csv
 
 
 # CSV tasks
@@ -21,6 +21,14 @@ def load_csv(csv_files, encoding='iso-8859-1', delimiter=';') -> list:
         return []
 
     return df.to_dict('records')
+
+
+def dump_csv(data, csv_file) -> None:
+    # Create directory if necessary
+    create_path(csv_file)
+
+    # Write CSV file
+    DataFrame(data).to_csv(csv_file, index=False)
 
 
 # JSON tasks
