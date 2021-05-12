@@ -1,6 +1,9 @@
 # ~*~ coding=utf-8 ~*~
 
 
+from datetime import datetime
+
+
 # PROCESSING functions
 
 def process_payments(data) -> list:
@@ -107,3 +110,19 @@ def process_infos(info_data) -> list:
                 infos[code]['Rechnungen'].append(clean_number)
 
     return list(infos.values())
+
+
+# HELPER functions
+
+def convert_date(string: str) -> str:
+    return datetime.strptime(string, '%d.%m.%Y').strftime('%Y-%m-%d')
+
+
+def convert_cost(string) -> str:
+    if isinstance(string, float):
+        string = str(string)
+
+    string = float(string.replace(',', '.'))
+    integer = f'{string:.2f}'
+
+    return str(integer)
