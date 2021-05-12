@@ -9,20 +9,28 @@ curl -sf https://raw.githubusercontent.com/fundevogel/knv-tools/main/setup.bash 
 
 This will
 
-- setup a virtual environment via `virtualenv`
+- setup a virtual environment via [`virtualenv`](https://virtualenv.pypa.io)
 - install the `knvcli` module
 - create recommended folders
 
+After that, simply activate the virtual environment with `source .env/bin/activate` and you're good to go.
+
+Alternatively, you may install it globally, using [`pip`](https://pip.pypa.io):
+
+```bash
+pip install git+https://github.com/Fundevogel/knv-tools.git
+```
+
 ## Configuration
-Adjusting most options to suit your needs is straightforward, global config is stored in `${XDG_CONFIG_HOME}/knv-cli/config` (eg /home/$USER/.config/knv-cli/config), which defaults to this:
+Adjusting most options to suit your needs is straightforward, global config is stored in `${XDG_CONFIG_HOME}/knv-cli/config` (following [XDG specifications](https://specifications.freedesktop.org/basedir-spec/basedir-spec-latest.html)) and defaults to this:
 
 ```ini
 [DEFAULT]
 # Enable verbose mode
 verbose       = off
 
-# Location of database, eg `/home/$USER/.local/share/knv-cli`
-data_dir      = ${XDG_DATA_HOME}/knv-cli
+# Location of database
+data_dir      = /home/$USER/.local/share/knv-cli
 
 [import]
 # Location of files to be processed & imported to database
@@ -48,18 +56,13 @@ pls-me-2@example.com
 f!@#ck-u@example.com
 ```
 
-**Ideas**
-Provide a simple script for backing up contents of `dist` folder, like:
+## Roadmap
 
-```bash
-cd dist || exit
+In the future, the following features & improvements are planned:
 
-for dir in *
-do
-    if [ -d "$dir" ]; then
-        7z a "$dir".7z "$dir"/* -xr!*.json
-    fi
-done
-```
+- bar charts for sales rankings
+- export functions for `Database`
+- preparing tax declarations using automation
+- .. and much more
 
 :copyright: Fundevogel Kinder- und Jugendbuchhandlung
