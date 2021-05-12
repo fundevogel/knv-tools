@@ -5,6 +5,8 @@ from operator import itemgetter
 from os.path import join
 from datetime import datetime, timedelta
 
+from matplotlib import pyplot, rcParams
+from pandas import DataFrame
 import pendulum
 
 
@@ -126,6 +128,20 @@ def get_ranking(orders: list) -> list:
     ranking.sort(key=itemgetter('Anzahl'), reverse=True)
 
     return ranking
+
+
+def get_ranking_chart(ranking, limit=1, kind='barh'):
+    # Update ranking to only include entries above set limit
+    ranking = [{'Anzahl': item['Anzahl'], 'ISBN': item['ISBN']} for item in ranking if item['Anzahl'] >= int(limit)]
+    df = DataFrame(ranking, index=[item['ISBN'] for item in ranking])
+
+    # Rotate & center x-axis labels
+    pyplot.xticks(rotation=45, horizontalalignment='center')
+
+    # Make graph 'just fit' image dimensions
+    rcParams.update({'figure.autolayout': True})
+
+    return df.plot(kind=kind).get_figure()
 
 
 def get_contacts(orders: list, cutoff_date: str = None, blocklist = []) -> list:

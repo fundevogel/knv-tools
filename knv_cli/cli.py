@@ -10,7 +10,7 @@ from PyPDF2 import PdfFileReader, PdfFileMerger
 
 from .config import Config
 from .database import Database
-from .operations import match_payments, get_contacts, get_ranking
+from .operations import match_payments, get_contacts, get_ranking, get_ranking_chart
 from .utils import dump_csv, load_json
 from .utils import build_path, create_path, group_data
 
@@ -133,7 +133,9 @@ def match(config, year, quarter):
 @pass_config
 @click.option('-y', '--year', default=None, help='Year.')
 @click.option('-q', '--quarter', default=None, help='Quarter.')
-def rank(config, year, quarter):
+@click.option('-c', '--enable-chart', is_flag=True, help='Create bar chart alongside results.')
+@click.option('-l', '--limit', default=1, help='Minimum limit to be included in bar chart.')
+def rank(config, year, quarter, enable_chart, limit):
     """Rank sales"""
 
     # Exit if database is empty
@@ -160,12 +162,24 @@ def rank(config, year, quarter):
         count = sum([item['Anzahl'] for item in ranking])
 
         # Write ranking to CSV file
-        file_name = basename(order_files[0])[:-5] + '_' + basename(order_files[-1])[:-5] + '_' + str(count)
-        ranking_file = join(config.rankings_dir, file_name + '.csv')
+        file_name = basename(order_files[0])[:-5] + '_' + basename(order_files[-1])[:-5]
+        ranking_file = join(config.rankings_dir, file_name + '_' + str(count) + '.csv')
 
         dump_csv(ranking, ranking_file)
 
     click.echo(' done!')
+
+    # Create graph if enabled
+    if enable_chart and not config.verbose:
+        click.echo('Creating graph from data ..', nl=False)
+
+        # Plot graph into PNG file
+        chart_file = join(config.rankings_dir, file_name + '_' + str(limit) + '.png')
+
+        bar_chart = get_ranking_chart(ranking, limit)
+        bar_chart.savefig(chart_file)
+
+        click.echo(' done!')
 
 
 @cli.command()

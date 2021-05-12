@@ -54,7 +54,7 @@ f!@#ck-u@example.com
 
 In the future, the following features & improvements are planned:
 
-- bar charts for sales rankings
+- ~~bar charts for sales rankings~~
 - export functions for `Database`
 - preparing tax declarations using automation
 - .. and much more

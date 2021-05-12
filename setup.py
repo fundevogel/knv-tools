@@ -17,7 +17,7 @@ def long_description():
 
 setup(
     name='knv-cli',
-    description='Provides tools for handling KNV data',
+    description='Python CLI utility and library for handling data exported from KNV & pcbis.de',
     long_description=long_description(),
     long_description_content_type='text/markdown',
     version=VERSION,
@@ -33,7 +33,8 @@ setup(
     },
     packages=find_packages(),
     install_requires=[
-        'Click',
+        'click',
+        'matplotlib',
         'pandas',
         'pendulum',
         'PyPDF2',
