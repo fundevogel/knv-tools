@@ -88,7 +88,7 @@ def match(config, year = None, quarter = None):
                     click.echo('Missing invoice: ' + str(invoice_number))
 
             # Write merged PDF to disk
-            invoice_file = join(config.matches_dir, code, config.invoice_file)
+            invoice_file = join(config.matches_dir, code, code + '.pdf')
             create_path(invoice_file)
             merger.write(invoice_file)
 

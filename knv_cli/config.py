@@ -26,7 +26,6 @@ class Config(object):
 
         config['export'] = {
             'export_dir': './dist',
-            'invoice_file': 'invoices.pdf',
         }
 
         # Load config provided by user

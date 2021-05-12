@@ -36,9 +36,6 @@ info_regex    = OrdersInfo_*.csv  # as exported by Shopkonfigurator
 [export]
 # Location of generated spreadsheets & graphs
 export_dir    = ./dist
-
-# Filename of merged invoices when matching PayPal™ payments & invoice numbers
-invoice_file  = invoices.pdf
 ```
 
 As you can see, many config options refer to the directory from which `knvcli` is being called.
