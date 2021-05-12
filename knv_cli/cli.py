@@ -50,19 +50,35 @@ def cli(config, verbose, data_dir, import_dir, export_dir):
 def match(config, year, quarter):
     """Match payments & invoices"""
 
+    # Exit if database is empty
+    payment_files = build_path(config.payment_dir, year=year, quarter=quarter)
+
+    if not payment_files:
+        click.echo('Error: No payments found in database.')
+        click.Context.exit(1)
+
+    order_files = build_path(config.order_dir)
+
+    if not order_files:
+        click.echo('Error: No orders found in database.')
+        click.Context.exit(1)
+
+    info_files = build_path(config.info_dir)
+
+    if not info_files:
+        click.echo('Error: No infos found in database.')
+        click.Context.exit(1)
+
     click.echo('Matching data ..', nl=False)
 
     # Generate data from ..
     # (1) .. payment sources
-    payment_files = build_path(config.payment_dir, year=year, quarter=quarter)
     payments = load_json(payment_files)
 
     # (2) .. order sources
-    order_files = build_path(config.order_dir)
     orders = load_json(order_files)
 
     # (3) .. info sources
-    info_files = build_path(config.info_dir)
     infos = load_json(info_files)
 
     # Match payments with orders & infos
@@ -120,10 +136,16 @@ def match(config, year, quarter):
 def rank(config, year, quarter):
     """Rank sales"""
 
+    # Exit if database is empty
+    order_files = build_path(config.order_dir, year=year, quarter=quarter)
+
+    if not order_files:
+        click.echo('Error: No orders found in database.')
+        click.Context.exit(1)
+
     click.echo('Ranking data ..', nl=False)
 
     # Fetch orders
-    order_files = build_path(config.order_dir, year=year, quarter=quarter)
     orders = load_json(order_files)
 
     # Extract & rank sales
@@ -152,8 +174,18 @@ def rank(config, year, quarter):
 @click.option('-b', '--blocklist', type=click.File('r'), help='Path to file containing mail addresses that should be ignored.')
 def contacts(config, date, blocklist):
     """Generate customer contact list"""
-    print(blocklist)
+
+    # Exit if database is empty
+    order_files = build_path(config.order_dir)
+
+    if not order_files:
+        click.echo('Error: No orders found in database.')
+        click.Context.exit(1)
+
     click.echo('Generating contact list ..', nl=config.verbose)
+
+    # Fetch orders
+    orders = load_json(order_files)
 
     # Apply 'blocklist' CLI option
     if blocklist is not None:
@@ -164,10 +196,6 @@ def contacts(config, date, blocklist):
 
     if date is None:
         date = today.subtract(years=2).to_datetime_string()[:10]
-
-    # Fetch orders
-    order_files = build_path(config.order_dir)
-    orders = load_json(order_files)
 
     # Extract & export contacts
     contacts = get_contacts(orders, date, config.blocklist)
