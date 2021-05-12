@@ -3,12 +3,12 @@
 
 from os import remove
 from os.path import join
-from datetime import datetime
 from operator import itemgetter
 from shutil import move
 
-from core.utils import load_csv, load_json, dump_json
-from core.utils import build_path, dedupe, group_data
+from .processors import process_payments, process_orders, process_infos
+from .utils import load_csv, load_json, dump_json
+from .utils import build_path, dedupe, group_data
 
 
 class Database:
@@ -17,6 +17,8 @@ class Database:
         self.config = config
 
 
+    # GENERAL methods
+
     def flush(self) -> None:
         files = build_path(self.config.payment_dir) + build_path(self.config.order_dir) + build_path(self.config.info_dir)
 
@@ -24,111 +26,7 @@ class Database:
             remove(file)
 
 
-    def process_payments(self, data) -> list:
-        codes = set()
-        payments = []
-
-        for item in data:
-            # Skip withdrawals
-            if item['Brutto'][:1] == '-':
-                continue
-
-            # Assign identifier
-            code = item['Transaktionscode']
-
-            payment = {}
-
-            payment['ID'] = code
-            payment['Datum'] = self.convert_date(item['Datum'])
-            payment['Vorgang'] = 'nicht zugeordnet'
-            payment['Name'] = item['Name']
-            payment['Email'] = item['Absender E-Mail-Adresse']
-            payment['Brutto'] = self.convert_cost(item['Brutto'])
-            payment['Gebühr'] = self.convert_cost(item['Gebühr'])
-            payment['Netto'] = self.convert_cost(item['Netto'])
-            payment['Währung'] = item['Währung']
-
-            if code not in codes:
-                codes.add(code)
-                payments.append(payment)
-
-        return payments
-
-
-    def process_orders(self, order_data) -> list:
-        orders = {}
-
-        for item in order_data:
-            # Create reliable article number ..
-            clean_isbn = item['isbn']
-
-            # .. since ISBNs are not always ISBNs
-            if str(clean_isbn) == 'nan' or str(clean_isbn)[:3] != '978':
-                clean_isbn = item['knvnumber']
-
-            # .. and - more often than not - formatted as floats with a trailing zero
-            clean_isbn = str(clean_isbn).replace('.0', '')
-
-            # Assign identifier
-            code = item['ormorderid']
-
-            if code not in orders.keys():
-                order = {}
-
-                order['ID'] = code
-                order['Datum'] = item['timeplaced'][:10]
-                order['Anrede'] = item['rechnungaddresstitle']
-                order['Vorname'] = item['rechnungaddressfirstname']
-                order['Nachname'] = item['rechnungaddresslastname']
-                order['Name'] = ' '.join([item['rechnungaddressfirstname'], item['rechnungaddresslastname']])
-                order['Email'] = item['rechnungaddressemail']
-                order['Bestellung'] = {clean_isbn: item['quantity']}
-                order['Betrag'] = self.convert_cost(item['totalordercost'])
-                order['Währung'] = item['currency']
-
-                orders[code] = order
-
-            else:
-                if clean_isbn not in orders[code]['Bestellung'].keys():
-                    orders[code]['Bestellung'][clean_isbn] = item['quantity']
-
-                else:
-                    orders[code]['Bestellung'][clean_isbn] = orders[code]['Bestellung'][clean_isbn] + item['quantity']
-
-        return list(orders.values())
-
-
-    def process_infos(self, info_data) -> list:
-        infos = {}
-
-        for item in info_data:
-            # Create reliable invoice number ..
-            clean_number = None
-
-            if str(item['Invoice Number']) != 'nan':
-                clean_number = str(item['Invoice Number']).replace('.0', '')
-
-            # Assign identifier
-            code = item['OrmNumber']
-
-            if code not in infos.keys():
-                info = {}
-
-                info['ID'] = code
-                info['Datum'] = item['Creation Date'][:10]
-                info['Rechnungen'] = []
-
-                if clean_number:
-                    info['Rechnungen'].append(clean_number)
-
-                infos[code] = info
-
-            else:
-                if clean_number and clean_number not in infos[code]['Rechnungen']:
-                    infos[code]['Rechnungen'].append(clean_number)
-
-        return list(infos.values())
-
+    # IMPORT methods
 
     def import_payments(self) -> None:
         # Select payment files to be imported
@@ -140,7 +38,7 @@ class Database:
 
         # (2) .. removing duplicates
         # (3) .. extracting information
-        import_data = self.process_payments(dedupe(import_data))
+        import_data = process_payments(dedupe(import_data))
 
         # Load database files
         db_files = build_path(self.config.payment_dir)
@@ -178,7 +76,7 @@ class Database:
 
         # (2) .. removing duplicates
         # (3) .. extracting information
-        import_data = self.process_orders(dedupe(import_data))
+        import_data = process_orders(dedupe(import_data))
 
         # Load database files
         db_files = build_path(self.config.order_dir)
@@ -216,7 +114,7 @@ class Database:
 
         # (2) .. removing duplicates
         # (3) .. extracting information
-        import_data = self.process_infos(dedupe(import_data))
+        import_data = process_infos(dedupe(import_data))
 
         # Load database files
         db_files = build_path(self.config.info_dir)
@@ -251,19 +149,3 @@ class Database:
         # Move them
         for invoice_file in invoice_files:
             move(invoice_file, self.config.invoice_dir)
-
-
-    # Helper tasks
-
-    def convert_date(self, string: str) -> str:
-        return datetime.strptime(string, '%d.%m.%Y').strftime('%Y-%m-%d')
-
-
-    def convert_cost(self, string) -> str:
-        if isinstance(string, float):
-            string = str(string)
-
-        string = float(string.replace(',', '.'))
-        integer = f'{string:.2f}'
-
-        return str(integer)

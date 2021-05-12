@@ -2,10 +2,11 @@
 
 
 import json
+
 from glob import glob
 from hashlib import md5
 from os import makedirs
-from os.path import abspath, exists, dirname, join, realpath
+from os.path import exists, dirname, join
 
 from pandas import DataFrame, concat, read_csv
 

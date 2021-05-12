@@ -4,7 +4,7 @@
 It might be preferable to install `knvcli` inside a virtual environment. This can be done using the `setup.bash` script included in this repository - always check the respective file content before executing the following command, though:
 
 ```bash
-curl -sf https://raw.githubusercontent.com/fundevogel/knv-tools/main/setup.py | bash
+curl -sf https://raw.githubusercontent.com/fundevogel/knv-tools/main/setup.bash | bash
 ```
 
 This will

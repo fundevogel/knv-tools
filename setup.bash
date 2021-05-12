@@ -6,13 +6,11 @@ virtualenv -p python3 .env
 source .env/bin/activate
 
 # Installing dependencies
-pip install git+https://github.com/fundevogel/knv-pypal.git
-pip install -r requirements.txt
+pip install git+https://github.com/Fundevogel/knv-tools.git
 
 # Creating directory structure
-for dir in imports \
-           storage \
-           build
+for dir in dist \
+           imports
 do
     mkdir -p "$dir"
 done
