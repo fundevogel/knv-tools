@@ -7,8 +7,6 @@ from os.path import isfile, join, realpath
 
 from xdg import xdg_config_home, xdg_data_home
 
-from core.utils import create_path
-
 
 class Config(object):
     def __init__(self):
