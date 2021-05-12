@@ -14,27 +14,40 @@ from .operations import match_payments, get_contacts, get_ranking
 from .utils import dump_csv, load_json
 from .utils import build_path, create_path, group_data
 
+clickpath = click.Path(exists=True)
 pass_config = click.make_pass_decorator(Config, ensure=True)
 
 
 @click.group()
 @pass_config
-@click.option('-v', '--verbose', is_flag=True, default = None, help='Activate verbose mode.')
-def cli(config, verbose):
+@click.option('-v', '--verbose', is_flag=True, default=None, help='Activate verbose mode.')
+@click.option('--data-dir', type=clickpath, help='Custom database directory.')
+@click.option('--import-dir', type=clickpath, help='Custom import directory.')
+@click.option('--export-dir', type=clickpath, help='Custom export directory.')
+def cli(config, verbose, data_dir, import_dir, export_dir):
     """Tools for handling KNV data"""
 
     # Apply CLI options
     if verbose is not None:
         config.verbose = verbose
 
+    if data_dir is not None:
+        config.data_dir = data_dir
+
+    if import_dir is not None:
+        config.import_dir = import_dir
+
+    if export_dir is not None:
+        config.export_dir = export_dir
+
 
 # GENERAL tasks
 
 @cli.command()
 @pass_config
-@click.option('-y', '--year', help='Year.')
-@click.option('-q', '--quarter', help='Quarter.')
-def match(config, year = None, quarter = None):
+@click.option('-y', '--year', default=None, help='Year.')
+@click.option('-q', '--quarter', default=None, help='Quarter.')
+def match(config, year, quarter):
     """Match payments & invoices"""
 
     click.echo('Matching data ..', nl=False)
@@ -102,9 +115,9 @@ def match(config, year = None, quarter = None):
 
 @cli.command()
 @pass_config
-@click.option('-y', '--year', help='Year.')
-@click.option('-q', '--quarter', help='Quarter.')
-def rank(config, year = None, quarter = None):
+@click.option('-y', '--year', default=None, help='Year.')
+@click.option('-q', '--quarter', default=None, help='Quarter.')
+def rank(config, year, quarter):
     """Rank sales"""
 
     click.echo('Ranking data ..', nl=False)
@@ -135,11 +148,11 @@ def rank(config, year = None, quarter = None):
 
 @cli.command()
 @pass_config
-@click.option('-d', '--date', help='Cutoff date in ISO date format, eg \'YYYY-MM-DD\'. Default: today two years ago')
+@click.option('-d', '--date', default=None, help='Cutoff date in ISO date format, eg \'YYYY-MM-DD\'. Default: today two years ago')
 @click.option('-b', '--blocklist', type=click.File('r'), help='Path to file containing mail addresses that should be ignored.')
-def contacts(config, date = None, blocklist = None):
+def contacts(config, date, blocklist):
     """Generate customer contact list"""
-
+    print(blocklist)
     click.echo('Generating contact list ..', nl=config.verbose)
 
     # Apply 'blocklist' CLI option
@@ -176,8 +189,21 @@ def contacts(config, date = None, blocklist = None):
 # DATABASE tasks
 
 @cli.group()
-def db():
+@pass_config
+@click.option('--payment-regex', default=None, help='Regex for files exported by PayPal™.')
+@click.option('--order-regex', default=None, help='Regex for files exported by Shopkonfigurator.')
+@click.option('--info-regex', default=None, help='Regex for files exported by Shopkonfigurator.')
+def db(config, payment_regex, order_regex, info_regex):
     """Database tasks"""
+
+    if payment_regex is not None:
+        config.payment_regex = payment_regex
+
+    if order_regex is not None:
+        config.order_regex = order_regex
+
+    if info_regex is not None:
+        config.info_regex = info_regex
 
 
 @db.command()

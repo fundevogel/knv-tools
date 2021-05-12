@@ -13,19 +13,19 @@ class Config(object):
         # Provide sensible defaults
         config = SafeConfigParser()
         config['DEFAULT'] = {
-            'data_dir': join(xdg_data_home(), 'knv-cli'),
             'verbose': 'off',
         }
 
-        config['import'] = {
+        config['directories'] = {
+            'data_dir': join(xdg_data_home(), 'knv-cli'),
             'import_dir': './imports',
+            'export_dir': './dist',
+        }
+
+        config['regexes'] = {
             'payment_regex': 'Download*.CSV',
             'order_regex': 'Orders_*.csv',
             'info_regex': 'OrdersInfo_*.csv',
-        }
-
-        config['export'] = {
-            'export_dir': './dist',
         }
 
         # Load config provided by user

@@ -26,24 +26,18 @@ Adjusting most options to suit your needs is straightforward, global config is s
 
 ```ini
 [DEFAULT]
-# Enable verbose mode
-verbose       = off
+verbose = off  # Enable verbose mode
 
-# Location of database
-data_dir      = /home/$USER/.local/share/knv-cli
-
-[import]
-# Location of files to be processed & imported to database
-import_dir    = ./imports
+[directories]
+data_dir = ~/.local/share/knv-cli  # database directory
+import_dir = ./imports             # files to be processed & imported to database
+export_dir = ./dist                # generated spreadsheets & graphs
 
 # Regexes for import files
-payment_regex = Download*.CSV     # as exported by PayPal™
-order_regex   = Orders_*.csv      # as exported by Shopkonfigurator
-info_regex    = OrdersInfo_*.csv  # as exported by Shopkonfigurator
-
-[export]
-# Location of generated spreadsheets & graphs
-export_dir    = ./dist
+[regexes]
+payment_regex = Download*.CSV  # as exported by PayPal™
+order_regex = Orders_*.csv     # as exported by Shopkonfigurator
+info_regex = OrdersInfo_*.csv  # as exported by Shopkonfigurator
 ```
 
 As you can see, many config options refer to the directory from which `knvcli` is being called.
