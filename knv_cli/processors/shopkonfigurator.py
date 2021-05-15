@@ -22,11 +22,20 @@ def process_orders(order_data) -> list:
         # .. and - more often than not - formatted as floats with a trailing zero
         clean_isbn = str(clean_isbn).replace('.0', '')
 
+        # Populate set with identifiers
+        codes = {order for order in orders.keys()}
+
         # Assign identifier
         code = item['ormorderid']
 
-        if code not in orders.keys():
+        if code not in codes:
             order = {}
+
+            # orderitemunitprice
+
+            # articles = {
+
+            # }
 
             order['ID'] = code
             order['Datum'] = item['timeplaced'][:10]
@@ -40,13 +49,10 @@ def process_orders(order_data) -> list:
             order['Währung'] = item['currency']
 
             orders[code] = order
+            codes.add(code)
 
         else:
-            if clean_isbn not in orders[code]['Bestellung'].keys():
-                orders[code]['Bestellung'][clean_isbn] = item['quantity']
-
-            else:
-                orders[code]['Bestellung'][clean_isbn] = orders[code]['Bestellung'][clean_isbn] + item['quantity']
+            orders[code]['Bestellung'][clean_isbn] = item['quantity']
 
     return list(orders.values())
 
@@ -62,10 +68,13 @@ def process_infos(info_data) -> list:
         if str(item['Invoice Number']) != 'nan':
             clean_number = str(item['Invoice Number']).replace('.0', '')
 
+        # Populate set with identifiers
+        codes = {info for info in infos.keys()}
+
         # Assign identifier
         code = item['OrmNumber']
 
-        if code not in infos.keys():
+        if code not in codes:
             info = {}
 
             info['ID'] = code
@@ -75,6 +84,7 @@ def process_infos(info_data) -> list:
             if clean_number:
                 info['Rechnungen'].append(clean_number)
 
+            codes.add(code)
             infos[code] = info
 
         else:

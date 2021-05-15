@@ -22,7 +22,7 @@ def process_payments(data) -> list:
 
         payment = {}
 
-        payment['ID'] = code
+        payment['Transaktion'] = code
         payment['Datum'] = convert_date(item['Datum'])
         payment['Vorgang'] = 'nicht zugeordnet'
         payment['Name'] = item['Name']
