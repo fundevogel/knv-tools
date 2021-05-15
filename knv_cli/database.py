@@ -6,7 +6,8 @@ from os.path import join
 from operator import itemgetter
 from shutil import move
 
-from .processors import process_payments, process_orders, process_infos
+from .processors.paypal import process_payments
+from .processors.shopkonfigurator import process_orders, process_infos
 from .utils import load_csv, load_json, dump_json
 from .utils import build_path, dedupe, group_data
 

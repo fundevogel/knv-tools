@@ -1,5 +1,6 @@
 from .operations import match_payments, get_ranking, get_contacts
-from .processors import process_payments, process_orders, process_infos
+from .processors.paypal import process_payments
+from .processors.shopkonfigurator import process_orders, process_infos
 from .utils import dedupe, group_data
 
 __all__ = [

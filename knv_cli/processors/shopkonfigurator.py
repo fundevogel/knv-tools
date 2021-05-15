@@ -1,42 +1,13 @@
 # ~*~ coding=utf-8 ~*~
 
+# SHOPKONFIGURATOR
+# This module contains functions for processing 'Auftragsdaten'
+# See http://www.knv-info.de/wp-content/uploads/2020/04/Auftragsdatenexport2.pdf
 
-from datetime import datetime
-
-
-# PROCESSING functions
-
-def process_payments(data) -> list:
-    codes = set()
-    payments = []
-
-    for item in data:
-        # Skip withdrawals
-        if item['Brutto'][:1] == '-':
-            continue
-
-        # Assign identifier
-        code = item['Transaktionscode']
-
-        payment = {}
-
-        payment['ID'] = code
-        payment['Datum'] = convert_date(item['Datum'])
-        payment['Vorgang'] = 'nicht zugeordnet'
-        payment['Name'] = item['Name']
-        payment['Email'] = item['Absender E-Mail-Adresse']
-        payment['Brutto'] = convert_cost(item['Brutto'])
-        payment['Gebühr'] = convert_cost(item['Gebühr'])
-        payment['Netto'] = convert_cost(item['Netto'])
-        payment['Währung'] = item['Währung']
-
-        if code not in codes:
-            codes.add(code)
-            payments.append(payment)
-
-    return payments
+from .helpers import convert_cost, convert_date
 
 
+# Processes 'Orders_*.csv' files
 def process_orders(order_data) -> list:
     orders = {}
 
@@ -80,6 +51,7 @@ def process_orders(order_data) -> list:
     return list(orders.values())
 
 
+# Processes 'OrdersInfo_*.csv' files
 def process_infos(info_data) -> list:
     infos = {}
 
@@ -110,19 +82,3 @@ def process_infos(info_data) -> list:
                 infos[code]['Rechnungen'].append(clean_number)
 
     return list(infos.values())
-
-
-# HELPER functions
-
-def convert_date(string: str) -> str:
-    return datetime.strptime(string, '%d.%m.%Y').strftime('%Y-%m-%d')
-
-
-def convert_cost(string) -> str:
-    if isinstance(string, float):
-        string = str(string)
-
-    string = float(string.replace(',', '.'))
-    integer = f'{string:.2f}'
-
-    return str(integer)
