@@ -46,18 +46,7 @@ class Database:
         payments = load_json(db_files)
 
         # Compare existing & imported data if database was built before ..
-        if payments:
-            # Populate set with identifiers
-            codes = {payment['ID'] for payment in payments}
-
-            # Merge only data not already in database
-            for item in import_data:
-                if item['ID'] not in codes:
-                    payments.append(item)
-
-        # .. otherwise, start from scratch
-        else:
-            payments = import_data
+        payments = self.merge_data(payments, import_data, 'Transaktion')
 
         # Sort payments by date
         payments.sort(key=itemgetter('Datum'))
@@ -84,18 +73,7 @@ class Database:
         orders = load_json(db_files)
 
         # Compare existing & imported data if database was built before ..
-        if orders:
-            # Populate set with identifiers
-            codes = {order['ID'] for order in orders}
-
-            # Merge only data not already in database
-            for item in import_data:
-                if item['ID'] not in codes:
-                    orders.append(item)
-
-        # .. otherwise, start from scratch
-        else:
-            orders = import_data
+        orders = self.merge_data(orders, import_data, 'ID')
 
         # Sort orders by date
         orders.sort(key=itemgetter('Datum'))
@@ -122,18 +100,7 @@ class Database:
         infos = load_json(db_files)
 
         # Compare existing & imported data if database was built before ..
-        if infos:
-            # Populate set with identifiers
-            codes = {info['ID'] for info in infos}
-
-            # Merge only data not already in database
-            for item in import_data:
-                if item['ID'] not in codes:
-                    infos.append(item)
-
-        # .. otherwise, start from scratch
-        else:
-            infos = import_data
+        infos = self.merge_data(infos, import_data, 'ID')
 
         # Sort infos by date
         infos.sort(key=itemgetter('Datum'))
@@ -150,3 +117,21 @@ class Database:
         # Move them
         for invoice_file in invoice_files:
             move(invoice_file, self.config.invoice_dir)
+
+
+    def merge_data(self, data, import_data: list, identifier: str) -> list:
+        if data:
+            # Populate set with identifiers
+            codes = {item[identifier] for item in data}
+
+            # Merge only data not already in database
+            for item in import_data:
+                if item[identifier] not in codes:
+                    codes.add(item[identifier])
+                    data.append(item)
+
+        # .. otherwise, start from scratch
+        else:
+            data = import_data
+
+        return data
