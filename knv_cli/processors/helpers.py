@@ -10,7 +10,7 @@ def convert_date(string: str) -> str:
     return datetime.strptime(string, '%d.%m.%Y').strftime('%Y-%m-%d')
 
 
-def convert_cost(string) -> str:
+def convert_number(string) -> str:
     # Convert integers & floats
     string = str(string)
 
