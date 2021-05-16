@@ -13,6 +13,10 @@ def process_payments(data) -> list:
     payments = []
 
     for item in data:
+        # Skip regular payments
+        if item['Typ'] == 'Allgemeine Zahlung':
+            continue
+
         # Skip withdrawals
         if item['Brutto'][:1] == '-':
             continue
