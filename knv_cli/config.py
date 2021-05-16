@@ -26,6 +26,7 @@ class Config(object):
             'payment_regex': 'Download*.CSV',
             'order_regex': 'Orders_*.csv',
             'info_regex': 'OrdersInfo_*.csv',
+            'invoice_regex': '*_Invoices_TimeFrom*_TimeTo*.zip',
         }
 
         # Load config provided by user

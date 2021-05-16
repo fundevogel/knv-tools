@@ -2,9 +2,10 @@
 
 
 from os import remove
-from os.path import join
+from os.path import basename, join
 from operator import itemgetter
 from shutil import move
+from zipfile import ZipFile
 
 from .processors.paypal import process_payments
 from .processors.shopkonfigurator import process_orders, process_infos
@@ -112,11 +113,22 @@ class Database:
 
     def import_invoices(self) -> None:
         # Select invoice files to be imported
-        invoice_files = build_path(self.config.import_dir, '*.pdf')
+        invoice_files = build_path(self.config.import_dir, self.config.invoice_regex)
 
-        # Move them
+        # Check invoices currently in database
+        invoices = build_path(self.config.invoice_dir, '*.pdf')
+        invoices = [basename(invoice) for invoice in invoices]
+
         for invoice_file in invoice_files:
-            move(invoice_file, self.config.invoice_dir)
+            try:
+                with ZipFile(invoice_file) as archive:
+                    for zipped_invoice in archive.namelist():
+                        # Import only invoices not already in database
+                        if not zipped_invoice in invoices:
+                            archive.extract(zipped_invoice, self.config.invoice_dir)
+
+            except:
+                raise Exception
 
 
     def merge_data(self, data, import_data: list, identifier: str) -> list:
