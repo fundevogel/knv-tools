@@ -7,9 +7,11 @@ import click
 import pendulum
 from PyPDF2 import PdfFileReader, PdfFileMerger
 
+from .algorithms.contacts import get_contacts
+from .algorithms.matching import match_payments
+from .algorithms.ranking import get_ranking, get_ranking_chart
 from .config import Config
 from .database import Database
-from .operations import match_payments, get_contacts, get_ranking, get_ranking_chart
 from .utils import dump_csv, load_json
 from .utils import build_path, create_path, group_data
 
@@ -106,7 +108,7 @@ def match(config, year, quarter):
             merger = PdfFileMerger()
 
             # Merge corresponding invoices
-            for invoice_number in invoice_numbers:
+            for invoice_number in sorted(invoice_numbers):
                 if invoice_number in invoices:
                     pdf_file = invoices[invoice_number]
 

@@ -1,4 +1,6 @@
-from .operations import match_payments, get_ranking, get_contacts
+from .algorithms.contacts import get_contacts
+from .algorithms.matching import match_payments
+from .algorithms.ranking import get_ranking
 from .processors.paypal import process_payments
 from .processors.shopkonfigurator import process_orders, process_infos
 from .utils import dedupe, group_data
