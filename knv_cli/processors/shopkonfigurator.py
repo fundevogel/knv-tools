@@ -4,7 +4,7 @@
 # This module contains functions for processing 'Auftragsdaten'
 # See http://www.knv-info.de/wp-content/uploads/2020/04/Auftragsdatenexport2.pdf
 
-from .helpers import convert_cost, convert_date
+from .helpers import convert_number, convert_date
 
 
 # Processes 'Orders_*.csv' files
@@ -22,10 +22,13 @@ def process_orders(order_data) -> list:
         # .. and - more often than not - formatted as floats with a trailing zero
         clean_isbn = str(clean_isbn).replace('.0', '')
 
+        # Populate set with identifiers
+        codes = {order for order in orders.keys()}
+
         # Assign identifier
         code = item['ormorderid']
 
-        if code not in orders.keys():
+        if code not in codes:
             order = {}
 
             order['ID'] = code
@@ -35,18 +38,31 @@ def process_orders(order_data) -> list:
             order['Nachname'] = item['rechnungaddresslastname']
             order['Name'] = ' '.join([item['rechnungaddressfirstname'], item['rechnungaddresslastname']])
             order['Email'] = item['rechnungaddressemail']
-            order['Bestellung'] = {clean_isbn: item['quantity']}
-            order['Betrag'] = convert_cost(item['totalordercost'])
+            order['Bestellung'] = {'Summe': item['totalproductcost']}
+            order['Versand'] = convert_number(item['totalshipping'])
+            order['Betrag'] = convert_number(item['totalordercost'])
             order['Währung'] = item['currency']
+            order['Abwicklung'] = {'Zahlungsart': 'keine Angabe', 'Transaktionscode': 'keine Angabe'}
 
             orders[code] = order
+            codes.add(code)
 
-        else:
-            if clean_isbn not in orders[code]['Bestellung'].keys():
-                orders[code]['Bestellung'][clean_isbn] = item['quantity']
+        # Add information about each purchased article
+        orders[code]['Bestellung'][clean_isbn] = {
+            'Anzahl': int(item['quantity']),
+            'Preis': convert_number(item['orderitemunitprice']),
+            'Steuersatz': convert_number(item['vatpercent']),
+            'Steueranteil': convert_number(item['vatprice']),
+        }
 
-            else:
-                orders[code]['Bestellung'][clean_isbn] = orders[code]['Bestellung'][clean_isbn] + item['quantity']
+        # Add information about ..
+        # (1) .. method of payment
+        if str(item['paymenttype']) != 'nan':
+            orders[code]['Abwicklung']['Zahlungsart'] = item['paymenttype']
+
+        # (2) .. transaction number (Paypal™ only)
+        if str(item['transactionid']) != 'nan':
+            orders[code]['Abwicklung']['Transaktionscode'] = str(item['transactionid'])
 
     return list(orders.values())
 
@@ -62,10 +78,13 @@ def process_infos(info_data) -> list:
         if str(item['Invoice Number']) != 'nan':
             clean_number = str(item['Invoice Number']).replace('.0', '')
 
+        # Populate set with identifiers
+        codes = {info for info in infos.keys()}
+
         # Assign identifier
         code = item['OrmNumber']
 
-        if code not in infos.keys():
+        if code not in codes:
             info = {}
 
             info['ID'] = code
@@ -75,6 +94,7 @@ def process_infos(info_data) -> list:
             if clean_number:
                 info['Rechnungen'].append(clean_number)
 
+            codes.add(code)
             infos[code] = info
 
         else:

@@ -4,7 +4,7 @@
 # This module contains functions for processing 'Aktivitäten'
 # See https://www.paypal.com/de/smarthelp/article/FAQ1007
 
-from .helpers import convert_cost, convert_date
+from .helpers import convert_number, convert_date
 
 
 # Processes 'Download*.CSV' files
@@ -13,6 +13,10 @@ def process_payments(data) -> list:
     payments = []
 
     for item in data:
+        # Skip regular payments
+        if item['Typ'] == 'Allgemeine Zahlung':
+            continue
+
         # Skip withdrawals
         if item['Brutto'][:1] == '-':
             continue
@@ -22,14 +26,14 @@ def process_payments(data) -> list:
 
         payment = {}
 
-        payment['ID'] = code
+        payment['Transaktion'] = code
         payment['Datum'] = convert_date(item['Datum'])
         payment['Vorgang'] = 'nicht zugeordnet'
         payment['Name'] = item['Name']
         payment['Email'] = item['Absender E-Mail-Adresse']
-        payment['Brutto'] = convert_cost(item['Brutto'])
-        payment['Gebühr'] = convert_cost(item['Gebühr'])
-        payment['Netto'] = convert_cost(item['Netto'])
+        payment['Brutto'] = convert_number(item['Brutto'])
+        payment['Gebühr'] = convert_number(item['Gebühr'])
+        payment['Netto'] = convert_number(item['Netto'])
         payment['Währung'] = item['Währung']
 
         if code not in codes:

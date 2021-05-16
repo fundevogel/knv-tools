@@ -1,7 +1,6 @@
 # ~*~ coding=utf-8 ~*~
 
 
-from configparser import SafeConfigParser
 from os.path import basename, join
 
 import click
@@ -14,6 +13,7 @@ from .operations import match_payments, get_contacts, get_ranking, get_ranking_c
 from .utils import dump_csv, load_json
 from .utils import build_path, create_path, group_data
 
+
 clickpath = click.Path(exists=True)
 pass_config = click.make_pass_decorator(Config, ensure=True)
 
@@ -25,7 +25,7 @@ pass_config = click.make_pass_decorator(Config, ensure=True)
 @click.option('--import-dir', type=clickpath, help='Custom import directory.')
 @click.option('--export-dir', type=clickpath, help='Custom export directory.')
 def cli(config, verbose, data_dir, import_dir, export_dir):
-    """Tools for handling KNV data"""
+    """CLI utility for handling data exported from KNV & pcbis.de"""
 
     # Apply CLI options
     if verbose is not None:

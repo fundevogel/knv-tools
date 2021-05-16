@@ -2,9 +2,10 @@
 
 
 from os import remove
-from os.path import join
+from os.path import basename, join
 from operator import itemgetter
 from shutil import move
+from zipfile import ZipFile
 
 from .processors.paypal import process_payments
 from .processors.shopkonfigurator import process_orders, process_infos
@@ -46,18 +47,7 @@ class Database:
         payments = load_json(db_files)
 
         # Compare existing & imported data if database was built before ..
-        if payments:
-            # Populate set with identifiers
-            codes = {payment['ID'] for payment in payments}
-
-            # Merge only data not already in database
-            for item in import_data:
-                if item['ID'] not in codes:
-                    payments.append(item)
-
-        # .. otherwise, start from scratch
-        else:
-            payments = import_data
+        payments = self.merge_data(payments, import_data, 'Transaktion')
 
         # Sort payments by date
         payments.sort(key=itemgetter('Datum'))
@@ -84,18 +74,7 @@ class Database:
         orders = load_json(db_files)
 
         # Compare existing & imported data if database was built before ..
-        if orders:
-            # Populate set with identifiers
-            codes = {order['ID'] for order in orders}
-
-            # Merge only data not already in database
-            for item in import_data:
-                if item['ID'] not in codes:
-                    orders.append(item)
-
-        # .. otherwise, start from scratch
-        else:
-            orders = import_data
+        orders = self.merge_data(orders, import_data, 'ID')
 
         # Sort orders by date
         orders.sort(key=itemgetter('Datum'))
@@ -122,18 +101,7 @@ class Database:
         infos = load_json(db_files)
 
         # Compare existing & imported data if database was built before ..
-        if infos:
-            # Populate set with identifiers
-            codes = {info['ID'] for info in infos}
-
-            # Merge only data not already in database
-            for item in import_data:
-                if item['ID'] not in codes:
-                    infos.append(item)
-
-        # .. otherwise, start from scratch
-        else:
-            infos = import_data
+        infos = self.merge_data(infos, import_data, 'ID')
 
         # Sort infos by date
         infos.sort(key=itemgetter('Datum'))
@@ -145,8 +113,37 @@ class Database:
 
     def import_invoices(self) -> None:
         # Select invoice files to be imported
-        invoice_files = build_path(self.config.import_dir, '*.pdf')
+        invoice_files = build_path(self.config.import_dir, self.config.invoice_regex)
 
-        # Move them
+        # Check invoices currently in database
+        invoices = build_path(self.config.invoice_dir, '*.pdf')
+        invoices = [basename(invoice) for invoice in invoices]
+
         for invoice_file in invoice_files:
-            move(invoice_file, self.config.invoice_dir)
+            try:
+                with ZipFile(invoice_file) as archive:
+                    for zipped_invoice in archive.namelist():
+                        # Import only invoices not already in database
+                        if not zipped_invoice in invoices:
+                            archive.extract(zipped_invoice, self.config.invoice_dir)
+
+            except:
+                raise Exception
+
+
+    def merge_data(self, data, import_data: list, identifier: str) -> list:
+        if data:
+            # Populate set with identifiers
+            codes = {item[identifier] for item in data}
+
+            # Merge only data not already in database
+            for item in import_data:
+                if item[identifier] not in codes:
+                    codes.add(item[identifier])
+                    data.append(item)
+
+        # .. otherwise, start from scratch
+        else:
+            data = import_data
+
+        return data

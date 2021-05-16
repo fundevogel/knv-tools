@@ -3,7 +3,7 @@
 
 from configparser import SafeConfigParser
 from os import getcwd
-from os.path import isfile, join, realpath
+from os.path import isfile, join
 
 from xdg import xdg_config_home, xdg_data_home
 
@@ -26,10 +26,11 @@ class Config(object):
             'payment_regex': 'Download*.CSV',
             'order_regex': 'Orders_*.csv',
             'info_regex': 'OrdersInfo_*.csv',
+            'invoice_regex': '*_Invoices_TimeFrom*_TimeTo*.zip',
         }
 
         # Load config provided by user
-        config_file = realpath(join(xdg_config_home(), 'knv-cli', 'config'))
+        config_file = join(xdg_config_home(), 'knv-cli', 'config')
 
         if isfile(config_file):
             config.read(config_file)
@@ -56,7 +57,7 @@ class Config(object):
         # Load blocklist if one exists
         self.blocklist = []
 
-        block_file = realpath(join(getcwd(), 'blocklist.txt'))
+        block_file = join(getcwd(), 'blocklist.txt')
 
         if isfile(block_file):
             with open(block_file, 'r') as file:

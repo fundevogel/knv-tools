@@ -91,10 +91,8 @@ def create_path(file_path) -> None:
             makedirs(dirname(file_path))
 
         # Guard against race condition
-        except OSError as e:
-            # pylint: disable=undefined-variable
-            if e.errno != errno.EEXIST:
-                raise
+        except OSError:
+            pass
 
 
 def dedupe(duped_data, encoding='utf-8') -> list:
