@@ -8,7 +8,7 @@ import pendulum
 from PyPDF2 import PdfFileReader, PdfFileMerger
 
 from .algorithms.contacts import get_contacts
-from .algorithms.matching import match_payments
+from .algorithms.matching import Matching
 from .algorithms.ranking import get_ranking, get_ranking_chart
 from .config import Config
 from .database import Database
@@ -84,18 +84,18 @@ def match(config, year, quarter):
     infos = load_json(info_files)
 
     # Match payments with orders & infos
-    matches = match_payments(payments, orders, infos)
+    handler = Matching(payments, orders, infos)
 
     if config.verbose:
         # Write m<tches to stdout
-        click.echo(matches)
+        click.echo(handler.data)
 
     else:
         # Filter & merge matched invoices
         invoices = build_path(config.invoice_dir, '*.pdf')
         invoices = {basename(invoice).split('-')[2][:-4]: invoice for invoice in invoices}
 
-        for code, data in group_data(matches).items():
+        for code, data in group_data(handler.data).items():
             # Extract matching invoice numbers
             invoice_numbers = set()
 
@@ -124,7 +124,7 @@ def match(config, year, quarter):
             merger.write(invoice_file)
 
         # Write results to CSV files
-        for code, data in group_data(matches).items():
+        for code, data in group_data(handler.data).items():
             csv_file = join(config.matches_dir, code, code + '.csv')
             dump_csv(data, csv_file)
 
