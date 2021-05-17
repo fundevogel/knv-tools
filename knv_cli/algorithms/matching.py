@@ -5,6 +5,8 @@ from datetime import datetime, timedelta
 from operator import itemgetter
 from os.path import join
 
+from ..processors.helpers import convert_number
+
 
 # MATCHING functions
 
@@ -16,7 +18,7 @@ class Matching:
 
     # ESSENTIAL functions
 
-    def match_payments(self, payments, orders, infos) -> list:
+    def match_payments(self, payments: list, orders: list, infos: list) -> list:
         results = []
 
         for payment in payments:
@@ -39,10 +41,15 @@ class Matching:
             # Store data
             # (1) Apply matching order number
             # (2) Add invoice number(s) to payment data
-            # (3) Save matched payment
             payment['ID'] = matching_order['ID']
-            payment['Vorgang'] = ';'.join(matching_infos)
+            payment['Vorgang'] = matching_infos
+            payment['Versand'] = matching_order['Versand']
+            # (3) Add total order cost & purchased items
+            payment['Summe'] = matching_order['Bestellung']['Summe']
+            del matching_order['Bestellung']['Summe']
             payment['Bestellung'] = matching_order['Bestellung']
+
+            # (4) Save matched payment
             results.append(payment)
 
         return results
@@ -125,3 +132,69 @@ class Matching:
             return True
 
         return False
+
+
+    # OUTPUT functions
+
+    def to_json(self) -> list:
+        return self.data
+
+
+    def to_csv(self) -> list:
+        csv_data = []
+
+        for item in self.data:
+            del item['Transaktion']
+
+            # Convert invoice numbers to string
+            if item['Vorgang'] != 'nicht zugeordnet':
+                item['Vorgang'] = ';'.join(item['Vorgang'])
+
+            # Extract tax rates & their respective amount
+            # TODO: Maybe this should go into __init__ function as default
+            if 'Bestellung' in item:
+                # Determine taxes from purchase information
+                taxes = self.get_taxes(item['Bestellung'])
+                del item['Bestellung']
+
+                # Add taxe rates
+                for tax_rate, tax_amount in taxes.items():
+                    item[self.get_tax_label(tax_rate) + ' MwSt'] = convert_number(tax_amount)
+
+                # Add share of payment fees for each tax rate
+                # (1) Calculate total amount of taxes
+                total_taxes = self.get_total_taxes(taxes)
+
+                # (2) Calculate share for each tax rate
+                for tax_rate, tax_amount in taxes.items():
+                    ratio = total_taxes / tax_amount
+                    share = float(item['Gebühr'][1:]) / ratio
+
+                    item['Gebührenanteil ' + self.get_tax_label(tax_rate) + ' MwSt'] = convert_number(share)
+
+            csv_data.append(item)
+
+        return csv_data
+
+
+    # OUTPUT HELPER functions
+
+    def get_taxes(self, purchase):
+        taxes = {}
+
+        for item in purchase.values():
+            if item['Steuersatz'] not in taxes:
+                taxes[item['Steuersatz']] = float(item['Steueranteil'])
+
+            else:
+                taxes[item['Steuersatz']] += float(item['Steueranteil'])
+
+        return taxes
+
+
+    def get_total_taxes(self, taxes) -> str:
+        return sum([tax_amount for tax_amount in taxes.values()])
+
+
+    def get_tax_label(self, tax_rate) -> str:
+        return str(tax_rate).split('.')[0] + '%'
