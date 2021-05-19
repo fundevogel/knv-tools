@@ -40,7 +40,7 @@ class Database:
 
         # (2) .. removing duplicates
         # (3) .. extracting information
-        import_data = process_payments(dedupe(import_data))
+        import_data, _ = process_payments(dedupe(import_data))
 
         # Load database files
         db_files = build_path(self.config.payment_dir)

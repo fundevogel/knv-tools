@@ -11,12 +11,9 @@ from .helpers import convert_number, convert_date
 def process_payments(data) -> list:
     codes = set()
     payments = []
+    blocked_payments = []
 
     for item in data:
-        # Skip regular payments
-        if item['Typ'] == 'Allgemeine Zahlung':
-            continue
-
         # Skip withdrawals
         if item['Brutto'][:1] == '-':
             continue
@@ -26,6 +23,7 @@ def process_payments(data) -> list:
 
         payment = {}
 
+        payment['ID'] = 'nicht zugeordnet'
         payment['Transaktion'] = code
         payment['Datum'] = convert_date(item['Datum'])
         payment['Vorgang'] = 'nicht zugeordnet'
@@ -38,6 +36,12 @@ def process_payments(data) -> list:
 
         if code not in codes:
             codes.add(code)
+
+            # Sort out regular payments
+            if item['Typ'] == 'Allgemeine Zahlung':
+                blocked_payments.append(payment)
+                continue
+
             payments.append(payment)
 
-    return payments
+    return (payments, blocked_payments)
