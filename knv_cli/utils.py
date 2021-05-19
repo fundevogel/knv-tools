@@ -13,9 +13,9 @@ from pandas import DataFrame, concat, read_csv
 
 # CSV tasks
 
-def load_csv(csv_files, encoding='iso-8859-1', delimiter=';') -> list:
+def load_csv(csv_files, encoding='iso-8859-1', delimiter=';', skiprows=None) -> list:
     try:
-        df = concat(map(lambda file: read_csv(file, sep=delimiter, encoding=encoding, low_memory=False), csv_files))
+        df = concat(map(lambda file: read_csv(file, sep=delimiter, encoding=encoding, low_memory=False, skiprows=skiprows), csv_files))
 
     except ValueError:
         return []
