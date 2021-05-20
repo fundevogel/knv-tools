@@ -1,8 +1,8 @@
 from .algorithms.contacts import get_contacts
 from .algorithms.matching import Matching
 from .algorithms.ranking import get_ranking
-from .processors.paypal import process_payments
-from .processors.shopkonfigurator import process_orders, process_infos
+from .processors.paypal import Paypal
+from .processors.shopkonfigurator import Orders, Infos
 from .utils import dedupe, group_data
 
 __all__ = [
@@ -12,9 +12,9 @@ __all__ = [
     'get_contacts',
 
     # Processors
-    'process_payments',
-    'process_orders',
-    'process_infos',
+    'Paypal',
+    'Orders',
+    'Infos',
 
     # Utilities
     'dedupe',

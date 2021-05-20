@@ -8,9 +8,9 @@ from shutil import move
 from zipfile import ZipFile
 
 from .processors.paypal import Paypal
-from .processors.shopkonfigurator import process_orders, process_infos
+from .processors.shopkonfigurator import Orders, Infos
 from .utils import load_csv, load_json, dump_json
-from .utils import build_path, dedupe, group_data
+from .utils import build_path, dedupe, group_data, invoice2id
 
 
 class Database:
@@ -52,25 +52,15 @@ class Database:
         import_files = build_path(self.config.import_dir, self.config.order_regex)
 
         # Generate order data by ..
-        # (1) .. fetching their content
-        import_data = load_csv(import_files)
+        # (1) .. extracting information from import files
+        handler = Orders()
+        handler.load_csv(import_files)
 
-        # (2) .. removing duplicates
-        # (3) .. extracting information
-        import_data = process_orders(dedupe(import_data))
-
-        # Load database files
-        db_files = build_path(self.config.order_dir)
-        orders = load_json(db_files)
-
-        # Compare existing & imported data if database was built before ..
-        orders = self.merge_data(orders, import_data, 'ID')
-
-        # Sort orders by date
-        orders.sort(key=itemgetter('Datum'))
+        # (2) .. merging with existing data
+        handler.load_json(build_path(self.config.order_dir))
 
         # Split orders per-month & export them
-        for code, data in group_data(orders).items():
+        for code, data in group_data(handler.orders()).items():
             dump_json(data, join(self.config.order_dir, code + '.json'))
 
 
@@ -78,26 +68,16 @@ class Database:
         # Select info files to be imported
         import_files = build_path(self.config.import_dir, self.config.info_regex)
 
-        # Generate info data by ..
-        # (1) .. fetching their content
-        import_data = load_csv(import_files)
+        # Generate order data by ..
+        # (1) .. extracting information from import files
+        handler = Infos()
+        handler.load_csv(import_files)
 
-        # (2) .. removing duplicates
-        # (3) .. extracting information
-        import_data = process_infos(dedupe(import_data))
-
-        # Load database files
-        db_files = build_path(self.config.info_dir)
-        infos = load_json(db_files)
-
-        # Compare existing & imported data if database was built before ..
-        infos = self.merge_data(infos, import_data, 'ID')
-
-        # Sort infos by date
-        infos.sort(key=itemgetter('Datum'))
+        # (2) .. merging with existing data
+        handler.load_json(build_path(self.config.info_dir))
 
         # Split infos per-month & export them
-        for code, data in group_data(infos).items():
+        for code, data in group_data(handler.infos()).items():
             dump_json(data, join(self.config.info_dir, code + '.json'))
 
 
@@ -107,14 +87,14 @@ class Database:
 
         # Check invoices currently in database
         invoices = build_path(self.config.invoice_dir, '*.pdf')
-        invoices = [basename(invoice) for invoice in invoices]
+        invoices = {invoice2id(invoice, '-'): invoice for invoice in invoices}
 
         for invoice_file in invoice_files:
             try:
                 with ZipFile(invoice_file) as archive:
                     for zipped_invoice in archive.namelist():
                         # Import only invoices not already in database
-                        if not zipped_invoice in invoices:
+                        if not invoice2id(zipped_invoice, '-') in invoices:
                             archive.extract(zipped_invoice, self.config.invoice_dir)
 
             except:
