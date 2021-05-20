@@ -7,7 +7,7 @@ from operator import itemgetter
 from shutil import move
 from zipfile import ZipFile
 
-from .processors.paypal import process_payments
+from .processors.paypal import Paypal
 from .processors.shopkonfigurator import process_orders, process_infos
 from .utils import load_csv, load_json, dump_json
 from .utils import build_path, dedupe, group_data
@@ -35,25 +35,15 @@ class Database:
         import_files = build_path(self.config.import_dir, self.config.payment_regex)
 
         # Generate payment data by ..
-        # (1) .. fetching their content
-        import_data = load_csv(import_files, 'utf-8', ',')
+        # (1) .. extracting information from import files
+        handler = Paypal()
+        handler.load_csv(import_files, 'utf-8', ',')
 
-        # (2) .. removing duplicates
-        # (3) .. extracting information
-        import_data, _ = process_payments(dedupe(import_data))
-
-        # Load database files
-        db_files = build_path(self.config.payment_dir)
-        payments = load_json(db_files)
-
-        # Compare existing & imported data if database was built before ..
-        payments = self.merge_data(payments, import_data, 'Transaktion')
-
-        # Sort payments by date
-        payments.sort(key=itemgetter('Datum'))
+        # (2) .. merging with existing data
+        handler.load_json(build_path(self.config.payment_dir))
 
         # Split payments per-month & export them
-        for code, data in group_data(payments).items():
+        for code, data in group_data(handler.payments()).items():
             dump_json(data, join(self.config.payment_dir, code + '.json'))
 
 
