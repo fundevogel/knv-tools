@@ -1,4 +1,4 @@
-# This module contains functions for processing & working with
+# This module contains a class for processing & working with
 # 'Aktivitäten', as exported from PayPal™
 # See https://www.paypal.com/de/smarthelp/article/FAQ1007
 
@@ -9,6 +9,10 @@ from .payments import Payments
 class Paypal(Payments):
     # Props
     identifier = 'Transaktion'
+
+    # CSV options
+    encoding='utf-8'
+    delimiter=','
 
 
     def process_payments(self, data) -> list:
