@@ -7,6 +7,10 @@ class Payments(BaseClass):
     # Props
     _blocked_payments = []
 
+    # Class-specific
+    VKN = None
+    blocklist = []
+
 
     def process_data(self, data: list) -> list:
         return self.process_payments(data)

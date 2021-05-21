@@ -26,6 +26,7 @@ Adjusting most options to suit your needs is straightforward, global config is s
 
 ```ini
 [DEFAULT]
+vkn = 12345    # 'Verkehrsnummer'
 verbose = off  # Enable verbose mode
 
 [directories]
@@ -37,7 +38,9 @@ export_dir = ./dist                # generated spreadsheets & graphs
 [regexes]
 # (1) .. exported by PayPal™
 payment_regex = Download*.CSV
-# (2) .. exported by Shopkonfigurator
+# (2) .. exported by Volksbank
+volksbank_regex = Umsaetze_*_*.csv
+# (3) .. exported by Shopkonfigurator
 order_regex = Orders_*.csv
 info_regex = OrdersInfo_*.csv
 invoice_regex = *_Invoices_TimeFrom*_TimeTo*.pdf

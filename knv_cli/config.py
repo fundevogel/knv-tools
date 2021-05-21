@@ -13,6 +13,7 @@ class Config(object):
         # Provide sensible defaults
         config = SafeConfigParser()
         config['DEFAULT'] = {
+            'vkn': '12345',
             'verbose': 'off',
         }
 
@@ -23,7 +24,6 @@ class Config(object):
         }
 
         config['regexes'] = {
-            'payment_regex': 'Download*.CSV',
             'order_regex': 'Orders_*.csv',
             'info_regex': 'OrdersInfo_*.csv',
             'invoice_regex': '*_Invoices_TimeFrom*_TimeTo*.zip',
