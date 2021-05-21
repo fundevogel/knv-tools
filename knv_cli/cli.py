@@ -23,15 +23,19 @@ pass_config = click.make_pass_decorator(Config, ensure=True)
 @click.group()
 @pass_config
 @click.option('-v', '--verbose', is_flag=True, default=None, help='Activate verbose mode.')
+@click.option('--vkn', help='KNV "Verkehrsnummer".')
 @click.option('--data-dir', type=clickpath, help='Custom database directory.')
 @click.option('--import-dir', type=clickpath, help='Custom import directory.')
 @click.option('--export-dir', type=clickpath, help='Custom export directory.')
-def cli(config, verbose, data_dir, import_dir, export_dir):
+def cli(config, verbose, vkn, data_dir, import_dir, export_dir):
     """CLI utility for handling data exported from KNV & pcbis.de"""
 
     # Apply CLI options
     if verbose is not None:
         config.verbose = verbose
+
+    if vkn is not None:
+        config.VKN = vkn
 
     if data_dir is not None:
         config.data_dir = data_dir
