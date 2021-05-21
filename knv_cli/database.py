@@ -66,12 +66,14 @@ class Database:
 
 
     def import_orders(self) -> None:
+        # Initialize payment gateway handler
+        handler = Orders()
+
         # Select order files to be imported
-        import_files = build_path(self.config.import_dir, self.config.order_regex)
+        import_files = build_path(self.config.import_dir, handler.regex)
 
         # Generate order data by ..
         # (1) .. extracting information from import files
-        handler = Orders()
         handler.load_csv(import_files)
 
         # (2) .. merging with existing data
@@ -83,12 +85,14 @@ class Database:
 
 
     def import_infos(self) -> None:
+        # Initialize payment gateway handler
+        handler = Infos()
+
         # Select info files to be imported
-        import_files = build_path(self.config.import_dir, self.config.info_regex)
+        import_files = build_path(self.config.import_dir, handler.regex)
 
         # Generate order data by ..
         # (1) .. extracting information from import files
-        handler = Infos()
         handler.load_csv(import_files)
 
         # (2) .. merging with existing data

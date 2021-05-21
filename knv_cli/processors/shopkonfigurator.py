@@ -1,4 +1,3 @@
-# SHOPKONFIGURATOR
 # This module contains classes for processing & working with
 # 'Auftragsdaten' & 'Ausführungen, as exported from Shopkonfigurator
 # See http://www.knv-info.de/wp-content/uploads/2020/04/Auftragsdatenexport2.pdf
@@ -14,6 +13,7 @@ from .helpers import convert_number
 class Orders(BaseClass):
     # Props
     identifier = 'ID'
+    regex = 'Orders_*.csv'
 
 
     def process_data(self, order_data: list) -> list:
@@ -86,6 +86,8 @@ class Orders(BaseClass):
 class Infos(BaseClass):
     # Props
     identifier = 'ID'
+    regex = 'OrdersInfo_*.csv'
+
 
     def process_data(self, info_data: list) -> list:
         '''
