@@ -64,7 +64,7 @@ def invoice2date(string: str) -> str:
     return datetime.strptime(date_string, '%Y%m%d').strftime('%Y-%m-%d')
 
 
-def invoice2id(string: str) -> str:
+def invoice2number(string: str) -> str:
     # Distinguish between delimiters ..
     # (1) .. hyphen ('Shopkonfigurator')
     delimiter = '-'

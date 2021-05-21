@@ -10,7 +10,7 @@ from zipfile import ZipFile
 from .processors.paypal import Paypal
 from .processors.shopkonfigurator import Orders, Infos
 from .utils import load_json, dump_json
-from .utils import build_path, dedupe, group_data, invoice2id
+from .utils import build_path, dedupe, group_data, invoice2number
 
 
 class Database:
@@ -88,14 +88,14 @@ class Database:
 
         # Check invoices currently in database
         invoices = build_path(self.config.invoice_dir, '*.pdf')
-        invoices = {invoice2id(invoice): invoice for invoice in invoices}
+        invoices = {invoice2number(invoice): invoice for invoice in invoices}
 
         for invoice_file in invoice_files:
             try:
                 with ZipFile(invoice_file) as archive:
                     for zipped_invoice in archive.namelist():
                         # Import only invoices not already in database
-                        if not invoice2id(zipped_invoice) in invoices:
+                        if not invoice2number(zipped_invoice) in invoices:
                             archive.extract(zipped_invoice, self.config.invoice_dir)
 
             except:
