@@ -9,6 +9,7 @@ from .payments import Payments
 class Paypal(Payments):
     # Props
     identifier = 'Transaktion'
+    regex = 'Download*.CSV'
 
     # CSV options
     encoding='utf-8'

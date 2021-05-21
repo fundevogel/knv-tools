@@ -1,13 +1,14 @@
 # ~*~ coding=utf-8 ~*~
 
 
-from os import remove
-from os.path import basename, join
+from os import getcwd, remove
+from os.path import basename, isfile, join
 from operator import itemgetter
 from shutil import move
 from zipfile import ZipFile
 
 from .processors.paypal import Paypal
+from .processors.volksbank import Volksbank
 from .processors.shopkonfigurator import Orders, Infos
 from .utils import load_json, dump_json
 from .utils import build_path, dedupe, group_data, invoice2number
@@ -22,7 +23,11 @@ class Database:
     # GENERAL methods
 
     def flush(self) -> None:
-        files = build_path(self.config.payment_dir) + build_path(self.config.order_dir) + build_path(self.config.info_dir)
+        files = build_path(join(self.config.payment_dir, 'paypal'))
+        files += build_path(join(self.config.payment_dir, 'volksbank'))
+        files += build_path(self.config.payment_dir)
+        files += build_path(self.config.order_dir)
+        files += build_path(self.config.info_dir)
 
         for file in files:
             remove(file)
@@ -31,20 +36,33 @@ class Database:
     # IMPORT methods
 
     def import_payments(self) -> None:
-        # Select payment files to be imported
-        import_files = build_path(self.config.import_dir, self.config.payment_regex)
+        # Prepare payment gateways
+        gateways = {
+            'paypal': Paypal,
+            'volksbank': Volksbank,
+        }
 
-        # Generate payment data by ..
-        # (1) .. extracting information from import files
-        handler = Paypal()
-        handler.load_csv(import_files)
+        for identifier, gateway in gateways.items():
+            # Initialize payment gateway handler
+            handler = gateway()
 
-        # (2) .. merging with existing data
-        handler.load_json(build_path(self.config.payment_dir))
+            # Apply VKN & blocklist CLI options
+            handler.VKN = self.config.vkn
+            handler.blocklist = self.config.blocklist
 
-        # Split payments per-month & export them
-        for code, data in group_data(handler.payments()).items():
-            dump_json(data, join(self.config.payment_dir, code + '.json'))
+            # Select payment files to be imported
+            import_files = build_path(self.config.import_dir, handler.regex)
+
+            # Generate payment data by ..
+            # (1) .. extracting information from import files
+            handler.load_csv(import_files)
+
+            # (2) .. merging with existing data
+            handler.load_json(build_path(join(self.config.payment_dir, identifier)))
+
+            # Split payments per-month & export them
+            for code, data in group_data(handler.payments()).items():
+                dump_json(data, join(self.config.payment_dir, identifier, code + '.json'))
 
 
     def import_orders(self) -> None:
@@ -57,7 +75,6 @@ class Database:
         handler.load_csv(import_files)
 
         # (2) .. merging with existing data
-
         handler.load_json(build_path(self.config.order_dir))
 
         # Split orders per-month & export them
@@ -100,21 +117,3 @@ class Database:
 
             except:
                 raise Exception
-
-
-    def merge_data(self, data, import_data: list, identifier: str) -> list:
-        if data:
-            # Populate set with identifiers
-            codes = {item[identifier] for item in data}
-
-            # Merge only data not already in database
-            for item in import_data:
-                if item[identifier] not in codes:
-                    codes.add(item[identifier])
-                    data.append(item)
-
-        # .. otherwise, start from scratch
-        else:
-            data = import_data
-
-        return data
