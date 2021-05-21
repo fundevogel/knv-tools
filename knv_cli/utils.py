@@ -3,25 +3,16 @@
 
 import json
 
+from datetime import datetime
 from glob import glob
 from hashlib import md5
 from os import makedirs
-from os.path import exists, dirname, join
+from os.path import basename, exists, dirname, join
 
-from pandas import DataFrame, concat, read_csv
+from pandas import DataFrame
 
 
 # CSV tasks
-
-def load_csv(csv_files, encoding='iso-8859-1', delimiter=';', skiprows=None) -> list:
-    try:
-        df = concat(map(lambda file: read_csv(file, sep=delimiter, encoding=encoding, low_memory=False, skiprows=skiprows), csv_files))
-
-    except ValueError:
-        return []
-
-    return df.to_dict('records')
-
 
 def dump_csv(data, csv_file) -> None:
     # Create directory if necessary
@@ -55,6 +46,34 @@ def dump_json(data, json_file) -> None:
 
     with open(json_file, 'w') as file:
         json.dump(data, file, ensure_ascii=False, indent=4)
+
+
+# INVOICE functions
+
+def invoice2date(string: str) -> str:
+    # Distinguish between delimiters ..
+    # (1) .. hyphen ('Shopkonfigurator')
+    delimiter = '-'
+
+    # (2) .. underscore ('Barsortiment')
+    if delimiter not in string:
+        delimiter = '_'
+
+    date_string = basename(string).split(delimiter)[1][:-4]
+
+    return datetime.strptime(date_string, '%Y%m%d').strftime('%Y-%m-%d')
+
+
+def invoice2id(string: str) -> str:
+    # Distinguish between delimiters ..
+    # (1) .. hyphen ('Shopkonfigurator')
+    delimiter = '-'
+
+    # (2) .. underscore ('Barsortiment')
+    if delimiter not in string:
+        delimiter = '_'
+
+    return basename(string).split(delimiter)[-1][:-4]
 
 
 # Helper functions
