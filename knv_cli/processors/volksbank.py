@@ -120,3 +120,7 @@ class Volksbank(Payments):
             payments.append(payment)
 
         return payments
+
+
+    def match_payments(self, orders: list, infos: list) -> None:
+        pass

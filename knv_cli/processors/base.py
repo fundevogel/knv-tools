@@ -99,7 +99,7 @@ class BaseClass(metaclass=ABCMeta):
         string = str(string)
 
         # Check if there's a dot AND a comma, eg '1.234,56'
-        if '.' in string.split(',')[0]:
+        if '.' in string and ',' in string:
             string = string.replace('.', '')
 
         string = float(string.replace(',', '.'))
