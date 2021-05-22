@@ -10,8 +10,9 @@ from zipfile import ZipFile
 from .processors.paypal import Paypal
 from .processors.volksbank import Volksbank
 from .processors.shopkonfigurator import Orders, Infos
+from .processors.invoices import Invoices
 from .utils import load_json, dump_json
-from .utils import build_path, dedupe, group_data, invoice2number
+from .utils import build_path, dedupe, group_data
 
 
 class Database:
@@ -107,18 +108,19 @@ class Database:
 
     def import_invoices(self) -> None:
         # Select invoice files to be imported
-        invoice_files = build_path(self.config.import_dir, self.config.invoice_regex)
+        import_files = build_path(self.config.import_dir, self.config.invoice_regex)
 
         # Check invoices currently in database
-        invoices = build_path(self.config.invoice_dir, '*.pdf')
-        invoices = {invoice2number(invoice): invoice for invoice in invoices}
+        invoice_files = build_path(self.config.invoice_dir, '*.pdf')
+        handler = Invoices(invoice_files)
 
-        for invoice_file in invoice_files:
+        for file in import_files:
             try:
-                with ZipFile(invoice_file) as archive:
+                with ZipFile(file) as archive:
                     for zipped_invoice in archive.namelist():
                         # Import only invoices not already in database
-                        if not invoice2number(zipped_invoice) in invoices:
+                        if not handler.has(zipped_invoice):
+                            handler.add(join(self.config.invoice_dir, zipped_invoice))
                             archive.extract(zipped_invoice, self.config.invoice_dir)
 
             except:
@@ -157,5 +159,12 @@ class Database:
         # Load infos from database
         handler = Infos()
         handler.load_json(build_path(self.config.info_dir))
+
+        return handler
+
+
+    def load_invoices(self) -> Infos:
+        # Load invoices from database
+        handler = Invoices(build_path(self.config.invoice_dir, '*.pdf'))
 
         return handler

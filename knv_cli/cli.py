@@ -10,7 +10,7 @@ from PyPDF2 import PdfFileReader, PdfFileMerger
 from .config import Config
 from .database import Database
 from .utils import dump_csv, load_json
-from .utils import build_path, create_path, group_data, invoice2number
+from .utils import build_path, create_path, group_data
 
 
 clickpath = click.Path(exists=True)
@@ -82,8 +82,7 @@ def match(config, year, quarter):
 
     else:
         # Filter & merge matched invoices
-        invoices = build_path(config.invoice_dir, '*.pdf')
-        invoices = {invoice2number(invoice): invoice for invoice in invoices}
+        invoices = db.load_invoices()
 
         for code, data in group_data(payments.matched_payments()).items():
             # Extract matching invoice numbers
@@ -99,8 +98,8 @@ def match(config, year, quarter):
 
             # Merge corresponding invoices
             for invoice_number in sorted(invoice_numbers):
-                if invoice_number in invoices:
-                    pdf_file = invoices[invoice_number]
+                if invoices.has(invoice_number, True):
+                    pdf_file = invoices.get(invoice_number)
 
                     with open(pdf_file, 'rb') as file:
                         merger.append(PdfFileReader(file))
