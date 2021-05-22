@@ -74,18 +74,18 @@ def match(config, year, quarter):
     infos = db.load_infos().data
 
     # Match payments with orders & infos
-    matches = payments.match_payments(orders, infos)
+    payments.match_payments(orders, infos)
 
     if config.verbose:
         # Write matches to stdout
-        click.echo(matches)
+        click.echo(payments.matched_payments())
 
     else:
         # Filter & merge matched invoices
         invoices = build_path(config.invoice_dir, '*.pdf')
         invoices = {invoice2number(invoice): invoice for invoice in invoices}
 
-        for code, data in group_data(matches).items():
+        for code, data in group_data(payments.matched_payments()).items():
             # Extract matching invoice numbers
             invoice_numbers = set()
 
@@ -106,7 +106,7 @@ def match(config, year, quarter):
                         merger.append(PdfFileReader(file))
 
                 else:
-                    click.echo('Missing invoice: ' + str(invoice_number))
+                    click.echo("\n" + 'Missing invoice: ' + str(invoice_number))
 
             # Write merged PDF to disk
             invoice_file = join(config.matches_dir, code, code + '.pdf')
@@ -114,7 +114,7 @@ def match(config, year, quarter):
             merger.write(invoice_file)
 
         # Write results to CSV files
-        for code, data in group_data(matches).items():
+        for code, data in group_data(payments.matched_payments(True)).items():
             csv_file = join(config.matches_dir, code, code + '.csv')
             dump_csv(data, csv_file)
 

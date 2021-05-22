@@ -3,21 +3,30 @@ from operator import itemgetter
 
 from .base import BaseClass
 
+
 class Payments(BaseClass):
-    # Props
+    # PROPS
+
     _blocked_payments = []
+    _matched_payments = []
 
     # Class-specific
     VKN = None
     blocklist = []
 
 
+    # DATA methods
+
     def process_data(self, data: list) -> list:
         return self.process_payments(data)
 
 
     @abstractmethod
-    def process_payments(self, data: list) -> tuple:
+    def process_payments(self, data: list) -> None:
+        pass
+
+    @abstractmethod
+    def match_payments(self, orders: list, infos: list) -> None:
         pass
 
 
