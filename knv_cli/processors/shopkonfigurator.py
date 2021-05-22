@@ -6,15 +6,22 @@
 from abc import abstractmethod
 from operator import itemgetter
 
+import pendulum
+
+from matplotlib import pyplot, rcParams
+from pandas import DataFrame
+
 from .base import BaseClass
-from .helpers import convert_number
 
 
 class Orders(BaseClass):
-    # Props
+    # PROPS
+
     identifier = 'ID'
     regex = 'Orders_*.csv'
 
+
+    # DATA methods
 
     def process_data(self, order_data: list) -> list:
         '''
@@ -49,9 +56,9 @@ class Orders(BaseClass):
                 order['Nachname'] = item['rechnungaddresslastname']
                 order['Name'] = ' '.join([item['rechnungaddressfirstname'], item['rechnungaddresslastname']])
                 order['Email'] = item['rechnungaddressemail']
-                order['Bestellung'] = {'Summe': convert_number(item['totalproductcost'])}
-                order['Versand'] = convert_number(item['totalshipping'])
-                order['Betrag'] = convert_number(item['totalordercost'])
+                order['Bestellung'] = {'Summe': self.convert_number(item['totalproductcost'])}
+                order['Versand'] = self.convert_number(item['totalshipping'])
+                order['Betrag'] = self.convert_number(item['totalordercost'])
                 order['Währung'] = item['currency']
                 order['Abwicklung'] = {'Zahlungsart': 'keine Angabe', 'Transaktionscode': 'keine Angabe'}
 
@@ -61,9 +68,9 @@ class Orders(BaseClass):
             # Add information about each purchased article
             orders[code]['Bestellung'][clean_isbn] = {
                 'Anzahl': int(item['quantity']),
-                'Preis': convert_number(item['orderitemunitprice']),
-                'Steuersatz': convert_number(item['vatpercent']),
-                'Steueranteil': convert_number(item['vatprice']),
+                'Preis': self.convert_number(item['orderitemunitprice']),
+                'Steuersatz': self.convert_number(item['vatpercent']),
+                'Steueranteil': self.convert_number(item['vatprice']),
             }
 
             # Add information about ..
@@ -81,6 +88,96 @@ class Orders(BaseClass):
     def orders(self):
         # Sort orders by date
         return sorted(self.data, key=itemgetter('Datum'))
+
+
+    # RANKING methods
+
+    def get_ranking(self) -> list:
+        data = {}
+
+        # Sum up number of sales
+        for order in self.data:
+            for isbn, product in order['Bestellung'].items():
+                # Skip total order cost
+                if isbn == 'Summe':
+                    continue
+
+                if isbn not in data:
+                    data[isbn] = product['Anzahl']
+
+                else:
+                    data[isbn] = data[isbn] + product['Anzahl']
+
+        ranking = []
+
+        for isbn, quantity in data.items():
+            item = {}
+
+            item['ISBN'] = isbn
+            item['Anzahl'] = quantity
+
+            ranking.append(item)
+
+        # Sort sales by quantity & in descending order
+        ranking.sort(key=itemgetter('Anzahl'), reverse=True)
+
+        return ranking
+
+
+    def get_ranking_chart(self, ranking, limit=1, kind='barh'):
+        # Update ranking to only include entries above set limit
+        ranking = [{'Anzahl': item['Anzahl'], 'ISBN': item['ISBN']} for item in ranking if item['Anzahl'] >= int(limit)]
+        df = DataFrame(ranking, index=[item['ISBN'] for item in ranking])
+
+        # Rotate & center x-axis labels
+        pyplot.xticks(rotation=45, horizontalalignment='center')
+
+        # Make graph 'just fit' image dimensions
+        rcParams.update({'figure.autolayout': True})
+
+        return df.plot(kind=kind).get_figure()
+
+
+    # CONTACTS methods
+
+    def get_contacts(self, orders: list, cutoff_date: str = None, blocklist = []) -> list:
+        # Set default date
+        if cutoff_date is None:
+            today = pendulum.today()
+            cutoff_date = today.subtract(years=2).to_datetime_string()[:10]
+
+        # Sort orders by date & in descending order
+        orders.sort(key=itemgetter('Datum'), reverse=True)
+
+        codes = set()
+        contacts  = []
+
+        for order in orders:
+            mail_address = order['Email']
+
+            # Check for blocklisted mail addresses
+            if mail_address in blocklist:
+                continue
+
+            # Throw out everything before cutoff date (if provided)
+            if order['Datum'] < cutoff_date:
+                continue
+
+            # Prepare dictionary
+            contact = {}
+
+            contact['Anrede'] = order['Anrede']
+            contact['Vorname'] = order['Vorname']
+            contact['Nachname'] = order['Nachname']
+            contact['Name'] = order['Name']
+            contact['Email'] = order['Email']
+            contact['Letzte Bestellung'] = self.convert_date(order['Datum'])
+
+            if mail_address not in codes:
+                codes.add(mail_address)
+                contacts.append(contact)
+
+        return contacts
 
 
 class Infos(BaseClass):
