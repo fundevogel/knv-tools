@@ -58,7 +58,7 @@ def match(config, year, quarter):
 
     # Load data from ..
     # (1) .. payment sources
-    payments = db.load_payments('paypal', year, quarter)
+    payments = db.get_payments('paypal', year, quarter)
 
     # Exit if database has no payments
     if not payments:
@@ -67,14 +67,11 @@ def match(config, year, quarter):
 
     click.echo('Matching data ..', nl=False)
 
-    # (2) .. order sources
-    orders = db.load_orders().data
-
-    # (3) .. info sources
-    infos = db.load_infos().data
+    # Load orders, infos & invoices
+    db.init()
 
     # Match payments with orders & infos
-    payments.match_payments(orders, infos)
+    payments.match_payments(db.orders.data, db.infos.data)
 
     if config.verbose:
         # Write matches to stdout
@@ -82,8 +79,6 @@ def match(config, year, quarter):
 
     else:
         # Filter & merge matched invoices
-        invoices = db.load_invoices()
-
         for code, data in group_data(payments.matched_payments()).items():
             # Extract matching invoice numbers
             invoice_numbers = set()
@@ -98,8 +93,8 @@ def match(config, year, quarter):
 
             # Merge corresponding invoices
             for invoice_number in sorted(invoice_numbers):
-                if invoices.has(invoice_number, True):
-                    pdf_file = invoices.get(invoice_number)
+                if db.invoices.has(invoice_number, True):
+                    pdf_file = db.invoices.get(invoice_number)
 
                     with open(pdf_file, 'rb') as file:
                         merger.append(PdfFileReader(file))

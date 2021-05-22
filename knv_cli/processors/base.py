@@ -14,9 +14,14 @@ class BaseClass(metaclass=ABCMeta):
     identifier = None
 
     # CSV options
-    encoding='iso-8859-1'
-    delimiter=';'
-    skiprows=None
+    encoding = 'iso-8859-1'
+    delimiter = ';'
+    skiprows = None
+
+
+    def __init__(self, data_files: list = None):
+        if data_files is not None:
+            self.load_json(data_files)
 
 
     # DATA methods

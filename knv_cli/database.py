@@ -18,6 +18,12 @@ from .utils import build_path, dedupe, group_data
 class Database:
     # PROPS
 
+    payments = None
+    orders = None
+    infos = None
+    invoices = None
+
+    # Available payment gateways
     gateways = {
         'paypal': Paypal,
         'volksbank': Volksbank,
@@ -25,18 +31,30 @@ class Database:
 
 
     def __init__(self, config: dict) -> None:
+        # Establish database files
+        self.order_files = build_path(config.order_dir)
+        self.info_files = build_path(config.info_dir)
+        self.invoice_files = build_path(config.invoice_dir, '*.pdf')
+        self.payment_files = {
+            'paypal': build_path(join(config.payment_dir, 'paypal')),
+            'volksbank': build_path(join(config.payment_dir, 'volksbank')),
+        }
+
         # Import config
         self.config = config
 
 
     # GENERAL methods
 
+    def init(self) -> None:
+        self.orders = self.get_orders()
+        self.infos = self.get_infos()
+        self.invoices = self.get_invoices()
+
+
     def flush(self) -> None:
-        files = build_path(join(self.config.payment_dir, 'paypal'))
-        files += build_path(join(self.config.payment_dir, 'volksbank'))
-        files += build_path(self.config.payment_dir)
-        files += build_path(self.config.order_dir)
-        files += build_path(self.config.info_dir)
+        files = self.payment_files['paypal'] + self.payment_files['volksbank']
+        files += self.order_files + self.info_files + self.invoice_files
 
         for file in files:
             remove(file)
@@ -61,7 +79,7 @@ class Database:
             handler.load_csv(import_files)
 
             # (2) .. merging with existing data
-            handler.load_json(build_path(join(self.config.payment_dir, identifier)))
+            handler.load_json(self.payment_files[identifier])
 
             # Split payments per-month & export them
             for code, data in group_data(handler.data).items():
@@ -80,7 +98,7 @@ class Database:
         handler.load_csv(import_files)
 
         # (2) .. merging with existing data
-        handler.load_json(build_path(self.config.order_dir))
+        handler.load_json(self.order_files)
 
         # Split orders per-month & export them
         for code, data in group_data(handler.data).items():
@@ -99,7 +117,7 @@ class Database:
         handler.load_csv(import_files)
 
         # (2) .. merging with existing data
-        handler.load_json(build_path(self.config.info_dir))
+        handler.load_json(self.info_files)
 
         # Split infos per-month & export them
         for code, data in group_data(handler.data).items():
@@ -111,8 +129,7 @@ class Database:
         import_files = build_path(self.config.import_dir, self.config.invoice_regex)
 
         # Check invoices currently in database
-        invoice_files = build_path(self.config.invoice_dir, '*.pdf')
-        handler = Invoices(invoice_files)
+        handler = Invoices(self.invoice_files)
 
         for file in import_files:
             try:
@@ -120,14 +137,14 @@ class Database:
                     for zipped_invoice in archive.namelist():
                         # Import only invoices not already in database
                         if not handler.has(zipped_invoice):
-                            handler.add(join(self.config.invoice_dir, zipped_invoice))
                             archive.extract(zipped_invoice, self.config.invoice_dir)
+                            handler.add(join(self.config.invoice_dir, zipped_invoice))
 
             except:
                 raise Exception
 
 
-    def load_payments(self,
+    def get_payments(self,
         identifier: str,
         year: int = None,
         quarter: int = None,
@@ -135,36 +152,23 @@ class Database:
     ):
         # Choose payment handler ..
         if identifier in ['paypal', 'volksbank']:
-            # Initialize handler
-            handler = self.gateways[identifier]()
-
             # Load respective database entries
-            handler.load_json(build_path(join(self.config.payment_dir, identifier)))
-
-            return handler
+            return self.gateways[identifier](self.payment_files[identifier])
 
         # .. otherwise, raise a formal complaint, fine Sir!
         raise Exception
 
 
-    def load_orders(self) -> Orders:
+    def get_orders(self) -> Orders:
         # Load orders from database
-        handler = Orders()
-        handler.load_json(build_path(self.config.order_dir))
-
-        return handler
+        return Orders(self.order_files)
 
 
-    def load_infos(self) -> Infos:
+    def get_infos(self) -> Infos:
         # Load infos from database
-        handler = Infos()
-        handler.load_json(build_path(self.config.info_dir))
-
-        return handler
+        return Infos(self.info_files)
 
 
-    def load_invoices(self) -> Infos:
+    def get_invoices(self) -> Infos:
         # Load invoices from database
-        handler = Invoices(build_path(self.config.invoice_dir, '*.pdf'))
-
-        return handler
+        return Invoices(self.invoice_files)
