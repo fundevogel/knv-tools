@@ -166,16 +166,22 @@ class Database:
         raise Exception
 
 
-    def get_orders(self) -> Orders:
-        # Load orders from database
+    def get_orders(self, order_files: list = None) -> Orders:
+        if order_files is not None:
+            return Orders(order_files)
+
         return Orders(self.order_files)
 
 
-    def get_infos(self) -> Infos:
-        # Load infos from database
+    def get_infos(self, info_files: list = None) -> Infos:
+        if info_files is not None:
+            return Infos(info_files)
+
         return Infos(self.info_files)
 
 
-    def get_invoices(self) -> Infos:
-        # Load invoices from database
+    def get_invoices(self, invoice_files: list = None) -> Infos:
+        if invoice_files is not None:
+            return Invoices(invoice_files)
+
         return Invoices(self.invoice_files)

@@ -171,7 +171,7 @@ class Orders(BaseClass):
             contact['Nachname'] = order['Nachname']
             contact['Name'] = order['Name']
             contact['Email'] = order['Email']
-            contact['Letzte Bestellung'] = self.convert_date(order['Datum'])
+            contact['Letzte Bestellung'] = order['Datum']
 
             if mail_address not in codes:
                 codes.add(mail_address)

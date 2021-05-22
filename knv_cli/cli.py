@@ -124,6 +124,9 @@ def match(config, year, quarter):
 def rank(config, year, quarter, enable_chart, limit):
     """Rank sales"""
 
+    # Initialize database
+    db = Database(config)
+
     # Exit if database is empty
     order_files = build_path(config.order_dir, year=year, quarter=quarter)
 
@@ -133,39 +136,39 @@ def rank(config, year, quarter, enable_chart, limit):
 
     click.echo('Ranking data ..', nl=False)
 
-    # # Fetch orders
-    # orders = load_json(order_files)
+    # Initialize handler
+    handler = db.get_orders(order_files)
 
-    # # Extract & rank sales
-    # ranking = get_ranking(orders)
+    # Extract & rank sales
+    ranking = handler.get_ranking()
 
-    # if config.verbose:
-    #     # Write ranking to stdout
-    #     click.echo(ranking)
+    if config.verbose:
+        # Write ranking to stdout
+        click.echo(ranking)
 
-    # else:
-    #     # Count total
-    #     count = sum([item['Anzahl'] for item in ranking])
+    else:
+        # Count total
+        count = sum([item['Anzahl'] for item in ranking])
 
-    #     # Write ranking to CSV file
-    #     file_name = basename(order_files[0])[:-5] + '_' + basename(order_files[-1])[:-5]
-    #     ranking_file = join(config.rankings_dir, file_name + '_' + str(count) + '.csv')
+        # Write ranking to CSV file
+        file_name = basename(order_files[0])[:-5] + '_' + basename(order_files[-1])[:-5]
+        ranking_file = join(config.rankings_dir, file_name + '_' + str(count) + '.csv')
 
-    #     dump_csv(ranking, ranking_file)
+        dump_csv(ranking, ranking_file)
 
-    # click.echo(' done!')
+    click.echo(' done!')
 
-    # # Create graph if enabled
-    # if enable_chart and not config.verbose:
-    #     click.echo('Creating graph from data ..', nl=False)
+    # Create graph if enabled
+    if enable_chart and not config.verbose:
+        click.echo('Creating graph from data ..', nl=False)
 
-    #     # Plot graph into PNG file
-    #     chart_file = join(config.rankings_dir, file_name + '_' + str(limit) + '.png')
+        # Plot graph into PNG file
+        chart_file = join(config.rankings_dir, file_name + '_' + str(limit) + '.png')
 
-    #     bar_chart = get_ranking_chart(ranking, limit)
-    #     bar_chart.savefig(chart_file)
+        bar_chart = handler.get_ranking_chart(ranking, limit)
+        bar_chart.savefig(chart_file)
 
-    #     click.echo(' done!')
+        click.echo(' done!')
 
 
 @cli.command()
@@ -174,6 +177,9 @@ def rank(config, year, quarter, enable_chart, limit):
 @click.option('-b', '--blocklist', type=click.File('r'), help='Path to file containing mail addresses that should be ignored.')
 def contacts(config, date, blocklist):
     """Generate customer contact list"""
+
+    # Initialize database
+    db = Database(config)
 
     # Exit if database is empty
     order_files = build_path(config.order_dir)
@@ -184,34 +190,34 @@ def contacts(config, date, blocklist):
 
     click.echo('Generating contact list ..', nl=config.verbose)
 
-    # # Fetch orders
-    # orders = load_json(order_files)
+    # Initialize handler
+    handler = db.get_orders(order_files)
 
-    # # Apply 'blocklist' CLI option
-    # if blocklist is not None:
-    #     config.blocklist = blocklist.read().splitlines()
+    # Apply 'blocklist' CLI option
+    if blocklist is not None:
+        config.blocklist = blocklist.read().splitlines()
 
-    # # Set default date
-    # today = pendulum.today()
+    # Set default date
+    today = pendulum.today()
 
-    # if date is None:
-    #     date = today.subtract(years=2).to_datetime_string()[:10]
+    if date is None:
+        date = today.subtract(years=2).to_datetime_string()[:10]
 
-    # # Extract & export contacts
-    # contacts = get_contacts(orders, date, config.blocklist)
+    # Extract & export contacts
+    contacts = handler.get_contacts(handler.data, date, config.blocklist)
 
-    # if config.verbose:
-    #     # Write contacts to stdout
-    #     click.echo(contacts)
+    if config.verbose:
+        # Write contacts to stdout
+        click.echo(contacts)
 
-    # else:
-    #     # Write contacts to CSV file
-    #     file_name = date + '_' + today.to_datetime_string()[:10]
-    #     contacts_file = join(config.contacts_dir, file_name + '.csv')
+    else:
+        # Write contacts to CSV file
+        file_name = date + '_' + today.to_datetime_string()[:10]
+        contacts_file = join(config.contacts_dir, file_name + '.csv')
 
-    #     dump_csv(contacts, contacts_file)
+        dump_csv(contacts, contacts_file)
 
-    # click.echo(' done!')
+    click.echo(' done!')
 
 
 # DATABASE tasks
