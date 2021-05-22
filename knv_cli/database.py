@@ -153,7 +153,14 @@ class Database:
         # Choose payment handler ..
         if identifier in ['paypal', 'volksbank']:
             # Load respective database entries
-            return self.gateways[identifier](self.payment_files[identifier])
+            payment_files = build_path(
+                join(self.config.payment_dir, identifier),
+                year=year,
+                quarter=quarter,
+                months=months
+            )
+
+            return self.gateways[identifier](payment_files)
 
         # .. otherwise, raise a formal complaint, fine Sir!
         raise Exception
