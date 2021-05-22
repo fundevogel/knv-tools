@@ -1,7 +1,7 @@
 from abc import abstractmethod
 from operator import itemgetter
 
-from .base import BaseClass
+from ..base import BaseClass
 
 
 class Payments(BaseClass):

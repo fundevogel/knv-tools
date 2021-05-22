@@ -11,7 +11,7 @@ import pendulum
 from matplotlib import pyplot, rcParams
 from pandas import DataFrame
 
-from .base import BaseClass
+from ..base import BaseClass
 
 
 class Orders(BaseClass):

@@ -9,8 +9,8 @@ from PyPDF2 import PdfFileReader, PdfFileMerger
 
 from .config import Config
 from .database import Database
-from .utils import dump_csv, load_json
-from .utils import build_path, create_path, group_data
+from ..utils import dump_csv, load_json
+from ..utils import build_path, create_path, group_data
 
 
 clickpath = click.Path(exists=True)
@@ -224,20 +224,9 @@ def contacts(config, date, blocklist):
 
 @cli.group()
 @pass_config
-@click.option('--payment-regex', default=None, help='Regex for files exported by PayPal™.')
-@click.option('--order-regex', default=None, help='Regex for files exported by Shopkonfigurator.')
-@click.option('--info-regex', default=None, help='Regex for files exported by Shopkonfigurator.')
-def db(config, payment_regex, order_regex, info_regex):
+def db(config):
     """Database tasks"""
-
-    if payment_regex is not None:
-        config.payment_regex = payment_regex
-
-    if order_regex is not None:
-        config.order_regex = order_regex
-
-    if info_regex is not None:
-        config.info_regex = info_regex
+    pass
 
 
 @db.command()

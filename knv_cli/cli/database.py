@@ -7,12 +7,12 @@ from operator import itemgetter
 from shutil import move
 from zipfile import ZipFile
 
-from .processors.paypal import Paypal
-from .processors.volksbank import Volksbank
-from .processors.shopkonfigurator import Orders, Infos
-from .processors.invoices import Invoices
-from .utils import load_json, dump_json
-from .utils import build_path, dedupe, group_data
+from ..gateways.paypal import Paypal
+from ..gateways.volksbank import Volksbank
+from ..knv.shopkonfigurator import Orders, Infos
+from ..knv.invoices import Invoices
+from ..utils import load_json, dump_json
+from ..utils import build_path, dedupe, group_data
 
 
 class Database:

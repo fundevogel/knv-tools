@@ -5,7 +5,7 @@ from os.path import abspath, dirname, join
 from setuptools import find_packages, setup
 
 
-VERSION = '0.3'
+VERSION = '0.5'
 
 
 def long_description():
@@ -42,7 +42,7 @@ setup(
     ],
     entry_points='''
         [console_scripts]
-        knvcli=knv_cli.cli:cli
+        knvcli=knv_cli.cli.cli:cli
     ''',
     python_requires='>=3.6',
 )
