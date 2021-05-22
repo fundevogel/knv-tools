@@ -7,13 +7,10 @@ import click
 import pendulum
 from PyPDF2 import PdfFileReader, PdfFileMerger
 
-from .algorithms.contacts import get_contacts
-from .algorithms.matching import Matching
-from .algorithms.ranking import get_ranking, get_ranking_chart
 from .config import Config
 from .database import Database
 from .utils import dump_csv, load_json
-from .utils import build_path, create_path, group_data
+from .utils import build_path, create_path, group_data, invoice2number
 
 
 clickpath = click.Path(exists=True)
@@ -56,56 +53,45 @@ def cli(config, verbose, vkn, data_dir, import_dir, export_dir):
 def match(config, year, quarter):
     """Match payments & invoices"""
 
-    # Exit if database is empty
-    payment_files = build_path(config.payment_dir, year=year, quarter=quarter)
+    # Initialize database
+    db = Database(config)
 
-    if not payment_files:
+    # Load data from ..
+    # (1) .. payment sources
+    payments = db.load_payments('paypal', year, quarter)
+
+    # Exit if database has no payments
+    if not payments:
         click.echo('Error: No payments found in database.')
-        click.Context.exit(1)
-
-    order_files = build_path(config.order_dir)
-
-    if not order_files:
-        click.echo('Error: No orders found in database.')
-        click.Context.exit(1)
-
-    info_files = build_path(config.info_dir)
-
-    if not info_files:
-        click.echo('Error: No infos found in database.')
         click.Context.exit(1)
 
     click.echo('Matching data ..', nl=False)
 
-    # Generate data from ..
-    # (1) .. payment sources
-    payments = load_json(payment_files)
-
     # (2) .. order sources
-    orders = load_json(order_files)
+    orders = db.load_orders().data
 
     # (3) .. info sources
-    infos = load_json(info_files)
+    infos = db.load_infos().data
 
     # Match payments with orders & infos
-    handler = Matching(payments, orders, infos)
+    payments.match_payments(orders, infos)
 
     if config.verbose:
-        # Write m<tches to stdout
-        click.echo(handler.data)
+        # Write matches to stdout
+        click.echo(payments.matched_payments())
 
     else:
         # Filter & merge matched invoices
         invoices = build_path(config.invoice_dir, '*.pdf')
-        invoices = {basename(invoice).split('-')[2][:-4]: invoice for invoice in invoices}
+        invoices = {invoice2number(invoice): invoice for invoice in invoices}
 
-        for code, data in group_data(handler.data).items():
+        for code, data in group_data(payments.matched_payments()).items():
             # Extract matching invoice numbers
             invoice_numbers = set()
 
             for item in data:
                 if item['Vorgang'] != 'nicht zugeordnet':
-                    for invoice_number in item['Vorgang'].split(';'):
+                    for invoice_number in item['Vorgang']:
                         invoice_numbers.add(invoice_number)
 
             # Init merger object
@@ -120,7 +106,7 @@ def match(config, year, quarter):
                         merger.append(PdfFileReader(file))
 
                 else:
-                    click.echo('Missing invoice: ' + str(invoice_number))
+                    click.echo("\n" + 'Missing invoice: ' + str(invoice_number))
 
             # Write merged PDF to disk
             invoice_file = join(config.matches_dir, code, code + '.pdf')
@@ -128,7 +114,7 @@ def match(config, year, quarter):
             merger.write(invoice_file)
 
         # Write results to CSV files
-        for code, data in group_data(handler.data).items():
+        for code, data in group_data(payments.matched_payments(True)).items():
             csv_file = join(config.matches_dir, code, code + '.csv')
             dump_csv(data, csv_file)
 
@@ -153,39 +139,39 @@ def rank(config, year, quarter, enable_chart, limit):
 
     click.echo('Ranking data ..', nl=False)
 
-    # Fetch orders
-    orders = load_json(order_files)
+    # # Fetch orders
+    # orders = load_json(order_files)
 
-    # Extract & rank sales
-    ranking = get_ranking(orders)
+    # # Extract & rank sales
+    # ranking = get_ranking(orders)
 
-    if config.verbose:
-        # Write ranking to stdout
-        click.echo(ranking)
+    # if config.verbose:
+    #     # Write ranking to stdout
+    #     click.echo(ranking)
 
-    else:
-        # Count total
-        count = sum([item['Anzahl'] for item in ranking])
+    # else:
+    #     # Count total
+    #     count = sum([item['Anzahl'] for item in ranking])
 
-        # Write ranking to CSV file
-        file_name = basename(order_files[0])[:-5] + '_' + basename(order_files[-1])[:-5]
-        ranking_file = join(config.rankings_dir, file_name + '_' + str(count) + '.csv')
+    #     # Write ranking to CSV file
+    #     file_name = basename(order_files[0])[:-5] + '_' + basename(order_files[-1])[:-5]
+    #     ranking_file = join(config.rankings_dir, file_name + '_' + str(count) + '.csv')
 
-        dump_csv(ranking, ranking_file)
+    #     dump_csv(ranking, ranking_file)
 
-    click.echo(' done!')
+    # click.echo(' done!')
 
-    # Create graph if enabled
-    if enable_chart and not config.verbose:
-        click.echo('Creating graph from data ..', nl=False)
+    # # Create graph if enabled
+    # if enable_chart and not config.verbose:
+    #     click.echo('Creating graph from data ..', nl=False)
 
-        # Plot graph into PNG file
-        chart_file = join(config.rankings_dir, file_name + '_' + str(limit) + '.png')
+    #     # Plot graph into PNG file
+    #     chart_file = join(config.rankings_dir, file_name + '_' + str(limit) + '.png')
 
-        bar_chart = get_ranking_chart(ranking, limit)
-        bar_chart.savefig(chart_file)
+    #     bar_chart = get_ranking_chart(ranking, limit)
+    #     bar_chart.savefig(chart_file)
 
-        click.echo(' done!')
+    #     click.echo(' done!')
 
 
 @cli.command()
@@ -204,34 +190,34 @@ def contacts(config, date, blocklist):
 
     click.echo('Generating contact list ..', nl=config.verbose)
 
-    # Fetch orders
-    orders = load_json(order_files)
+    # # Fetch orders
+    # orders = load_json(order_files)
 
-    # Apply 'blocklist' CLI option
-    if blocklist is not None:
-        config.blocklist = blocklist.read().splitlines()
+    # # Apply 'blocklist' CLI option
+    # if blocklist is not None:
+    #     config.blocklist = blocklist.read().splitlines()
 
-    # Set default date
-    today = pendulum.today()
+    # # Set default date
+    # today = pendulum.today()
 
-    if date is None:
-        date = today.subtract(years=2).to_datetime_string()[:10]
+    # if date is None:
+    #     date = today.subtract(years=2).to_datetime_string()[:10]
 
-    # Extract & export contacts
-    contacts = get_contacts(orders, date, config.blocklist)
+    # # Extract & export contacts
+    # contacts = get_contacts(orders, date, config.blocklist)
 
-    if config.verbose:
-        # Write contacts to stdout
-        click.echo(contacts)
+    # if config.verbose:
+    #     # Write contacts to stdout
+    #     click.echo(contacts)
 
-    else:
-        # Write contacts to CSV file
-        file_name = date + '_' + today.to_datetime_string()[:10]
-        contacts_file = join(config.contacts_dir, file_name + '.csv')
+    # else:
+    #     # Write contacts to CSV file
+    #     file_name = date + '_' + today.to_datetime_string()[:10]
+    #     contacts_file = join(config.contacts_dir, file_name + '.csv')
 
-        dump_csv(contacts, contacts_file)
+    #     dump_csv(contacts, contacts_file)
 
-    click.echo(' done!')
+    # click.echo(' done!')
 
 
 # DATABASE tasks

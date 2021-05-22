@@ -1,13 +1,15 @@
 import json
 
 from abc import ABCMeta, abstractmethod
+from datetime import datetime
 from hashlib import md5
 
 from pandas import concat, read_csv
 
 
 class BaseClass(metaclass=ABCMeta):
-    # Props
+    # PROPS
+
     data = None
     identifier = None
 
@@ -16,6 +18,8 @@ class BaseClass(metaclass=ABCMeta):
     delimiter=';'
     skiprows=None
 
+
+    # DATA methods
 
     def load_csv(self, csv_files) -> None:
         try:
@@ -82,3 +86,23 @@ class BaseClass(metaclass=ABCMeta):
     @abstractmethod
     def process_data(self, data: list) -> list:
         pass
+
+
+    # HELPER methods
+
+    def convert_date(self, string: str) -> str:
+        return datetime.strptime(string, '%d.%m.%Y').strftime('%Y-%m-%d')
+
+
+    def convert_number(self, string) -> str:
+        # Convert integers & floats
+        string = str(string)
+
+        # Check if there's a dot AND a comma, eg '1.234,56'
+        if '.' in string and ',' in string:
+            string = string.replace('.', '')
+
+        string = float(string.replace(',', '.'))
+        integer = f'{string:.2f}'
+
+        return str(integer)

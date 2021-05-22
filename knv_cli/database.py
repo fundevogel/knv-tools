@@ -15,6 +15,14 @@ from .utils import build_path, dedupe, group_data, invoice2number
 
 
 class Database:
+    # PROPS
+
+    gateways = {
+        'paypal': Paypal,
+        'volksbank': Volksbank,
+    }
+
+
     def __init__(self, config: dict) -> None:
         # Import config
         self.config = config
@@ -36,13 +44,7 @@ class Database:
     # IMPORT methods
 
     def import_payments(self) -> None:
-        # Prepare payment gateways
-        gateways = {
-            'paypal': Paypal,
-            'volksbank': Volksbank,
-        }
-
-        for identifier, gateway in gateways.items():
+        for identifier, gateway in self.gateways.items():
             # Initialize payment gateway handler
             handler = gateway()
 
@@ -61,41 +63,45 @@ class Database:
             handler.load_json(build_path(join(self.config.payment_dir, identifier)))
 
             # Split payments per-month & export them
-            for code, data in group_data(handler.payments()).items():
+            for code, data in group_data(handler.data).items():
                 dump_json(data, join(self.config.payment_dir, identifier, code + '.json'))
 
 
     def import_orders(self) -> None:
+        # Initialize handler
+        handler = Orders()
+
         # Select order files to be imported
-        import_files = build_path(self.config.import_dir, self.config.order_regex)
+        import_files = build_path(self.config.import_dir, handler.regex)
 
         # Generate order data by ..
         # (1) .. extracting information from import files
-        handler = Orders()
         handler.load_csv(import_files)
 
         # (2) .. merging with existing data
         handler.load_json(build_path(self.config.order_dir))
 
         # Split orders per-month & export them
-        for code, data in group_data(handler.orders()).items():
+        for code, data in group_data(handler.data).items():
             dump_json(data, join(self.config.order_dir, code + '.json'))
 
 
     def import_infos(self) -> None:
+        # Initialize handler
+        handler = Infos()
+
         # Select info files to be imported
-        import_files = build_path(self.config.import_dir, self.config.info_regex)
+        import_files = build_path(self.config.import_dir, handler.regex)
 
         # Generate order data by ..
         # (1) .. extracting information from import files
-        handler = Infos()
         handler.load_csv(import_files)
 
         # (2) .. merging with existing data
         handler.load_json(build_path(self.config.info_dir))
 
         # Split infos per-month & export them
-        for code, data in group_data(handler.infos()).items():
+        for code, data in group_data(handler.data).items():
             dump_json(data, join(self.config.info_dir, code + '.json'))
 
 
@@ -117,3 +123,39 @@ class Database:
 
             except:
                 raise Exception
+
+
+    def load_payments(self,
+        identifier: str,
+        year: int = None,
+        quarter: int = None,
+        months: list = None
+    ):
+        # Choose payment handler ..
+        if identifier in ['paypal', 'volksbank']:
+            # Initialize handler
+            handler = self.gateways[identifier]()
+
+            # Load respective database entries
+            handler.load_json(build_path(join(self.config.payment_dir, identifier)))
+
+            return handler
+
+        # .. otherwise, raise a formal complaint, fine Sir!
+        raise Exception
+
+
+    def load_orders(self) -> Orders:
+        # Load orders from database
+        handler = Orders()
+        handler.load_json(build_path(self.config.order_dir))
+
+        return handler
+
+
+    def load_infos(self) -> Infos:
+        # Load infos from database
+        handler = Infos()
+        handler.load_json(build_path(self.config.info_dir))
+
+        return handler

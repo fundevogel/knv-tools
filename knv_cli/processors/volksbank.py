@@ -6,17 +6,19 @@
 from re import findall, fullmatch, split
 from string import punctuation
 
-from .helpers import convert_number, convert_date
 from .payments import Payments
 
 
 class Volksbank(Payments):
-    # Props
+    # PROPS
+
     regex = 'Umsaetze_*_*.csv'
 
     # CSV options
     skiprows=12
 
+
+    # DATA methods
 
     def process_payments(self, data) -> list:
         payments = []
@@ -43,10 +45,10 @@ class Volksbank(Payments):
             payment = {}
 
             payment['ID'] = 'nicht zugeordnet'
-            payment['Datum'] = convert_date(item['Buchungstag'])
+            payment['Datum'] = self.convert_date(item['Buchungstag'])
             payment['Vorgang'] = 'nicht zugeordnet'
             payment['Name'] = item['Empfänger/Zahlungspflichtiger']
-            payment['Betrag'] = convert_number(item['Umsatz'])
+            payment['Betrag'] = self.convert_number(item['Umsatz'])
             payment['Währung'] = item['Währung']
             payment['Rohdaten'] = item['Vorgang/Verwendungszweck']
 
@@ -118,3 +120,7 @@ class Volksbank(Payments):
             payments.append(payment)
 
         return payments
+
+
+    def match_payments(self, orders: list, infos: list) -> None:
+        pass
