@@ -82,14 +82,14 @@ class Volksbank(Payments):
                     continue
 
                 # Match strings preceeded by VKN & hypen (definite hit)
-                if line.split('-')[0] == self.VKN:
+                if self.VKN + '-' in line:
                     order_candidates.append(line)
 
                 # Otherwise, try matching 6 random digits ..
                 else:
                     order_candidate = fullmatch(r"\d{6}", line)
 
-                    # .. so unless it's the VKN by itself ..
+                    # .. and unless it's the VKN by itself ..
                     if order_candidate and order_candidate[0] != self.VKN:
                         # .. we got a hit
                         order_candidates.append(self.VKN + '-' + order_candidate[0])
@@ -106,8 +106,9 @@ class Volksbank(Payments):
             pattern = r"([2][0]\d{9}|[9]\d{11})"
             invoice_candidates = findall(pattern, reference)
 
+            # If this yields no invoices as result ..
             if not invoice_candidates:
-                # Remove whitespace & try again
+                # .. remove whitespace & try again
                 reference = reference.replace(' ', '')
                 invoice_candidates = findall(pattern, reference)
 
@@ -115,7 +116,7 @@ class Volksbank(Payments):
                 payment['Vorgang'] = []
 
                 for invoice in invoice_candidates:
-                    if invoice[:2] == '20':
+                    if invoice[:1] == '2':
                         invoice = 'R' + invoice
 
                     payment['Vorgang'].append(invoice)
@@ -127,15 +128,16 @@ class Volksbank(Payments):
 
     # MATCHING methods
 
+    # TODO: Check if payment equals order total
     def match_payments(self, orders: list, infos: list) -> None:
         results = []
 
         for payment in self.data:
-            # Assign payment to invoice & order number(s)
+            # Assign payment to order number(s) & invoices
             # (1) Find matching order(s) for current payment
             matching_orders = self.match_orders(payment, orders)
 
-            # (2) Find matching invoice number(s) for each identified order
+            # (2) Find matching invoices for each identified order
             matching_invoices = self.match_invoices(matching_orders, infos)
 
             if isinstance(payment['Vorgang'], list):

@@ -3,7 +3,6 @@
 # See https://www.paypal.com/de/smarthelp/article/FAQ1007
 
 
-from datetime import datetime, timedelta
 from operator import itemgetter
 from os.path import join
 
@@ -79,10 +78,10 @@ class Paypal(Payments):
                 results.append(payment)
                 continue
 
-            matching_infos = self.match_infos(matching_order, infos)
+            matching_invoices = self.match_invoices(matching_order, infos)
 
             # Skip if no matching invoice numbers
-            if not matching_infos:
+            if not matching_invoices:
                 results.append(payment)
                 continue
 
@@ -90,7 +89,7 @@ class Paypal(Payments):
             # (1) Apply matching order number
             # (2) Add invoice number(s) to payment data
             payment['ID'] = matching_order['ID']
-            payment['Vorgang'] = matching_infos
+            payment['Vorgang'] = matching_invoices
             payment['Versand'] = matching_order['Versand']
             # (3) Add total order cost & purchased items
             payment['Summe'] = matching_order['Bestellung']['Summe']
@@ -160,26 +159,12 @@ class Paypal(Payments):
         return {}
 
 
-    def match_infos(self, order, infos) -> list:
-        info = []
-
+    def match_invoices(self, order, infos) -> list:
         for info in infos:
             if info['ID'] == order['ID']:
-                return info['Rechnungen']
+                return info['Rechnungen'].keys()
 
         return []
-
-
-    # MATCHING HELPER methods
-
-    def match_dates(self, base_date, test_date, days=1) -> bool:
-        date_objects = [datetime.strptime(date, '%Y-%m-%d') for date in [base_date, test_date]]
-        date_range = timedelta(days=days)
-
-        if date_objects[0] <= date_objects[1] <= date_objects[0] + date_range:
-            return True
-
-        return False
 
 
     # MATCHING OUTPUT methods
