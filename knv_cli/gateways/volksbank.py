@@ -7,6 +7,7 @@ from re import findall, fullmatch, split
 from string import punctuation
 
 from .payments import Payments
+from ..utils import dedupe
 
 
 class Volksbank(Payments):
@@ -102,7 +103,7 @@ class Volksbank(Payments):
             # Extract invoice numbers, matching ..
             # (1) .. '20' + 9 random digits
             # (2) .. '9' + 11 random digits
-            pattern = r"(R?[2][0]\d{9}|[9]\d{11})"
+            pattern = r"([2][0]\d{9}|[9]\d{11})"
             invoice_candidates = findall(pattern, reference)
 
             if not invoice_candidates:
@@ -111,16 +112,83 @@ class Volksbank(Payments):
                 invoice_candidates = findall(pattern, reference)
 
             if invoice_candidates:
-                payment['Vorgang'] = invoice_candidates
+                payment['Vorgang'] = []
 
-            if payment['ID'] == 'nicht zugeordnet' and payment['Vorgang'] == 'nicht zugeordnet':
-                self._blocked_payments.append(payment)
-                continue
+                for invoice in invoice_candidates:
+                    if invoice[:2] == '20':
+                        invoice = 'R' + invoice
+
+                    payment['Vorgang'].append(invoice)
 
             payments.append(payment)
 
         return payments
 
 
+    # MATCHING methods
+
     def match_payments(self, orders: list, infos: list) -> None:
-        pass
+        results = []
+
+        for payment in self.data:
+            # Assign payment to invoice & order number(s)
+            # (1) Find matching order(s) for current payment
+            matching_orders = self.match_orders(payment, orders)
+
+            # (2) Find matching invoice number(s) for each identified order
+            matching_invoices = self.match_invoices(matching_orders, infos)
+
+            if isinstance(payment['Vorgang'], list):
+                matching_invoices += payment['Vorgang']
+
+            # Store data
+            # (1) Add invoice number(s) to payment data
+            if matching_invoices:
+                payment['Vorgang'] = matching_invoices
+
+                # Reverse-lookup orders if no matching order number(s) yet
+                if not matching_orders:
+                    matching_orders = self.lookup_orders(matching_invoices, infos)
+
+            # (2) Apply matching order number(s)
+            if matching_orders:
+                payment['ID'] = matching_orders
+
+            # (3) Save matched payment
+            results.append(payment)
+
+        self._matched_payments = results
+
+
+    def match_orders(self, payment: dict, orders: list) -> list:
+        matches = []
+
+        for order in orders:
+            if order['ID'] in payment['ID']:
+                matches.append(order['ID'])
+
+        return dedupe(matches)
+
+
+    def match_invoices(self, orders: list, infos: list) -> list:
+        matches = []
+
+        for order in orders:
+            for info in infos:
+                if order == info['ID']:
+                    matches += info['Rechnungen']
+                    break
+
+        return dedupe(matches)
+
+
+    def lookup_orders(self, invoices: list, infos: list) -> list:
+        matches = []
+
+        for invoice in invoices:
+            for info in infos:
+                if invoice in info['Rechnungen']:
+                    matches.append(info['ID'])
+                    break
+
+        return dedupe(matches)
