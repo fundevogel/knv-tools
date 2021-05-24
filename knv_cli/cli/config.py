@@ -23,12 +23,6 @@ class Config(object):
             'export_dir': './dist',
         }
 
-        config['regexes'] = {
-            'order_regex': 'Orders_*.csv',
-            'info_regex': 'OrdersInfo_*.csv',
-            'invoice_regex': '*_Invoices_TimeFrom*_TimeTo*.zip',
-        }
-
         # Load config provided by user
         config_file = join(xdg_config_home(), 'knv-cli', 'config')
 

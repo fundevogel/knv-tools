@@ -7,11 +7,21 @@ from os.path import basename
 
 
 class Invoices:
-    def __init__(self, invoice_files: list):
-        self.invoices = {self.invoice2number(invoice): invoice for invoice in invoice_files}
+    # PROPS
+
+    regex = '*_Invoices_TimeFrom*_TimeTo*.pdf'
+
+
+    def __init__(self, invoice_files: list = None):
+        if invoice_files:
+            self.invoices = {self.invoice2number(invoice): invoice for invoice in invoice_files}
 
 
     # DATA methods
+
+    def load(self, invoice_files: list) -> None:
+        self.invoices = {self.invoice2number(invoice): invoice for invoice in invoice_files}
+
 
     def has(self, invoice: str) -> bool:
         return self.invoice2number(invoice) in self.invoices.keys()
