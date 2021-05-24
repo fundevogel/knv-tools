@@ -31,7 +31,7 @@ class Volksbank(Payments):
                 continue
 
             # (2) Skip opening & closing balance
-            if item['Kundenreferenz'] == 'Anfangssaldo' or item['Kundenreferenz'] == 'Endsaldo':
+            if item['Kundenreferenz'] in ['Anfangssaldo', 'Endsaldo']:
                 continue
 
             reference = split('\n', item['Vorgang/Verwendungszweck'])

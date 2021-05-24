@@ -33,16 +33,16 @@ class Payments(BaseClass):
 
     def payments(self):
         # Sort payments by date
-        return sorted(self.data, key=itemgetter('Datum'))
+        return sorted(self.data, key=itemgetter('Datum', 'Name'))
 
 
     def blocked_payments(self):
-        return sorted(self._blocked_payments, key=itemgetter('Datum'))
+        return sorted(self._blocked_payments, key=itemgetter('Datum', 'Name'))
 
 
     def matched_payments(self):
         # Sort payments by date
-        return sorted(self._matched_payments, key=itemgetter('Datum'))
+        return sorted(self._matched_payments, key=itemgetter('Datum', 'Name'))
 
 
     # MATCHING HELPER methods
