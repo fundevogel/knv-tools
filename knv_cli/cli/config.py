@@ -43,7 +43,10 @@ class Config(object):
         self.info_dir = join(self.data_dir, 'infos')
         self.invoice_dir = join(self.data_dir, 'invoices')
 
-        # (2) .. when generating data
+        # (2) .. when merging data sources
+        self.database_dir = join(self.data_dir, 'db')
+
+        # (3) .. when generating data
         self.matches_dir = join(self.export_dir, 'matches')
         self.rankings_dir = join(self.export_dir, 'rankings')
         self.contacts_dir = join(self.export_dir, 'contacts')

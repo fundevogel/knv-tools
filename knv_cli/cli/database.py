@@ -1,18 +1,17 @@
 # ~*~ coding=utf-8 ~*~
 
 
-from os import getcwd, remove
-from os.path import basename, isfile, join
-from operator import itemgetter
-from shutil import move
+import json
+
+from os import remove
+from os.path import join
 from zipfile import ZipFile
 
 from ..gateways.paypal import Paypal
 from ..gateways.volksbank import Volksbank
-from ..knv.shopkonfigurator import Orders, Infos
+from ..knv.shopkonfigurator import Shopkonfigurator
 from ..knv.invoices import Invoices
-from ..utils import load_json, dump_json
-from ..utils import build_path, dedupe, group_data
+from ..utils import build_path, create_path, group_data
 
 
 class Database:
@@ -40,6 +39,9 @@ class Database:
             'volksbank': build_path(join(config.payment_dir, 'volksbank')),
         }
 
+        # Load merged data sources
+        self.data_files = build_path(config.database_dir)
+
         # Import config
         self.config = config
 
@@ -47,9 +49,10 @@ class Database:
     # GENERAL methods
 
     def init(self) -> None:
-        self.orders = self.get_orders()
-        self.infos = self.get_infos()
-        self.invoices = self.get_invoices()
+        pass
+        # self.orders = self.get_orders()
+        # self.infos = self.get_infos()
+        # self.invoices = self.get_invoices()
 
 
     def flush(self) -> None:
@@ -60,76 +63,47 @@ class Database:
             remove(file)
 
 
-    # IMPORT methods
+    # REBUILD methods
 
-    def import_payments(self) -> None:
-        for identifier, gateway in self.gateways.items():
-            # Initialize payment gateway handler
-            handler = gateway()
-
-            # Apply VKN & blocklist CLI options
-            handler.VKN = self.config.vkn
-            handler.blocklist = self.config.blocklist
-
-            # Select payment files to be imported
-            import_files = build_path(self.config.import_dir, handler.regex)
-
-            # Generate payment data by ..
-            # (1) .. extracting information from import files
-            handler.load_csv(import_files)
-
-            # (2) .. merging with existing data
-            handler.load_json(self.payment_files[identifier])
-
-            # Split payments per-month & export them
-            for code, data in group_data(handler.data).items():
-                dump_json(data, join(self.config.payment_dir, identifier, code + '.json'))
-
-
-    def import_orders(self) -> None:
+    def rebuild_orders(self) -> None:
         # Initialize handler
-        handler = Orders()
+        handler = Shopkonfigurator()
 
         # Select order files to be imported
-        import_files = build_path(self.config.import_dir, handler.regex)
+        import_files = build_path(self.config.import_dir, handler.orders_regex)
 
-        # Generate order data by ..
-        # (1) .. extracting information from import files
-        handler.load_csv(import_files)
-
-        # (2) .. merging with existing data
-        handler.load_json(self.order_files)
+        # Extract information from import files
+        handler.load_orders(import_files)
 
         # Split orders per-month & export them
-        for code, data in group_data(handler.data).items():
-            dump_json(data, join(self.config.order_dir, code + '.json'))
+        for code, data in group_data(handler.orders).items():
+            self.dump_json(data, join(self.config.order_dir, code + '.json'))
 
 
-    def import_infos(self) -> None:
+    def rebuild_infos(self) -> None:
         # Initialize handler
-        handler = Infos()
+        handler = Shopkonfigurator()
 
         # Select info files to be imported
-        import_files = build_path(self.config.import_dir, handler.regex)
+        import_files = build_path(self.config.import_dir, handler.infos_regex)
 
-        # Generate order data by ..
-        # (1) .. extracting information from import files
-        handler.load_csv(import_files)
-
-        # (2) .. merging with existing data
-        handler.load_json(self.info_files)
+        # Extract information from import files
+        handler.load_infos(import_files)
 
         # Split infos per-month & export them
-        for code, data in group_data(handler.data).items():
-            dump_json(data, join(self.config.info_dir, code + '.json'))
+        for code, data in group_data(handler.infos).items():
+            self.dump_json(data, join(self.config.info_dir, code + '.json'))
 
 
-    def import_invoices(self) -> None:
+    def rebuild_invoices(self) -> None:
+        # Initialize handler
+        handler = Invoices()
+
         # Select invoice files to be imported
-        import_files = build_path(self.config.import_dir, self.config.invoice_regex)
+        import_files = build_path(self.config.import_dir, handler.regex)
 
         # Check invoices currently in database
-        handler = Invoices(self.invoice_files)
+        handler.load(self.invoice_files)
 
         for file in import_files:
             try:
@@ -143,6 +117,46 @@ class Database:
             except:
                 raise Exception
 
+
+    def rebuild_payments(self) -> None:
+        for identifier, gateway in self.gateways.items():
+            # Initialize payment gateway handler
+            handler = gateway()
+
+            # Apply VKN & blocklist CLI options
+            handler.VKN = self.config.vkn
+            handler.blocklist = self.config.blocklist
+
+            # Select payment files to be imported
+            import_files = build_path(self.config.import_dir, handler.regex)
+
+            # Extract information from import files
+            handler.load_csv(import_files)
+
+            # Split payments per-month & export them
+            for code, data in group_data(handler.data).items():
+                self.dump_json(data, join(self.config.payment_dir, identifier, code + '.json'))
+
+
+    def rebuild_data(self):
+        order_files = build_path(self.config.order_dir)
+        info_files = build_path(self.config.info_dir)
+        handler = Shopkonfigurator(order_files, info_files)
+
+        handler.init()
+
+        for code, data in group_data(handler.data).items():
+            self.dump_json(data, join(self.config.database_dir, code + '.json'))
+
+
+    def rebuild(self):
+        self.rebuild_orders()
+        self.rebuild_infos()
+        self.rebuild_invoices()
+        self.rebuild_data()
+
+
+    # GET methods
 
     def get_payments(self,
         identifier: str,
@@ -166,22 +180,24 @@ class Database:
         raise Exception
 
 
-    def get_orders(self, order_files: list = None) -> Orders:
-        if order_files is not None:
-            return Orders(order_files)
-
-        return Orders(self.order_files)
-
-
-    def get_infos(self, info_files: list = None) -> Infos:
-        if info_files is not None:
-            return Infos(info_files)
-
-        return Infos(self.info_files)
-
-
-    def get_invoices(self, invoice_files: list = None) -> Infos:
+    def get_invoices(self, invoice_files: list = None) -> Invoices:
         if invoice_files is not None:
             return Invoices(invoice_files)
 
         return Invoices(self.invoice_files)
+
+
+    def get_data(self) -> Shopkonfigurator:
+        handler = Shopkonfigurator()
+        handler.load_data(self.data_files)
+
+        return handler
+
+
+    # HELPER methods
+
+    def dump_json(self, data, json_file) -> None:
+        create_path(json_file)
+
+        with open(json_file, 'w') as file:
+            json.dump(data, file, ensure_ascii=False, indent=4)
