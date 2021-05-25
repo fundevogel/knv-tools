@@ -9,7 +9,7 @@ from os.path import basename
 class Invoices:
     # PROPS
 
-    regex = '*_Invoices_TimeFrom*_TimeTo*.pdf'
+    regex = '*_Invoices_TimeFrom*_TimeTo*.zip'
 
 
     def __init__(self, invoice_files: list = None):
