@@ -1,20 +1,33 @@
 # ~*~ coding=utf-8 ~*~
 
 
+import json
+
 from os.path import basename, join
 
 import click
 import pendulum
+from pandas import DataFrame
 from PyPDF2 import PdfFileReader, PdfFileMerger
 
 from .config import Config
+from ..gateways.paypal import Paypal
 from .database import Database
-from ..utils import dump_csv, load_json
 from ..utils import build_path, create_path, group_data
 
 
 clickpath = click.Path(exists=True)
 pass_config = click.make_pass_decorator(Config, ensure=True)
+
+
+# HELPER functions
+
+def dump_csv(data, csv_file) -> None:
+    # Create directory if necessary
+    create_path(csv_file)
+
+    # Write CSV file
+    DataFrame(data).to_csv(csv_file, index=False)
 
 
 @click.group()
@@ -46,73 +59,142 @@ def cli(config, verbose, vkn, data_dir, import_dir, export_dir):
 
 # GENERAL tasks
 
-@cli.command()
-@pass_config
-@click.option('-y', '--year', default=None, help='Year.')
-@click.option('-q', '--quarter', default=None, help='Quarter.')
-def match(config, year, quarter):
-    """Match payments & invoices"""
+# @cli.command()
+# @pass_config
+# @click.option('-y', '--year', default=None, help='Year.')
+# @click.option('-q', '--quarter', default=None, help='Quarter.')
+# def vb(config, year, quarter):
+#     """Match payments & invoices"""
 
-    # Initialize database
-    db = Database(config)
+#     # Initialize database
+#     db = Database(config)
 
-    # Load data from ..
-    # (1) .. payment sources
-    payments = db.get_payments('paypal', year, quarter)
+#     # Load data from ..
+#     # (1) .. payment sources
+#     payments = db.get_payments('volksbank', year, quarter)
 
-    # Exit if database has no payments
-    if not payments:
-        click.echo('Error: No payments found in database.')
-        click.Context.exit(1)
+#     # Exit if database has no payments
+#     if not payments:
+#         click.echo('Error: No payments found in database.')
+#         click.Context.exit(1)
 
-    click.echo('Matching data ..', nl=False)
+#     click.echo('Matching data ..', nl=False)
 
-    # Load orders, infos & invoices
-    db.init()
+#     # Load orders, infos & invoices
+#     db.init()
 
-    # Match payments with orders & infos
-    payments.match_payments(db.orders.data, db.infos.data)
+#     payments.match_payments(db.orders.data, db.infos.data)
+#     matched_payments = payments._matched_payments
 
-    if config.verbose:
-        # Write matches to stdout
-        click.echo(payments.matched_payments())
+#     if config.verbose:
+#         # Write matches to stdout
+#         click.echo(matched_payments)
 
-    else:
-        # Filter & merge matched invoices
-        for code, data in group_data(payments.matched_payments()).items():
-            # Extract matching invoice numbers
-            invoice_numbers = set()
+#     else:
+#         # Filter & merge matched invoices
+#         for code, data in group_data(matched_payments).items():
+#             # Extract matching invoice numbers
+#             invoice_numbers = set()
 
-            for item in data:
-                if item['Vorgang'] != 'nicht zugeordnet':
-                    for invoice_number in item['Vorgang']:
-                        invoice_numbers.add(invoice_number)
+#             for item in data:
+#                 if item['Vorgang'] != 'nicht zugeordnet':
+#                     for invoice_number in item['Vorgang']:
+#                         invoice_numbers.add(invoice_number)
 
-            # Init merger object
-            merger = PdfFileMerger()
+#             # Init merger object
+#             merger = PdfFileMerger()
 
-            # Merge corresponding invoices
-            for invoice_number in sorted(invoice_numbers):
-                if db.invoices.has(invoice_number, True):
-                    pdf_file = db.invoices.get(invoice_number)
+#             # Merge corresponding invoices
+#             for invoice_number in sorted(invoice_numbers):
+#                 if db.invoices.has(invoice_number):
+#                     pdf_file = db.invoices.get(invoice_number)
 
-                    with open(pdf_file, 'rb') as file:
-                        merger.append(PdfFileReader(file))
+#                     with open(pdf_file, 'rb') as file:
+#                         merger.append(PdfFileReader(file))
 
-                else:
-                    click.echo("\n" + 'Missing invoice: ' + str(invoice_number))
+#                 else:
+#                     click.echo("\n" + 'Missing invoice: ' + str(invoice_number))
 
-            # Write merged PDF to disk
-            invoice_file = join(config.matches_dir, code, code + '.pdf')
-            create_path(invoice_file)
-            merger.write(invoice_file)
+#             # Write merged PDF to disk
+#             invoice_file = join(config.matches_dir, 'volksbank', code, code + '.pdf')
+#             create_path(invoice_file)
+#             merger.write(invoice_file)
 
-        # Write results to CSV files
-        for code, data in group_data(payments.matched_payments(True)).items():
-            csv_file = join(config.matches_dir, code, code + '.csv')
-            dump_csv(data, csv_file)
+#     # Match payments with orders & infos
+#     for code, data in group_data(matched_payments).items():
+#         csv_file = join(config.matches_dir, 'volksbank', code, code + '.csv')
+#         dump_csv(data, csv_file)
 
-    click.echo(' done!')
+#     click.echo(' done!')
+
+
+# @cli.command()
+# @pass_config
+# @click.option('-y', '--year', default=None, help='Year.')
+# @click.option('-q', '--quarter', default=None, help='Quarter.')
+# def match(config, year, quarter):
+#     """Match payments & invoices"""
+
+#     # Initialize database
+#     db = Database(config)
+
+#     # Load data from ..
+#     # (1) .. payment sources
+#     payments = db.get_payments('paypal', year, quarter)
+
+#     # Exit if database has no payments
+#     if not payments:
+#         click.echo('Error: No payments found in database.')
+#         click.Context.exit(1)
+
+#     click.echo('Matching data ..', nl=False)
+
+#     # Load orders, infos & invoices
+#     db.init()
+
+#     # Match payments with orders & infos
+#     payments.match_payments(db.orders.data, db.infos.data)
+
+#     if config.verbose:
+#         # Write matches to stdout
+#         click.echo(payments.matched_payments())
+
+#     else:
+#         # Filter & merge matched invoices
+#         for code, data in group_data(payments.matched_payments()).items():
+#             # Extract matching invoice numbers
+#             invoice_numbers = set()
+
+#             for item in data:
+#                 if item['Vorgang'] != 'nicht zugeordnet':
+#                     for invoice_number in item['Vorgang']:
+#                         invoice_numbers.add(invoice_number)
+
+#             # Init merger object
+#             merger = PdfFileMerger()
+
+#             # Merge corresponding invoices
+#             for invoice_number in sorted(invoice_numbers):
+#                 if db.invoices.has(invoice_number):
+#                     pdf_file = db.invoices.get(invoice_number)
+
+#                     with open(pdf_file, 'rb') as file:
+#                         merger.append(PdfFileReader(file))
+
+#                 else:
+#                     click.echo("\n" + 'Missing invoice: ' + str(invoice_number))
+
+#             # Write merged PDF to disk
+#             invoice_file = join(config.matches_dir, code, code + '.pdf')
+#             create_path(invoice_file)
+#             merger.write(invoice_file)
+
+#         # Write results to CSV files
+#         for code, data in group_data(payments.matched_payments(True)).items():
+#             csv_file = join(config.matches_dir, code, code + '.csv')
+#             dump_csv(data, csv_file)
+
+#     click.echo(' done!')
 
 
 @cli.command()
@@ -127,17 +209,20 @@ def rank(config, year, quarter, enable_chart, limit):
     # Initialize database
     db = Database(config)
 
-    # Exit if database is empty
-    order_files = build_path(config.order_dir, year=year, quarter=quarter)
+    # Initialize handler
+    handler = db.get_data()
 
-    if not order_files:
+    # Exit if database is empty
+    data_files = build_path(config.database_dir, year=year, quarter=quarter)
+
+    if not data_files:
         click.echo('Error: No orders found in database.')
         click.Context.exit(1)
 
     click.echo('Ranking data ..', nl=False)
 
     # Initialize handler
-    handler = db.get_orders(order_files)
+    handler = db.get_data(data_files)
 
     # Extract & rank sales
     ranking = handler.get_ranking()
@@ -151,7 +236,7 @@ def rank(config, year, quarter, enable_chart, limit):
         count = sum([item['Anzahl'] for item in ranking])
 
         # Write ranking to CSV file
-        file_name = basename(order_files[0])[:-5] + '_' + basename(order_files[-1])[:-5]
+        file_name = basename(data_files[0])[:-5] + '_' + basename(data_files[-1])[:-5]
         ranking_file = join(config.rankings_dir, file_name + '_' + str(count) + '.csv')
 
         dump_csv(ranking, ranking_file)
@@ -181,30 +266,29 @@ def contacts(config, date, blocklist):
     # Initialize database
     db = Database(config)
 
-    # Exit if database is empty
-    order_files = build_path(config.order_dir)
+    # Initialize handler
+    handler = db.get_data()
 
-    if not order_files:
+    # Exit if database is empty
+    if not handler.data:
         click.echo('Error: No orders found in database.')
         click.Context.exit(1)
 
     click.echo('Generating contact list ..', nl=config.verbose)
 
-    # Initialize handler
-    handler = db.get_orders(order_files)
-
-    # Apply 'blocklist' CLI option
-    if blocklist is not None:
-        config.blocklist = blocklist.read().splitlines()
-
-    # Set default date
+    # Generate contact list
+    # (1) Set default date
     today = pendulum.today()
 
     if date is None:
         date = today.subtract(years=2).to_datetime_string()[:10]
 
-    # Extract & export contacts
-    contacts = handler.get_contacts(handler.data, date, config.blocklist)
+    # (2) Apply 'blocklist' CLI option
+    if blocklist is not None:
+        config.blocklist = blocklist.read().splitlines()
+
+    # (3) Extract & export contacts
+    contacts = handler.get_contacts(date, config.blocklist)
 
     if config.verbose:
         # Write contacts to stdout
@@ -231,44 +315,6 @@ def db(config):
 
 @db.command()
 @pass_config
-def update(config):
-    """Update database"""
-
-    # Initialize database
-    db = Database(config)
-
-    # Import payment files
-    click.echo('Importing payments ..', nl=False)
-    db.import_payments()
-    click.echo(' done.')
-
-    # Import order files
-    click.echo('Importing orders ..', nl=False)
-    db.import_orders()
-    click.echo(' done.')
-
-    # Import info files
-    click.echo('Importing infos ..', nl=False)
-    db.import_infos()
-    click.echo(' done.')
-
-    # Import PDF files
-    click.echo('Importing invoices ..', nl=False)
-    db.import_invoices()
-    click.echo(' done.')
-
-    click.echo('Update complete!')
-
-
-@db.command()
-@pass_config
-def stats():
-    """Show statistics"""
-    pass
-
-
-@db.command()
-@pass_config
 def flush(config):
     """Flush database"""
 
@@ -279,3 +325,47 @@ def flush(config):
     click.echo('Flushing database ..', nl=False)
     db.flush()
     click.echo(' done.')
+
+
+@db.command()
+@pass_config
+def rebuild(config):
+    """Rebuild database"""
+
+    # Initialize database
+    db = Database(config)
+
+    # Import payment files
+    click.echo('Importing payments ..', nl=False)
+    db.rebuild_payments()
+    click.echo(' done.')
+
+    # Import order files
+    click.echo('Importing orders ..', nl=False)
+    db.rebuild_orders()
+    click.echo(' done.')
+
+    # Import info files
+    click.echo('Importing infos ..', nl=False)
+    db.rebuild_infos()
+    click.echo(' done.')
+
+    # Import PDF files
+    click.echo('Importing invoices ..', nl=False)
+    db.rebuild_invoices()
+    click.echo(' done.')
+
+    # Merge data sources
+    click.echo('Merging data ..', nl=False)
+    db.rebuild_data()
+    click.echo(' done.')
+
+    click.echo('Update complete!')
+
+
+@db.command()
+@pass_config
+def stats():
+    """Show statistics"""
+
+    pass

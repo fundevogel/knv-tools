@@ -27,19 +27,16 @@ class Shopkonfigurator:
     infos_regex = 'OrdersInfo_*.csv'
 
 
-    def __init__(self, order_files: list = None, info_files: list = None) -> None:
-        if order_files:
-            self.load_orders(order_files)
-
-        if info_files:
-            self.load_infos(info_files)
-
-        # Execute!
-        if self.orders and self.infos:
-            self.init()
+    def __init__(self, data_files: list = None) -> None:
+        if data_files:
+            self.load_data(data_files)
 
 
     # DATA methods
+
+    def load_data(self, data_files: list = None) -> None:
+        self.data = self.load_json(data_files)
+
 
     def load_orders(self, order_files: list) -> None:
         # Depending on filetype, proceed with ..
@@ -112,36 +109,36 @@ class Shopkonfigurator:
 
     # # RANKING methods
 
-    # def get_ranking(self) -> list:
-    #     data = {}
+    def get_ranking(self) -> list:
+        data = {}
 
-    #     # Sum up number of sales
-    #     for order in self.data:
-    #         for isbn, product in order['Bestellung'].items():
-    #             # Skip total order cost
-    #             if isbn == 'Summe':
-    #                 continue
+        # Sum up number of sales
+        for order in self.data:
+            for isbn, product in order['Bestellung'].items():
+                # Skip total order cost
+                if isbn == 'Summe':
+                    continue
 
-    #             if isbn not in data:
-    #                 data[isbn] = product['Anzahl']
+                if isbn not in data:
+                    data[isbn] = product['Anzahl']
 
-    #             else:
-    #                 data[isbn] = data[isbn] + product['Anzahl']
+                else:
+                    data[isbn] = data[isbn] + product['Anzahl']
 
-    #     ranking = []
+        ranking = []
 
-    #     for isbn, quantity in data.items():
-    #         item = {}
+        for isbn, quantity in data.items():
+            item = {}
 
-    #         item['ISBN'] = isbn
-    #         item['Anzahl'] = quantity
+            item['ISBN'] = isbn
+            item['Anzahl'] = quantity
 
-    #         ranking.append(item)
+            ranking.append(item)
 
-    #     # Sort sales by quantity & in descending order
-    #     ranking.sort(key=itemgetter('Anzahl'), reverse=True)
+        # Sort sales by quantity & in descending order
+        ranking.sort(key=itemgetter('Anzahl'), reverse=True)
 
-    #     return ranking
+        return ranking
 
 
     # def get_ranking_chart(self, ranking, limit=1, kind='barh'):
@@ -158,46 +155,50 @@ class Shopkonfigurator:
     #     return df.plot(kind=kind).get_figure()
 
 
-    # # CONTACTS methods
+    # CONTACTS methods
 
-    # def get_contacts(self, orders: list, cutoff_date: str = None, blocklist = []) -> list:
-    #     # Set default date
-    #     if cutoff_date is None:
-    #         today = pendulum.today()
-    #         cutoff_date = today.subtract(years=2).to_datetime_string()[:10]
+    def get_contacts(self, cutoff_date: str = None, blocklist = []) -> list:
+        # Check if order entries are present
+        if not self.data:
+            raise Exception
 
-    #     # Sort orders by date & in descending order
-    #     orders.sort(key=itemgetter('Datum'), reverse=True)
 
-    #     codes = set()
-    #     contacts  = []
+        # Set default date
+        if cutoff_date is None:
+            today = pendulum.today()
+            cutoff_date = today.subtract(years=2).to_datetime_string()[:10]
 
-    #     for order in orders:
-    #         mail_address = order['Email']
+        codes = set()
+        contacts  = []
 
-    #         # Check for blocklisted mail addresses
-    #         if mail_address in blocklist:
-    #             continue
+        for order in self.data:
+            mail_address = order['Email']
 
-    #         # Throw out everything before cutoff date (if provided)
-    #         if order['Datum'] < cutoff_date:
-    #             continue
+            # Check for blocklisted mail addresses
+            if mail_address in blocklist:
+                continue
 
-    #         # Prepare dictionary
-    #         contact = {}
+            # Throw out everything before cutoff date (if provided)
+            if order['Datum'] < cutoff_date:
+                continue
 
-    #         contact['Anrede'] = order['Anrede']
-    #         contact['Vorname'] = order['Vorname']
-    #         contact['Nachname'] = order['Nachname']
-    #         contact['Name'] = order['Name']
-    #         contact['Email'] = order['Email']
-    #         contact['Letzte Bestellung'] = order['Datum']
+            # Prepare dictionary
+            contact = {}
 
-    #         if mail_address not in codes:
-    #             codes.add(mail_address)
-    #             contacts.append(contact)
+            contact['Anrede'] = order['Anrede']
+            contact['Vorname'] = order['Vorname']
+            contact['Nachname'] = order['Nachname']
+            contact['Email'] = order['Email']
+            contact['Letzte Bestellung'] = order['Datum']
 
-    #     return contacts
+            if mail_address not in codes:
+                codes.add(mail_address)
+                contacts.append(contact)
+
+        # Sort by date & lastname, in descending order
+        contacts.sort(key=itemgetter('Letzte Bestellung', 'Nachname'), reverse=True)
+
+        return contacts
 
 
     # HELPER methods

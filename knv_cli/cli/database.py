@@ -139,9 +139,10 @@ class Database:
 
 
     def rebuild_data(self):
-        order_files = build_path(self.config.order_dir)
-        info_files = build_path(self.config.info_dir)
-        handler = Shopkonfigurator(order_files, info_files)
+        handler = Shopkonfigurator()
+
+        handler.load_orders(build_path(self.config.order_dir))
+        handler.load_infos(build_path(self.config.info_dir))
 
         handler.init()
 
@@ -181,17 +182,17 @@ class Database:
 
 
     def get_invoices(self, invoice_files: list = None) -> Invoices:
-        if invoice_files is not None:
+        if invoice_files:
             return Invoices(invoice_files)
 
         return Invoices(self.invoice_files)
 
 
-    def get_data(self) -> Shopkonfigurator:
-        handler = Shopkonfigurator()
-        handler.load_data(self.data_files)
+    def get_data(self, data_files: list = None) -> Shopkonfigurator:
+        if data_files:
+            return Shopkonfigurator(data_files)
 
-        return handler
+        return Shopkonfigurator(self.data_files)
 
 
     # HELPER methods
