@@ -6,10 +6,10 @@
 from operator import itemgetter
 from os.path import join
 
-from .payments import Payments
+from .payments import Gateway
 
 
-class Paypal(Payments):
+class Paypal(Gateway):
     # PROPS
 
     identifier = 'Transaktion'
@@ -65,7 +65,7 @@ class Paypal(Payments):
 
     # MATCHING methods
 
-    def match_payments(self, orders: list, infos: list) -> None:
+    def match_payments(self, data: list) -> None:
         results = []
 
         for payment in self.data:

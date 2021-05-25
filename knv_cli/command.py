@@ -6,7 +6,7 @@ from operator import itemgetter
 from pandas import concat, read_csv
 
 
-class BaseClass(ABC):
+class Command(ABC):
     # PROPS
 
     data = None

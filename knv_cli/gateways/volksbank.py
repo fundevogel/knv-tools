@@ -6,11 +6,12 @@
 from re import findall, fullmatch, split
 from string import punctuation
 
-from .payments import Payments
 from ..utils import dedupe
 
+from .payments import Gateway
 
-class Volksbank(Payments):
+
+class Volksbank(Gateway):
     # PROPS
 
     regex = 'Umsaetze_*_*.csv'
@@ -129,7 +130,7 @@ class Volksbank(Payments):
     # MATCHING methods
 
     # TODO: Check if payment equals order total
-    def match_payments(self, orders: list, infos: list) -> None:
+    def match_payments(self, data: list) -> None:
         results = []
 
         for payment in self.data:

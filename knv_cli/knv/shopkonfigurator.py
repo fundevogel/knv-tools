@@ -3,8 +3,6 @@
 # See http://www.knv-info.de/wp-content/uploads/2020/04/Auftragsdatenexport2.pdf
 
 
-import json
-
 from operator import itemgetter
 from os.path import splitext
 
@@ -13,13 +11,13 @@ import pendulum
 from matplotlib import pyplot, rcParams
 from pandas import DataFrame
 
-from ..base import BaseClass
+from ..command import Command
+from ..receiver import Receiver
 
 
-class Shopkonfigurator:
+class Shopkonfigurator(Receiver):
     # PROPS
 
-    data = None
     orders = None
     infos = None
 
@@ -27,16 +25,7 @@ class Shopkonfigurator:
     infos_regex = 'OrdersInfo_*.csv'
 
 
-    def __init__(self, data_files: list = None) -> None:
-        if data_files:
-            self.load_data(data_files)
-
-
     # DATA methods
-
-    def load_data(self, data_files: list = None) -> None:
-        self.data = self.load_json(data_files)
-
 
     def load_orders(self, order_files: list) -> None:
         # Depending on filetype, proceed with ..
@@ -64,7 +53,7 @@ class Shopkonfigurator:
         self.infos = info_data
 
 
-    def init(self, force: bool = False):
+    def init(self, force: bool = False) -> None:
         # Merge orders & infos
         if not self.data or force:
             self.data = self.merge_data(self.orders, self.infos)
@@ -201,26 +190,7 @@ class Shopkonfigurator:
         return contacts
 
 
-    # HELPER methods
-
-    def load_json(self, json_files: list):
-        data = []
-
-        for json_file in json_files:
-            try:
-                with open(json_file, 'r') as file:
-                    data.extend(json.load(file))
-
-            except json.decoder.JSONDecodeError:
-                raise Exception
-
-            except FileNotFoundError:
-                pass
-
-        return data
-
-
-class Orders(BaseClass):
+class Orders(Command):
     # DATA methods
 
     def process_data(self, order_data: list) -> dict:
@@ -295,7 +265,7 @@ class Orders(BaseClass):
         return sorted(list(self.data.values()), key=itemgetter('Datum', 'ID'))
 
 
-class Infos(BaseClass):
+class Infos(Command):
     # DATA methods
 
     def process_data(self, info_data: list) -> dict:
