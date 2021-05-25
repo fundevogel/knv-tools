@@ -8,7 +8,7 @@ from string import punctuation
 
 from ..utils import dedupe
 
-from .payments import Gateway
+from .gateway import Gateway
 
 
 class Volksbank(Gateway):

@@ -6,7 +6,7 @@
 from operator import itemgetter
 from os.path import join
 
-from .payments import Gateway
+from .gateway import Gateway
 
 
 class Paypal(Gateway):
