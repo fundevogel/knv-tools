@@ -7,8 +7,7 @@ from os import remove
 from os.path import join
 from zipfile import ZipFile
 
-from ..gateways.paypal import Paypal
-from ..gateways.volksbank import Volksbank
+from ..gateways.payments import Payments
 from ..knv.shopkonfigurator import Shopkonfigurator
 from ..knv.invoices import Invoices
 from ..utils import build_path, create_path, group_data
@@ -23,10 +22,10 @@ class Database:
     invoices = None
 
     # Available payment gateways
-    gateways = {
-        'paypal': Paypal,
-        'volksbank': Volksbank,
-    }
+    gateways = [
+        'paypal',
+        'volksbank',
+    ]
 
 
     def __init__(self, config: dict) -> None:
@@ -119,9 +118,9 @@ class Database:
 
 
     def rebuild_payments(self) -> None:
-        for identifier, gateway in self.gateways.items():
+        for identifier in self.gateways:
             # Initialize payment gateway handler
-            handler = gateway()
+            handler = Payments().load(identifier)
 
             # Apply VKN & blocklist CLI options
             handler.VKN = self.config.vkn
@@ -165,20 +164,18 @@ class Database:
         quarter: int = None,
         months: list = None
     ):
-        # Choose payment handler ..
-        if identifier in ['paypal', 'volksbank']:
-            # Load respective database entries
-            payment_files = build_path(
-                join(self.config.payment_dir, identifier),
-                year=year,
-                quarter=quarter,
-                months=months
-            )
+        # Load respective database entries
+        payment_files = build_path(
+            join(self.config.payment_dir, identifier),
+            year=year,
+            quarter=quarter,
+            months=months
+        )
 
-            return self.gateways[identifier](payment_files)
+        # Initialize handler
+        handler = Payments()
 
-        # .. otherwise, raise a formal complaint, fine Sir!
-        raise Exception
+        return handler.load(identifier, payment_files)
 
 
     def get_invoices(self, invoice_files: list = None) -> Invoices:

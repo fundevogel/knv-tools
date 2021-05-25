@@ -1,3 +1,7 @@
+# Works with Python v3.10+
+# See https://stackoverflow.com/a/33533514
+from __future__ import annotations
+
 from os.path import splitext
 
 from ..receiver import Receiver
@@ -10,36 +14,39 @@ class Payments(Receiver):
     # PROPS
 
     paypal = None
-    Volksbank = None
+    volksbank = None
+
+    # Available payment gateways
+    gateways = {
+        'paypal': Paypal,
+        'volksbank': Volksbank,
+    }
 
 
     # DATA methods
 
-    def load_paypal(self, payment_files: list) -> None:
+    def load(self, identifier: str, payment_files: list = None):
+        if not payment_files:
+            return self.gateways[identifier]()
+
         # Depending on filetype, proceed with ..
         extension = splitext(payment_files[0])[1]
 
+        # .. processing unformatted CSV data
         if extension == '.csv':
-            payment_data = Paypal(payment_files).payments()
+            return self.gateways[identifier](payment_files)
 
+        # .. loading formatted JsON data
         if extension == '.json':
-            payment_data = self.load_json(payment_files)
+            return self.gateways[identifier]().load(self.load_json(payment_files))
 
-        self.paypal = payment_data
-
-
-    def load_volksbank(self, payment_files: list) -> None:
-        # Depending on filetype, proceed with ..
-        extension = splitext(payment_files[0])[1]
-
-        if extension == '.csv':
-            payment_data = Volksbank(payment_files).payments()
-
-        if extension == '.json':
-            payment_data = self.load_json(payment_files)
-
-        self.volksbank = payment_data
+        # .. otherwise, raise a formal complaint, fine Sir!
+        raise Exception
 
 
-    def init(self, force: bool = False) -> None:
-        pass
+    def init(self, force: bool = False) -> Payments:
+        # Initialize payment handlers
+        for identifier in self.gateways.keys():
+            setattr(self, identifier, self.load(identifier))
+
+        return self
