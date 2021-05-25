@@ -33,17 +33,6 @@ verbose = off  # Enable verbose mode
 data_dir = ~/.local/share/knv-cli  # database directory
 import_dir = ./imports             # files to be processed & imported to database
 export_dir = ./dist                # generated spreadsheets & graphs
-
-# Regexes for import files
-[regexes]
-# (1) .. exported by PayPal™
-payment_regex = Download*.CSV
-# (2) .. exported by Volksbank
-volksbank_regex = Umsaetze_*_*.csv
-# (3) .. exported by Shopkonfigurator
-order_regex = Orders_*.csv
-info_regex = OrdersInfo_*.csv
-invoice_regex = *_Invoices_TimeFrom*_TimeTo*.pdf
 ```
 
 As you can see, many config options refer to the directory from which `knvcli` is being called.

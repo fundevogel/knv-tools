@@ -1,53 +1,13 @@
 # ~*~ coding=utf-8 ~*~
 
 
-import json
-
 from glob import glob
 from hashlib import md5
 from os import makedirs
 from os.path import exists, dirname, join
 
-from pandas import DataFrame
 
-
-# CSV tasks
-
-def dump_csv(data, csv_file) -> None:
-    # Create directory if necessary
-    create_path(csv_file)
-
-    # Write CSV file
-    DataFrame(data).to_csv(csv_file, index=False)
-
-
-# JSON tasks
-
-def load_json(json_files) -> list:
-    data = []
-
-    for json_file in json_files:
-        try:
-            with open(json_file, 'r') as file:
-                data.extend(json.load(file))
-
-        except json.decoder.JSONDecodeError:
-            raise Exception
-
-        except FileNotFoundError:
-            pass
-
-    return data
-
-
-def dump_json(data, json_file) -> None:
-    create_path(json_file)
-
-    with open(json_file, 'w') as file:
-        json.dump(data, file, ensure_ascii=False, indent=4)
-
-
-# Helper functions
+# UTILITY functions
 
 def build_path(
     base_path: str,

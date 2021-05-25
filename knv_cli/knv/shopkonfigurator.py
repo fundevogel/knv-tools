@@ -3,94 +3,102 @@
 # See http://www.knv-info.de/wp-content/uploads/2020/04/Auftragsdatenexport2.pdf
 
 
-from abc import abstractmethod
 from operator import itemgetter
+from os.path import splitext
 
 import pendulum
 
 from matplotlib import pyplot, rcParams
 from pandas import DataFrame
 
-from ..base import BaseClass
+from ..receiver import Receiver
+
+from .infos import Infos
+from .orders import Orders
 
 
-class Orders(BaseClass):
+class Shopkonfigurator(Receiver):
     # PROPS
 
-    identifier = 'ID'
-    regex = 'Orders_*.csv'
+    orders = None
+    infos = None
+
+    orders_regex = 'Orders_*.csv'
+    infos_regex = 'OrdersInfo_*.csv'
 
 
     # DATA methods
 
-    def process_data(self, order_data: list) -> list:
-        '''
-        Processes 'Orders_*.csv' files
-        '''
-        orders = {}
+    def load_orders(self, order_files: list) -> None:
+        # Depending on filetype, proceed with ..
+        extension = splitext(order_files[0])[1]
 
-        for item in order_data:
-            # Create reliable article number ..
-            clean_isbn = item['isbn']
+        if extension == '.csv':
+            order_data = Orders(order_files).orders()
 
-            # .. since ISBNs are not always ISBNs
-            if str(clean_isbn) == 'nan' or str(clean_isbn)[:3] != '978':
-                clean_isbn = item['knvnumber']
+        if extension == '.json':
+            order_data = self.load_json(order_files)
 
-            # .. and - more often than not - formatted as floats with a trailing zero
-            clean_isbn = str(clean_isbn).replace('.0', '')
-
-            # Populate set with identifiers
-            codes = {order for order in orders.keys()}
-
-            # Assign identifier
-            code = item['ormorderid']
-
-            if code not in codes:
-                order = {}
-
-                order['ID'] = code
-                order['Datum'] = item['timeplaced'][:10]
-                order['Anrede'] = item['rechnungaddresstitle']
-                order['Vorname'] = item['rechnungaddressfirstname']
-                order['Nachname'] = item['rechnungaddresslastname']
-                order['Name'] = ' '.join([item['rechnungaddressfirstname'], item['rechnungaddresslastname']])
-                order['Email'] = item['rechnungaddressemail']
-                order['Bestellung'] = {'Summe': self.convert_number(item['totalproductcost'])}
-                order['Versand'] = self.convert_number(item['totalshipping'])
-                order['Betrag'] = self.convert_number(item['totalordercost'])
-                order['Währung'] = item['currency']
-                order['Abwicklung'] = {'Zahlungsart': 'keine Angabe', 'Transaktionscode': 'keine Angabe'}
-
-                orders[code] = order
-                codes.add(code)
-
-            # Add information about each purchased article
-            orders[code]['Bestellung'][clean_isbn] = {
-                'Anzahl': int(item['quantity']),
-                'Preis': self.convert_number(item['orderitemunitprice']),
-                'Steuersatz': self.convert_number(item['vatpercent']),
-                'Steueranteil': self.convert_number(item['vatprice']),
-            }
-
-            # Add information about ..
-            # (1) .. method of payment
-            if str(item['paymenttype']) != 'nan':
-                orders[code]['Abwicklung']['Zahlungsart'] = item['paymenttype']
-
-            # (2) .. transaction number (Paypal™ only)
-            if str(item['transactionid']) != 'nan':
-                orders[code]['Abwicklung']['Transaktionscode'] = str(item['transactionid'])
-
-        return list(orders.values())
+        self.orders = order_data
 
 
-    def orders(self):
-        # Sort orders by date
-        return sorted(self.data, key=itemgetter('Datum'))
+    def load_infos(self, info_files: list) -> None:
+        # Depending on filetype, proceed with ..
+        extension = splitext(info_files[0])[1]
+
+        if extension == '.csv':
+            info_data = Infos(info_files).infos()
+
+        if extension == '.json':
+            info_data = self.load_json(info_files)
+
+        self.infos = info_data
 
 
-    # RANKING methods
+    def init(self, force: bool = False) -> None:
+        # Merge orders & infos
+        if not self.data or force:
+            self.data = self.merge_data(self.orders, self.infos)
+
+
+    def merge_data(self, order_data: list, info_data: list) -> list:
+        data = {}
+
+        for order in order_data:
+            code = order['ID']
+
+            if code not in data:
+                order['Rechnungen'] = 'nicht zugeordnet'
+                order['Abrechnungen'] = 'nicht zugeordnet'
+
+                for info in info_data:
+                    # Match order & info one-to-one first
+                    if code == info['ID']:
+                        # Prepare data storage for invoices
+                        invoice_data = {}
+
+                        # Keep original data (as safety measure)
+                        order['Rechnungen'] = info['Rechnungen']
+
+                        for invoice_number, item_numbers in info['Rechnungen'].items():
+                            # Add empty invoice placeholder
+                            invoice_data[invoice_number] = []
+
+                            for item_number in item_numbers:
+                                # Add invoice data if item numbers match
+                                if item_number in order['Bestellung'].keys():
+                                    invoice_data[invoice_number].append(order['Bestellung'][item_number])
+
+                        order['Abrechnungen'] = invoice_data
+
+                        break
+
+                data[code] = order
+
+        return sorted(list(data.values()), key=itemgetter('Datum', 'ID', 'Nachname'))
+
+
+    # # RANKING methods
 
     def get_ranking(self) -> list:
         data = {}
@@ -124,35 +132,37 @@ class Orders(BaseClass):
         return ranking
 
 
-    def get_ranking_chart(self, ranking, limit=1, kind='barh'):
-        # Update ranking to only include entries above set limit
-        ranking = [{'Anzahl': item['Anzahl'], 'ISBN': item['ISBN']} for item in ranking if item['Anzahl'] >= int(limit)]
-        df = DataFrame(ranking, index=[item['ISBN'] for item in ranking])
+    # def get_ranking_chart(self, ranking, limit=1, kind='barh'):
+    #     # Update ranking to only include entries above set limit
+    #     ranking = [{'Anzahl': item['Anzahl'], 'ISBN': item['ISBN']} for item in ranking if item['Anzahl'] >= int(limit)]
+    #     df = DataFrame(ranking, index=[item['ISBN'] for item in ranking])
 
-        # Rotate & center x-axis labels
-        pyplot.xticks(rotation=45, horizontalalignment='center')
+    #     # Rotate & center x-axis labels
+    #     pyplot.xticks(rotation=45, horizontalalignment='center')
 
-        # Make graph 'just fit' image dimensions
-        rcParams.update({'figure.autolayout': True})
+    #     # Make graph 'just fit' image dimensions
+    #     rcParams.update({'figure.autolayout': True})
 
-        return df.plot(kind=kind).get_figure()
+    #     return df.plot(kind=kind).get_figure()
 
 
     # CONTACTS methods
 
-    def get_contacts(self, orders: list, cutoff_date: str = None, blocklist = []) -> list:
+    def get_contacts(self, cutoff_date: str = None, blocklist = []) -> list:
+        # Check if order entries are present
+        if not self.data:
+            raise Exception
+
+
         # Set default date
         if cutoff_date is None:
             today = pendulum.today()
             cutoff_date = today.subtract(years=2).to_datetime_string()[:10]
 
-        # Sort orders by date & in descending order
-        orders.sort(key=itemgetter('Datum'), reverse=True)
-
         codes = set()
         contacts  = []
 
-        for order in orders:
+        for order in self.data:
             mail_address = order['Email']
 
             # Check for blocklisted mail addresses
@@ -169,7 +179,6 @@ class Orders(BaseClass):
             contact['Anrede'] = order['Anrede']
             contact['Vorname'] = order['Vorname']
             contact['Nachname'] = order['Nachname']
-            contact['Name'] = order['Name']
             contact['Email'] = order['Email']
             contact['Letzte Bestellung'] = order['Datum']
 
@@ -177,54 +186,7 @@ class Orders(BaseClass):
                 codes.add(mail_address)
                 contacts.append(contact)
 
+        # Sort by date & lastname, in descending order
+        contacts.sort(key=itemgetter('Letzte Bestellung', 'Nachname'), reverse=True)
+
         return contacts
-
-
-class Infos(BaseClass):
-    # Props
-    identifier = 'ID'
-    regex = 'OrdersInfo_*.csv'
-
-
-    def process_data(self, info_data: list) -> list:
-        '''
-        Processes 'OrdersInfo_*.csv' files
-        '''
-        infos = {}
-
-        for item in info_data:
-            # Create reliable invoice number ..
-            clean_number = None
-
-            if str(item['Invoice Number']) != 'nan':
-                clean_number = str(item['Invoice Number']).replace('.0', '')
-
-            # Populate set with identifiers
-            codes = {info for info in infos.keys()}
-
-            # Assign identifier
-            code = item['OrmNumber']
-
-            if code not in codes:
-                info = {}
-
-                info['ID'] = code
-                info['Datum'] = item['Creation Date'][:10]
-                info['Rechnungen'] = []
-
-                if clean_number:
-                    info['Rechnungen'].append(clean_number)
-
-                codes.add(code)
-                infos[code] = info
-
-            else:
-                if clean_number and clean_number not in infos[code]['Rechnungen']:
-                    infos[code]['Rechnungen'].append(clean_number)
-
-        return list(infos.values())
-
-
-    def infos(self):
-        # Sort infos by date
-        return sorted(self.data, key=itemgetter('Datum'))

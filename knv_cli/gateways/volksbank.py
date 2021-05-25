@@ -6,11 +6,13 @@
 from re import findall, fullmatch, split
 from string import punctuation
 
-from .payments import Payments
+from ..knv.invoices import Invoices
 from ..utils import dedupe
 
+from .gateway import Gateway
 
-class Volksbank(Payments):
+
+class Volksbank(Gateway):
     # PROPS
 
     regex = 'Umsaetze_*_*.csv'
@@ -31,7 +33,7 @@ class Volksbank(Payments):
                 continue
 
             # (2) Skip opening & closing balance
-            if item['Kundenreferenz'] == 'Anfangssaldo' or item['Kundenreferenz'] == 'Endsaldo':
+            if item['Kundenreferenz'] in ['Anfangssaldo', 'Endsaldo']:
                 continue
 
             reference = split('\n', item['Vorgang/Verwendungszweck'])
@@ -129,32 +131,52 @@ class Volksbank(Payments):
     # MATCHING methods
 
     # TODO: Check if payment equals order total
-    def match_payments(self, orders: list, infos: list) -> None:
+    def match_payments(self, data: list, invoice_handler: Invoices = None) -> None:
         results = []
 
         for payment in self.data:
             # Assign payment to order number(s) & invoices
             # (1) Find matching order(s) for current payment
-            matching_orders = self.match_orders(payment, orders)
+            matching_orders = self.match_orders(payment, data)
 
             # (2) Find matching invoices for each identified order
-            matching_invoices = self.match_invoices(matching_orders, infos)
+            matching_invoices = []
 
             if isinstance(payment['Vorgang'], list):
-                matching_invoices += payment['Vorgang']
+                # Extracted invoices most likely sum up to total order cost
+                matching_invoices = payment['Vorgang']
+
+            # if notmatching_orders:
+            #     for matching_order in matching_orders:
+            #         if isinstance(matching_order['Rechnungen'], dict):
+            #             matching_invoices += list(matching_order['Rechnungen'].keys())
 
             # Store data
-            # (1) Add invoice number(s) to payment data
+            # (1) Add invoice number(s)
             if matching_invoices:
                 payment['Vorgang'] = matching_invoices
 
+                # There are two ways extracting information about invoices ..
+                if matching_orders:
+                    # .. via fetching order data
+                    taxes = self.match_invoices(matching_invoices, matching_orders)
+
+                    if taxes:
+                        payment['Bestellung'] = taxes
+
+                else:
+                    # .. via parsing invoice files
+                    pass
+                    # if invoice_handler:
+                    #     taxes = self.parse_invoices(matching_invoices, invoice_handler)
+
                 # Reverse-lookup orders if no matching order number(s) yet
-                if not matching_orders:
-                    matching_orders = self.lookup_orders(matching_invoices, infos)
+                # if not matching_orders:
+                #     matching_orders = self.lookup_orders(matching_invoices, infos)
 
             # (2) Apply matching order number(s)
             if matching_orders:
-                payment['ID'] = matching_orders
+                payment['ID'] = [matching_order['ID'] for matching_order in matching_orders]
 
             # (3) Save matched payment
             results.append(payment)
@@ -167,30 +189,33 @@ class Volksbank(Payments):
 
         for order in orders:
             if order['ID'] in payment['ID']:
-                matches.append(order['ID'])
+                matches.append(order)
 
         return dedupe(matches)
 
 
-    def match_invoices(self, orders: list, infos: list) -> list:
-        matches = []
+    # def lookup_orders(self, invoices: list, infos: list) -> list:
+    #     matches = []
 
-        for order in orders:
-            for info in infos:
-                if order == info['ID']:
-                    matches += info['Rechnungen']
-                    break
+    #     for invoice in invoices:
+    #         for info in infos:
+    #             if invoice in info['Rechnungen']:
+    #                 matches.append(info['ID'])
+    #                 break
 
-        return dedupe(matches)
+    #     return dedupe(matches)
 
 
-    def lookup_orders(self, invoices: list, infos: list) -> list:
-        matches = []
+    def match_invoices(self, invoices: list, orders: list) -> dict:
+        matches = {}
 
         for invoice in invoices:
-            for info in infos:
-                if invoice in info['Rechnungen']:
-                    matches.append(info['ID'])
-                    break
+            for order in orders:
+                if invoice in order['Abrechnungen']:
+                    matches[invoice] = order['Abrechnungen'][invoice]
 
-        return dedupe(matches)
+        return matches
+
+
+    def parse_invoices(self, invoices: list, handler: Invoices) -> list:
+        pass

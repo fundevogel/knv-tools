@@ -1,57 +1,52 @@
-from abc import abstractmethod
-from datetime import datetime, timedelta
-from operator import itemgetter
+# Works with Python v3.10+
+# See https://stackoverflow.com/a/33533514
+from __future__ import annotations
 
-from ..base import BaseClass
+from os.path import splitext
+
+from ..receiver import Receiver
+
+from .paypal import Paypal
+from .volksbank import Volksbank
 
 
-class Payments(BaseClass):
+class Payments(Receiver):
     # PROPS
 
-    _blocked_payments = []
-    _matched_payments = []
+    paypal = None
+    volksbank = None
 
-    # Class-specific
-    VKN = None
-    blocklist = []
+    # Available payment gateways
+    gateways = {
+        'paypal': Paypal,
+        'volksbank': Volksbank,
+    }
 
 
     # DATA methods
 
-    def process_data(self, data: list) -> list:
-        return self.process_payments(data)
+    def load(self, identifier: str, payment_files: list = None):
+        if not payment_files:
+            return self.gateways[identifier]()
+
+        # Depending on filetype, proceed with ..
+        extension = splitext(payment_files[0])[1]
+
+        # .. processing unformatted CSV data
+        if extension == '.csv':
+            return self.gateways[identifier](payment_files)
+
+        # .. loading formatted JsON data
+        if extension == '.json':
+            return self.gateways[identifier]().load(self.load_json(payment_files))
+
+        # .. otherwise, raise a formal complaint, fine Sir!
+        raise Exception
 
 
-    @abstractmethod
-    def process_payments(self, data: list) -> None:
-        pass
+    def init(self, force: bool = False) -> Payments:
+        # Initialize payment handlers
+        for identifier in self.gateways.keys():
+            setattr(self, identifier, self.load(identifier))
 
-    @abstractmethod
-    def match_payments(self, orders: list, infos: list) -> None:
-        pass
-
-
-    def payments(self):
-        # Sort payments by date
-        return sorted(self.data, key=itemgetter('Datum'))
-
-
-    def blocked_payments(self):
-        return sorted(self._blocked_payments, key=itemgetter('Datum'))
-
-
-    def matched_payments(self):
-        # Sort payments by date
-        return sorted(self._matched_payments, key=itemgetter('Datum'))
-
-
-    # MATCHING HELPER methods
-
-    def match_dates(self, base_date, test_date, days=1) -> bool:
-        date_objects = [datetime.strptime(date, '%Y-%m-%d') for date in [base_date, test_date]]
-        date_range = timedelta(days=days)
-
-        if date_objects[0] <= date_objects[1] <= date_objects[0] + date_range:
-            return True
-
-        return False
+        return self

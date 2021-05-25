@@ -7,16 +7,23 @@ from os.path import basename
 
 
 class Invoices:
-    def __init__(self, invoice_files: list):
-        self.invoices = {self.invoice2number(invoice): invoice for invoice in invoice_files}
+    # PROPS
+
+    regex = '*_Invoices_TimeFrom*_TimeTo*.zip'
+
+
+    def __init__(self, invoice_files: list = None):
+        if invoice_files:
+            self.invoices = {self.invoice2number(invoice): invoice for invoice in invoice_files}
 
 
     # DATA methods
 
-    def has(self, invoice: str, is_number: bool = False) -> bool:
-        if is_number:
-            return invoice in self.invoices.keys()
+    def load(self, invoice_files: list) -> None:
+        self.invoices = {self.invoice2number(invoice): invoice for invoice in invoice_files}
 
+
+    def has(self, invoice: str) -> bool:
         return self.invoice2number(invoice) in self.invoices.keys()
 
 
@@ -51,6 +58,9 @@ class Invoices:
 
     @staticmethod
     def invoice2number(string: str) -> str:
+        # Strip path information
+        string = basename(string)
+
         # Distinguish between delimiters ..
         # (1) .. hyphen ('Shopkonfigurator')
         delimiter = '-'
@@ -59,4 +69,8 @@ class Invoices:
         if delimiter not in string:
             delimiter = '_'
 
-        return basename(string).split(delimiter)[-1].replace('.pdf', '')
+        # (3) .. as well as invoice numbers
+        if delimiter not in string:
+            return string
+
+        return string.split(delimiter)[-1].replace('.pdf', '')
