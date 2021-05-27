@@ -166,9 +166,8 @@ class Volksbank(Gateway):
 
                 else:
                     # .. via parsing invoice files
-                    pass
-                    # if invoice_handler:
-                    #     taxes = self.parse_invoices(matching_invoices, invoice_handler)
+                    if invoice_handler:
+                        taxes = self.parse_invoices(matching_invoices, invoice_handler)
 
                 # Reverse-lookup orders if no matching order number(s) yet
                 # if not matching_orders:
@@ -218,4 +217,10 @@ class Volksbank(Gateway):
 
 
     def parse_invoices(self, invoices: list, handler: Invoices) -> list:
-        pass
+        results = []
+
+        for invoice in invoices:
+            if handler.has(invoice):
+                results.append(handler.parse(invoice))
+
+        return results
