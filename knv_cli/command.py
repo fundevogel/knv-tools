@@ -52,8 +52,8 @@ class Command(ABC):
 
 
     def convert_number(self, string) -> str:
-        # Convert integers & floats
-        string = str(string)
+        # Convert to string & clear whitespaces
+        string = str(string).strip()
 
         # Take care of thousands separator, as in '1.234,56'
         if '.' in string and ',' in string:
@@ -63,7 +63,3 @@ class Command(ABC):
         integer = f'{string:.2f}'
 
         return str(integer)
-
-
-    def convert_tax_rate(self, string: str) -> str:
-        return str(string).replace(',00', '') + '%'
