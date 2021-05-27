@@ -34,11 +34,13 @@ setup(
     packages=find_packages(),
     install_requires=[
         'click',
+        'isbnlib',
         'matplotlib',
         'pandas',
         'pendulum',
         'PyPDF2',
         'xdg',
+        'zeep',
     ],
     entry_points='''
         [console_scripts]

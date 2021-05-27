@@ -1,33 +1,23 @@
-# ~*~ coding=utf-8 ~*~
-
-
 import json
 
 from os.path import basename, join
 
 import click
 import pendulum
-from pandas import DataFrame
 from PyPDF2 import PdfFileReader, PdfFileMerger
 
 from .config import Config
-from ..gateways.payments import Payments
 from .database import Database
-from ..utils import build_path, create_path, group_data
+
+from ..api.exceptions import InvalidLoginException
+from ..api.webservice import Webservice
+from ..gateways.payments import Payments
+from ..utils import load_json, dump_json, dump_csv
+from ..utils import ask_credentials, build_path, create_path, group_data
 
 
 clickpath = click.Path(exists=True)
 pass_config = click.make_pass_decorator(Config, ensure=True)
-
-
-# HELPER functions
-
-def dump_csv(data, csv_file) -> None:
-    # Create directory if necessary
-    create_path(csv_file)
-
-    # Write CSV file
-    DataFrame(data).to_csv(csv_file, index=False)
 
 
 @click.group()
@@ -308,3 +298,114 @@ def stats():
     """Show statistics"""
 
     pass
+
+
+# API tasks
+
+@cli.group()
+@pass_config
+@click.option('--credentials', type=clickpath, help='Path to JSON file containing credentials.')
+def api(config, credentials):
+    """KNV Webservice API tasks"""
+
+    if credentials is not None:
+        config.credentials = credentials
+
+
+@api.command()
+@pass_config
+def version(config):
+    """Check current API version"""
+
+    # Initialize webservice
+    ws = Webservice()
+
+    try:
+        click.echo('Current API version: ' + ws.version())
+
+    except Exception as error:
+        click.echo('Error: ' + str(error))
+
+
+@api.command()
+@pass_config
+@click.argument('isbn')
+@click.option('-o', '--output-file', type=click.Path(), help='Path to output JSON file.')
+@click.option('-c', '--cache-only', is_flag=True, help='Only return cached database records.')
+@click.option('-f', '--force-refresh', is_flag=True, help='Force database record being updated.')
+def lookup(config, isbn, output_file, cache_only, force_refresh):
+    """Lookup information about ISBN"""
+
+    if cache_only is False:
+        if config.credentials:
+            credentials = load_json(config.credentials)
+
+        else:
+            click.echo('Please enter your account information first:')
+            credentials = ask_credentials()
+
+    click.echo('Loading data ..', nl=False)
+
+    data = {}
+
+    try:
+        # Initialize webservice
+        ws = Webservice(credentials, config.cache_dir)
+
+    except InvalidLoginException as error:
+        click.echo(' failed!')
+
+        click.echo('Authentication error: ' + str(error))
+        click.Context.exit(1)
+
+    # Retrieve data (either from cache or via API call)
+    data = ws.fetch(isbn, force_refresh)
+
+    click.echo(' done!')
+
+    if config.verbose:
+        click.echo(data)
+
+    else:
+        if 'AutorSachtitel' in data:
+            click.echo('Match: ' + data['AutorSachtitel'])
+
+    if output_file:
+        dump_json(data, output_file)
+        click.echo('Data saved: ' + output_file)
+
+
+@api.command()
+@pass_config
+@click.argument('isbn')
+@click.option('-q', '--quantity', default=1, help='Number of items to be checked.')
+def ola(config, isbn, quantity):
+    if config.credentials:
+        credentials = load_json(config.credentials)
+
+    else:
+        click.echo('Please enter your account information first:')
+        credentials = ask_credentials()
+
+    click.echo('Calling OLA ..', nl=False)
+
+    try:
+        # Initialize webservice
+        ws = Webservice(credentials, config.cache_dir)
+
+    except InvalidLoginException as error:
+        click.echo(' failed!')
+
+        click.echo('Authentication error: ' + str(error))
+        click.Context.exit(1)
+
+    # Retrieve data (either from cache or via API call)
+    ola = ws.ola(isbn, int(quantity))
+
+    click.echo(' done!')
+
+    if config.verbose:
+        click.echo(ola.data)
+
+    else:
+        click.echo(str(ola))

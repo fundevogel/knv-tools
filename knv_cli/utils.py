@@ -1,13 +1,58 @@
-# ~*~ coding=utf-8 ~*~
+import json
 
-
+from getpass import getpass
 from glob import glob
 from hashlib import md5
 from os import makedirs
 from os.path import exists, dirname, join
 
+from pandas import DataFrame
+
+
+# CSV functions
+
+def dump_csv(data, csv_file) -> None:
+    # Create directory if necessary
+    create_path(csv_file)
+
+    # Write CSV file
+    DataFrame(data).to_csv(csv_file, index=False)
+
+
+# JSON functions
+
+def load_json(json_file) -> dict:
+    data = {}
+
+    try:
+        with open(json_file, 'r') as file:
+            data = json.load(file)
+
+    except json.decoder.JSONDecodeError:
+        raise Exception
+
+    except FileNotFoundError:
+        pass
+
+    return data
+
+
+def dump_json(data, json_file) -> None:
+    create_path(json_file)
+
+    with open(json_file, 'w') as file:
+        json.dump(data, file, ensure_ascii=False, indent=4)
+
 
 # UTILITY functions
+
+def ask_credentials() -> dict:
+    return {
+        'VKN': getpass('VKN: '),
+        'Benutzer': getpass('Benutzer: '),
+        'Passwort': getpass('Passwort: '),
+    }
+
 
 def build_path(
     base_path: str,

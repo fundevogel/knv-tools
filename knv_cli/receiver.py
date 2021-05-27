@@ -7,6 +7,8 @@ from operator import itemgetter
 
 from pandas import concat, read_csv
 
+from .utils import load_json
+
 
 class Receiver(ABC):
     # PROPS
@@ -36,14 +38,6 @@ class Receiver(ABC):
         data = []
 
         for json_file in json_files:
-            try:
-                with open(json_file, 'r') as file:
-                    data.extend(json.load(file))
-
-            except json.decoder.JSONDecodeError:
-                raise Exception
-
-            except FileNotFoundError:
-                pass
+            data += load_json(json_file)
 
         return data
