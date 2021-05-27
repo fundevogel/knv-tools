@@ -57,11 +57,14 @@ class Invoices():
         invoice_date = self.invoice2date(invoice_file)
         invoice_number = self.invoice2number(invoice_file)
 
-        # Prepare data
+        # Prepare data storage
         invoice = {
             'Rechnungsnummer': invoice_number,
             'Datum': invoice_date,
+            'Versandkosten': '0.00',
+            'Gesamtbetrag': 'keine Angabe',
             'Steuern': {},
+            'Gutscheine': 'keine Angabe',
         }
 
         content = []
@@ -76,25 +79,46 @@ class Invoices():
         # Determine invoice kind, as those starting with 'R' are formatted quite differently
         if invoice_number[:1] == 'R':
             # Parse content, looking for information about ..
-            # (1) .. coupons
-            coupons = []
+            # (1) .. general information
+            for line in content:
+                if 'Rechnungsbetrag gesamt brutto' in line:
+                    invoice['Gesamtbetrag'] = self.convert_number(content[content.index(line) + 1])
 
-            if 'Gutschein' in content:
-                coupon_indices = [count for count, line in enumerate(content) if line == 'Gutschein']
+                if 'Versandpauschale' in line or 'Versandkosten' in line:
+                    invoice['Versandkosten'] = self.convert_number(content[content.index(line) + 2])
 
-                for index in coupon_indices:
-                    coupons.append({
-                        'Anzahl': content[index - 1],
-                        'Wert': content[index + 2],
-                    })
+                # Edge case with two lines preceeding shipping cost
+                if 'versandt an' in line:
+                    invoice['Versandkosten'] = self.convert_number(content[content.index(line) + 2])
 
             # (2) .. taxes
             for tax_rate in ['5', '7', '16', '19']:
-                if 'MwSt. ' + tax_rate + ',00 %' in content:
-                    invoice['Steuern'][tax_rate + '%'] = content[content.index('MwSt. ' + tax_rate + ',00 %') + 2]
+                tax_string = 'MwSt. ' + tax_rate + ',00 %'
+
+                if tax_string in content:
+                    invoice['Steuern'][tax_rate + '%'] = self.convert_number(content[content.index(tax_string) + 2])
+
+            # (3) .. coupons
+            if 'Gutschein' in content:
+                coupons = []
+
+                for index in self.build_indices(content, 'Gutschein'):
+                    coupons.append({
+                        'Anzahl': int(content[index - 1]),
+                        'Wert': self.convert_number(content[index + 2]),
+                    })
+
+                invoice['Gutscheine'] = coupons
 
         else:
-            data = {}
+            # Gather general information
+            for index, line in enumerate(content):
+                # TODO: Get values via regexes
+                if 'Versandkosten:' in line:
+                    invoice['Versandkosten'] = self.convert_number(line.replace('Versandkosten:', ''))
+
+                if 'Gesamtbetrag' in line:
+                    invoice['Gesamtbetrag'] = self.convert_number(line.replace('Gesamtbetrag', ''))
 
             # Fetch first occurence of ..
             # (1) .. 'Nettobetrag' (= starting point)
@@ -114,10 +138,12 @@ class Invoices():
 
             # Determine available tax rates
             tax_rates = [self.format_tax_rate(tax_rate) for tax_rate in costs[:2]]
+            reduced_tax = 0
+            full_tax = 0
 
-            if len(costs) < 6:
-                data[tax_rates[0]] = costs[4].replace('MwSt. gesamt:', '').split(' ')[0]
-                data[tax_rates[1]] = costs[2].split('EUR')[1]
+            if len(costs) < 8:
+                reduced_tax = costs[4].replace('MwSt. gesamt:', '').split(' ')[0]
+                full_tax = costs[2].split('EUR')[1]
 
             else:
                 # Fetch tax rates, either 5% / 16% or 7% / 19%
@@ -125,10 +151,12 @@ class Invoices():
 
                 # Distinguish (another) two kinds of invoices ..
                 if costs[2][-3:] == 'EUR':
+                    print('Fall 1: ', len(costs))
+
                     # .. and another two
                     if len(costs[2].split(':')[-1].split(' ')) > 2:
-                        data[tax_rates[0]] = costs[2].split(':')[-1].split(' ')[0]
-                        data[tax_rates[1]] = costs[6].split(' ')[0]
+                        reduced_tax = costs[2].split(':')[-1].split(' ')[0]
+                        full_tax = costs[6].split(' ')[0]
 
                     else:
                         # .. aaaaand another two
@@ -136,34 +164,41 @@ class Invoices():
 
                         if 'MwSt.' in costs[6]:
                             i = 6
-                        #     data[tax_rates[0]] = costs[6].split(':')[-1].split(' ')[0]
-                        #     data[tax_rates[1]] = costs[7].split(' ')[0]
+                        #     reduced_tax = costs[6].split(':')[-1].split(' ')[0]
+                        #     full_tax = costs[7].split(' ')[0]
 
                         # else:
-                        data[tax_rates[0]] = costs[i].split(':')[-1].split(' ')[0]
-                        data[tax_rates[1]] = costs[i + 1].split(' ')[0]
+                        reduced_tax = costs[i].split(':')[-1].split(' ')[0]
+                        full_tax = costs[i + 1].split(' ')[0]
 
                 else:
                     # .. well, what do you know
                     if 'Zwischensumme' in costs[4]:
-                        data[tax_rates[0]] = costs[4].replace('MwSt. gesamt:', '').split(' ')[0]
-                        data[tax_rates[1]] = costs[4].split('EUR')[1]
+                        reduced_tax = costs[4].replace('MwSt. gesamt:', '').split(' ')[0]
+                        full_tax = costs[4].split('EUR')[1]
+
+                        print('Zwischensummenfall: ', len(costs))
+
 
                     else:
-                        data[tax_rates[0]] = costs[4].split(':')[-1].split(' ')[0]
-                        data[tax_rates[1]] = costs[5].split(' ')[0]
+                        print('Zwischensummengegenfall: ', len(costs))
 
-            for index, line in enumerate(content):
-                if 'Versandkosten:' in line:
-                    data['Versandkosten'] = line.replace('Versandkosten:', '')
+                        if costs[4] == 'MwSt. gesamt:':
+                            print(invoice_number)
+                            reduced_tax = costs[5].split(' ')[0]
+                            full_tax = costs[2].split('EUR')[1]
 
-                if 'Zwischensumme:' in line:
-                    data['Zwischensumme'] = line.split('Zwischensumme:')[-1]
+                        else:
+                            reduced_tax = costs[4].split(':')[-1].split(' ')[0]
+                            full_tax = costs[5].split(' ')[0]
+            # try:
+            invoice['Steuern'][tax_rates[0]] = self.convert_number(reduced_tax)
+            invoice['Steuern'][tax_rates[1]] = self.convert_number(full_tax)
+            # except ValueError:
+            #     print(invoice_number)
+            #     print(len(reduced_tax), len(full_tax))
 
-                if 'Gesamtbetrag' in line:
-                    data['Gesamtbetrag'] = line.replace('Gesamtbetrag', '')
-
-            invoice['Steuern'] = data
+            # print(invoice['Steuern'])
 
         return invoice
 
@@ -183,9 +218,13 @@ class Invoices():
         return [i for i, string in enumerate(haystack) if needle in string][position]
 
 
+    def build_indices(self, haystack: list, needle: str) -> list:
+        return [count for count, line in enumerate(haystack) if line == needle]
+
+
     def convert_number(self, string) -> str:
         # Clear whitespaces & convert to string (suck it, `int` + `float`)
-        string = str(string).strip()
+        string = str(string).replace('EUR', '').strip()
 
         # Take care of thousands separator, as in '1.234,56'
         if '.' in string and ',' in string:
