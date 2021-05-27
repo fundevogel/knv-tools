@@ -157,18 +157,37 @@ class Volksbank(Gateway):
                 payment['Vorgang'] = matching_invoices
 
                 # There are two ways extracting information about invoices ..
-                if matching_orders:
-                    # .. via fetching order data
-                    taxes = self.match_invoices(matching_invoices, matching_orders)
+                if invoice_handler:
+                    # .. via parsing invoice files
+                    matching_invoices = self.parse_invoices(matching_invoices, invoice_handler)
 
-                    if taxes:
-                        payment['Bestellung'] = taxes
+                    payment['Vorgang'] = [invoice['Rechnungsnummer'] for invoice in matching_invoices]
+                    payment['Rechnungssumme'] = '0.00'
+                    payment['Bestellung'] = []
+
+                    taxes = {}
+
+                    for invoice in matching_invoices:
+                        payment['Rechnungssumme'] = self.convert_number(float(payment['Rechnungssumme']) + float(invoice['Gesamtbetrag']))
+                        payment['Bestellung'].append(invoice['Steuern'])
+
+                        for  tax_rate, tax_amount in invoice['Steuern'].items():
+                            if not tax_rate in taxes:
+                                taxes[tax_rate] = tax_amount
+
+                            else:
+                                taxes[tax_rate] = self.convert_number(float(taxes[tax_rate]) + float(tax_amount))
+
+                    for tax_rate, tax_amount in taxes.items():
+                        payment[tax_rate + ' MwSt'] = tax_amount
 
                 else:
-                    # .. via parsing invoice files
-                    pass
-                    # if invoice_handler:
-                    #     taxes = self.parse_invoices(matching_invoices, invoice_handler)
+                    if matching_orders:
+                        # .. via fetching order data
+                        taxes = self.match_invoices(matching_invoices, matching_orders)
+
+                        if taxes:
+                            payment['Bestellung'] = taxes
 
                 # Reverse-lookup orders if no matching order number(s) yet
                 # if not matching_orders:
@@ -218,4 +237,10 @@ class Volksbank(Gateway):
 
 
     def parse_invoices(self, invoices: list, handler: Invoices) -> list:
-        pass
+        results = []
+
+        for invoice in invoices:
+            if handler.has(invoice):
+                results.append(handler.parse(invoice))
+
+        return results

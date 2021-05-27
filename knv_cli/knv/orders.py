@@ -76,3 +76,9 @@ class Orders(Command):
     def orders(self):
         # Sort orders by date & order number, output as list
         return sorted(list(self.data.values()), key=itemgetter('Datum', 'ID'))
+
+
+    # DATA HELPER methods
+
+    def convert_tax_rate(self, string: str) -> str:
+        return str(string).replace(',00', '') + '%'
