@@ -136,69 +136,54 @@ class Invoices():
 
             costs = content[starting_point:terminal_point + 1]
 
-            # Determine available tax rates
+            # Determine tax rates:
+            # reduced = 5% or 7%
+            # full = 16% or 19%
             tax_rates = [self.format_tax_rate(tax_rate) for tax_rate in costs[:2]]
+
             reduced_tax = 0
             full_tax = 0
 
             if len(costs) < 8:
-                reduced_tax = costs[4].replace('MwSt. gesamt:', '').split(' ')[0]
-                full_tax = costs[2].split('EUR')[1]
+                costs_list = costs[4].replace('MwSt. gesamt:', '').split()
+
+                reduced_tax = costs_list[0]
+                full_tax = costs_list[1]
+
+                if len(costs_list) < 3:
+                    full_tax = costs[5]
+
+            elif len(costs) == 9:
+                reduced_tax = costs[4].split(':')[-1]
+                full_tax = costs[5]
+
+                if 'MwSt. gesamt' in costs[5]:
+                    costs_list = costs[5].split(':')[-1].split()
+
+                    reduced_tax = costs_list[0]
+                    full_tax = costs_list[1]
+
+                if 'MwSt. gesamt' in costs[6]:
+                    reduced_tax = costs[6].split(':')[-1]
+                    full_tax = costs[7]
+
+
+            elif len(costs) in [10, 11]:
+                index = 6 if 'MwSt.' in costs[6] else 5
+
+                reduced_tax = costs[index].split(':')[-1].split()[0]
+                full_tax = costs[index + 1].split()[0]
 
             else:
-                # Fetch tax rates, either 5% / 16% or 7% / 19%
-                tax_rates = [self.format_tax_rate(tax_rate) for tax_rate in costs[:2]]
+                reduced_tax = costs[5].split()[0]
+                full_tax = costs[2].split()[2]
 
-                # Distinguish (another) two kinds of invoices ..
-                if costs[2][-3:] == 'EUR':
-                    print('Fall 1: ', len(costs))
+                if reduced_tax == 'MwSt.':
+                    reduced_tax = costs[5].split(':')[-1]
+                    full_tax = costs[6]
 
-                    # .. and another two
-                    if len(costs[2].split(':')[-1].split(' ')) > 2:
-                        reduced_tax = costs[2].split(':')[-1].split(' ')[0]
-                        full_tax = costs[6].split(' ')[0]
-
-                    else:
-                        # .. aaaaand another two
-                        i = 5
-
-                        if 'MwSt.' in costs[6]:
-                            i = 6
-                        #     reduced_tax = costs[6].split(':')[-1].split(' ')[0]
-                        #     full_tax = costs[7].split(' ')[0]
-
-                        # else:
-                        reduced_tax = costs[i].split(':')[-1].split(' ')[0]
-                        full_tax = costs[i + 1].split(' ')[0]
-
-                else:
-                    # .. well, what do you know
-                    if 'Zwischensumme' in costs[4]:
-                        reduced_tax = costs[4].replace('MwSt. gesamt:', '').split(' ')[0]
-                        full_tax = costs[4].split('EUR')[1]
-
-                        print('Zwischensummenfall: ', len(costs))
-
-
-                    else:
-                        print('Zwischensummengegenfall: ', len(costs))
-
-                        if costs[4] == 'MwSt. gesamt:':
-                            print(invoice_number)
-                            reduced_tax = costs[5].split(' ')[0]
-                            full_tax = costs[2].split('EUR')[1]
-
-                        else:
-                            reduced_tax = costs[4].split(':')[-1].split(' ')[0]
-                            full_tax = costs[5].split(' ')[0]
-            # try:
             invoice['Steuern'][tax_rates[0]] = self.convert_number(reduced_tax)
             invoice['Steuern'][tax_rates[1]] = self.convert_number(full_tax)
-            # except ValueError:
-            #     print(invoice_number)
-            #     print(len(reduced_tax), len(full_tax))
-
-            # print(invoice['Steuern'])
 
         return invoice
 
