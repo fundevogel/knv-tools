@@ -1,3 +1,5 @@
+from .api.webservice import Webservice
+
 from .gateways.payments import Payments
 from .gateways.paypal import Paypal
 from .gateways.volksbank import Volksbank
@@ -11,6 +13,9 @@ from .utils import build_path, dedupe, group_data
 
 
 __all__ = [
+    # KNV Webservice API
+    'Webservice',
+
     # KNV data sources
     'Shopkonfigurator',
     'Orders',

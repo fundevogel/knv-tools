@@ -42,6 +42,7 @@ class Config(object):
         self.order_dir = join(self.data_dir, 'orders')
         self.info_dir = join(self.data_dir, 'infos')
         self.invoice_dir = join(self.data_dir, 'invoices')
+        self.cache_dir = join(self.data_dir, 'webservice')
 
         # (2) .. when merging data sources
         self.database_dir = join(self.data_dir, 'db')

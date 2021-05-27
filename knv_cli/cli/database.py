@@ -10,7 +10,7 @@ from zipfile import ZipFile
 from ..gateways.payments import Payments
 from ..knv.shopkonfigurator import Shopkonfigurator
 from ..knv.invoices import Invoices
-from ..utils import build_path, create_path, group_data
+from ..utils import build_path, create_path, dump_json, group_data
 
 
 class Database:
@@ -76,7 +76,7 @@ class Database:
 
         # Split orders per-month & export them
         for code, data in group_data(handler.orders).items():
-            self.dump_json(data, join(self.config.order_dir, code + '.json'))
+            dump_json(data, join(self.config.order_dir, code + '.json'))
 
 
     def rebuild_infos(self) -> None:
@@ -91,7 +91,7 @@ class Database:
 
         # Split infos per-month & export them
         for code, data in group_data(handler.infos).items():
-            self.dump_json(data, join(self.config.info_dir, code + '.json'))
+            dump_json(data, join(self.config.info_dir, code + '.json'))
 
 
     def rebuild_invoices(self) -> None:
@@ -134,7 +134,7 @@ class Database:
 
             # Split payments per-month & export them
             for code, data in group_data(handler.data).items():
-                self.dump_json(data, join(self.config.payment_dir, identifier, code + '.json'))
+                dump_json(data, join(self.config.payment_dir, identifier, code + '.json'))
 
 
     def rebuild_data(self):
@@ -146,7 +146,7 @@ class Database:
         handler.init()
 
         for code, data in group_data(handler.data).items():
-            self.dump_json(data, join(self.config.database_dir, code + '.json'))
+            dump_json(data, join(self.config.database_dir, code + '.json'))
 
 
     def rebuild(self):
@@ -190,12 +190,3 @@ class Database:
             return Shopkonfigurator(data_files)
 
         return Shopkonfigurator(self.data_files)
-
-
-    # HELPER methods
-
-    def dump_json(self, data, json_file) -> None:
-        create_path(json_file)
-
-        with open(json_file, 'w') as file:
-            json.dump(data, file, ensure_ascii=False, indent=4)
