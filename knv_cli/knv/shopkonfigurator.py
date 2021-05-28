@@ -12,6 +12,7 @@ from matplotlib import pyplot, rcParams
 from pandas import DataFrame
 
 from ..receiver import Receiver
+from ..utils import load_json
 
 from .infos import Infos
 from .orders import Orders
@@ -37,7 +38,7 @@ class Shopkonfigurator(Receiver):
             order_data = Orders(order_files).orders()
 
         if extension == '.json':
-            order_data = self.load_json(order_files)
+            order_data = load_json(order_files)
 
         self.orders = order_data
 
@@ -50,7 +51,7 @@ class Shopkonfigurator(Receiver):
             info_data = Infos(info_files).infos()
 
         if extension == '.json':
-            info_data = self.load_json(info_files)
+            info_data = load_json(info_files)
 
         self.infos = info_data
 

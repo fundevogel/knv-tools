@@ -5,6 +5,7 @@ from __future__ import annotations
 from os.path import splitext
 
 from ..receiver import Receiver
+from ..utils import load_json
 
 from .paypal import Paypal
 from .volksbank import Volksbank
@@ -38,7 +39,7 @@ class Payments(Receiver):
 
         # .. loading formatted JsON data
         if extension == '.json':
-            return self.gateways[identifier]().load(self.load_json(payment_files))
+            return self.gateways[identifier]().load(load_json(payment_files))
 
         # .. otherwise, raise a formal complaint, fine Sir!
         raise Exception

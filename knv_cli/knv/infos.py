@@ -4,6 +4,11 @@ from ..command import Command
 
 
 class Infos(Command):
+    # PROPS
+
+    regex = 'OrdersInfo_*.csv'
+
+
     # DATA methods
 
     def process_data(self, info_data: list) -> dict:

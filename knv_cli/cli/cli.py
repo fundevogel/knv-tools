@@ -12,7 +12,7 @@ from .database import Database
 from ..api.exceptions import InvalidLoginException
 from ..api.webservice import Webservice
 from ..gateways.payments import Payments
-from ..utils import load_json, dump_json, dump_csv
+from ..utils import _load_json, dump_json, dump_csv
 from ..utils import ask_credentials, build_path, create_path, group_data
 
 
@@ -338,7 +338,7 @@ def lookup(config, isbn, output_file, cache_only, force_refresh):
 
     if cache_only is False:
         if config.credentials:
-            credentials = load_json(config.credentials)
+            credentials = _load_json(config.credentials)
 
         else:
             click.echo('Please enter your account information first:')
@@ -381,7 +381,7 @@ def lookup(config, isbn, output_file, cache_only, force_refresh):
 @click.option('-q', '--quantity', default=1, help='Number of items to be checked.')
 def ola(config, isbn, quantity):
     if config.credentials:
-        credentials = load_json(config.credentials)
+        credentials = _load_json(config.credentials)
 
     else:
         click.echo('Please enter your account information first:')

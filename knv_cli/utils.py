@@ -21,7 +21,16 @@ def dump_csv(data, csv_file) -> None:
 
 # JSON functions
 
-def load_json(json_file) -> dict:
+def load_json(json_files: list) -> list:
+    data = []
+
+    for json_file in json_files:
+        data += _load_json(json_file)
+
+    return data
+
+
+def _load_json(json_file: str) -> dict:
     data = {}
 
     try:

@@ -3,55 +3,55 @@
 
 
 from datetime import datetime
-from os.path import basename
+from os.path import basename, splitext
 
 import PyPDF2
 
 from ..command import Command
+from ..utils import load_json
 
 
-class Invoices():
+class Invoices(Command):
     # PROPS
 
     regex = '*_Invoices_TimeFrom*_TimeTo*.zip'
 
 
-    def __init__(self, invoice_files: list = None):
-        if invoice_files:
-            self.invoices = {self.invoice2number(invoice): invoice for invoice in invoice_files}
-
-
     # DATA methods
 
-    def load(self, invoice_files: list) -> None:
-        self.invoices = {self.invoice2number(invoice): invoice for invoice in invoice_files}
+    def load_data(self, data_files: list) -> dict:
+        return self.process_data(data_files)
+
+
+    def process_data(self, data_files: list) -> dict:
+        return {self.invoice2number(data_file): self.parse(data_file) for data_file in data_files}
 
 
     def has(self, invoice: str) -> bool:
-        return self.invoice2number(invoice) in self.invoices.keys()
+        return self.invoice2number(invoice) in self.data
 
 
     def get(self, invoice_number: str) -> str:
-        return self.invoices[invoice_number]
+        return self.data[invoice_number]
 
 
     def add(self, invoice: str) -> None:
-        self.invoices[self.invoice2number(invoice)] = invoice
+        self.data[self.invoice2number(invoice)] = self.parse(invoice)
 
 
     def remove(self, invoice_number: str) -> None:
-        del self.invoices[invoice_number]
+        del self.data[invoice_number]
 
 
     # PARSING methods
 
     def parse(self, invoice_file) -> list:
         # Make sure given invoice is available for parsing
-        if self.invoice2number(invoice_file) not in self.invoices:
-            raise Exception
+        if self.invoice2number(invoice_file) not in self.data:
+            return {}
 
         # Normalize input
-        invoice_file = self.invoices[self.invoice2number(invoice_file)]
+        invoice_file = self.data[self.invoice2number(invoice_file)]
 
         # Extract general information from file name
         invoice_date = self.invoice2date(invoice_file)
@@ -59,6 +59,7 @@ class Invoices():
 
         # Prepare data storage
         invoice = {
+            'Datei': invoice_file,
             'Rechnungsnummer': invoice_number,
             'Datum': invoice_date,
             'Versandkosten': '0.00',
