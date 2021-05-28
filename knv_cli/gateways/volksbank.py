@@ -18,7 +18,7 @@ class Volksbank(Gateway):
     regex = 'Umsaetze_*_*.csv'
 
     # CSV options
-    skiprows=12
+    csv_skiprows=12
 
 
     # DATA methods

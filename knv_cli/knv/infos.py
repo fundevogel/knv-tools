@@ -48,6 +48,8 @@ class Infos(Command):
         return infos
 
 
+    # OUTPUT methods
+
     def infos(self):
         # Sort infos by date & order number, output as list
         return sorted(list(self.data.values()), key=itemgetter('Datum', 'ID'))

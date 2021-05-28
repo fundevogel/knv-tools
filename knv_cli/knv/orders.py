@@ -78,6 +78,8 @@ class Orders(Command):
         return orders
 
 
+    # OUTPUT methods
+
     def orders(self):
         # Sort orders by date & order number, output as list
         return sorted(list(self.data.values()), key=itemgetter('Datum', 'ID'))

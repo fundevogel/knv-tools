@@ -18,8 +18,8 @@ class Paypal(Gateway):
     regex = 'Download*.CSV'
 
     # CSV options
-    encoding='utf-8'
-    delimiter=','
+    csv_encoding='utf-8'
+    csv_delimiter=','
 
 
     # DATA methods
@@ -28,6 +28,7 @@ class Paypal(Gateway):
         '''
         Processes 'Download*.CSV' files
         '''
+
         codes = set()
         payments = []
 

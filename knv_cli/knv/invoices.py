@@ -3,7 +3,7 @@
 
 
 from datetime import datetime
-from os.path import basename, splitext
+from os.path import basename, isfile, splitext
 
 import PyPDF2
 
@@ -19,39 +19,36 @@ class Invoices(Command):
 
     # DATA methods
 
-    def load_data(self, data_files: list) -> dict:
+    def load_data(self, data_files: list) -> list:
         return self.process_data(data_files)
 
 
-    def process_data(self, data_files: list) -> dict:
-        return {self.invoice2number(data_file): self.parse(data_file) for data_file in data_files}
+    def process_data(self, data_files: list) -> list:
+        return [self.parse(data_file) for data_file in data_files]
 
 
-    def has(self, invoice: str) -> bool:
-        return self.invoice2number(invoice) in self.data
+    def has(self, invoice_file: str) -> bool:
+        for invoice in self.data:
+            print(invoice['Rechnungsnummer'], self.invoice2number(invoice_file))
+
+            if invoice['Rechnungsnummer'] == self.invoice2number(invoice_file):
+                return True
+
+        return False
 
 
     def get(self, invoice_number: str) -> str:
-        return self.data[invoice_number]
-
-
-    def add(self, invoice: str) -> None:
-        self.data[self.invoice2number(invoice)] = self.parse(invoice)
-
-
-    def remove(self, invoice_number: str) -> None:
-        del self.data[invoice_number]
+        for invoice in self.data:
+            if invoice['Rechnungsnummer'] == invoice_number:
+                return invoice['Datei']
 
 
     # PARSING methods
 
     def parse(self, invoice_file) -> list:
-        # Make sure given invoice is available for parsing
-        if self.invoice2number(invoice_file) not in self.data:
+        # Make sure given invoice is real file
+        if not isfile(invoice_file):
             return {}
-
-        # Normalize input
-        invoice_file = self.data[self.invoice2number(invoice_file)]
 
         # Extract general information from file name
         invoice_date = self.invoice2date(invoice_file)
@@ -253,3 +250,9 @@ class Invoices(Command):
             delimiter = '_'
 
         return string.split(delimiter)
+
+
+    # OUTPUT methods
+
+    def invoices(self):
+        pass

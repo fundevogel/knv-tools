@@ -32,7 +32,10 @@ class Database:
         # Establish database files
         self.order_files = build_path(config.order_dir)
         self.info_files = build_path(config.info_dir)
-        self.invoice_files = build_path(config.invoice_dir, '*.pdf')
+        self.invoice_files = {
+            'pdf': build_path(join(config.invoice_dir, 'pdf'), '*.pdf'),
+            'data': build_path(join(config.invoice_dir, 'data')),
+        }
         self.payment_files = {
             'paypal': build_path(join(config.payment_dir, 'paypal')),
             'volksbank': build_path(join(config.payment_dir, 'volksbank')),
@@ -56,6 +59,7 @@ class Database:
 
     def flush(self) -> None:
         files = self.payment_files['paypal'] + self.payment_files['volksbank']
+        files = self.invoice_files['pdf'] + self.invoice_files['data']
         files += self.order_files + self.info_files + self.invoice_files
 
         for file in files:
@@ -63,6 +67,51 @@ class Database:
 
 
     # REBUILD methods
+
+
+    def rebuild_payments(self) -> None:
+        for identifier in self.gateways:
+            # Initialize payment gateway handler
+            handler = Payments().load(identifier)
+
+            # Apply VKN & blocklist CLI options
+            handler.VKN = self.config.vkn
+            handler.blocklist = self.config.blocklist
+
+            # Select payment files to be imported
+            import_files = build_path(self.config.import_dir, handler.regex)
+
+            # Extract information from import files
+            handler.load(import_files)
+
+            # Split payments per-month & export them
+            for code, data in group_data(handler.data).items():
+                dump_json(data, join(self.config.payment_dir, identifier, code + '.json'))
+
+
+    def rebuild_invoices(self) -> None:
+        # Initialize handler
+        handler = Invoices()
+
+        # Select invoice files to be imported
+        import_files = build_path(self.config.import_dir, handler.regex)
+
+        # Extract invoices from archives
+        for file in import_files:
+            with ZipFile(file) as archive:
+                for zipped_invoice in archive.namelist():
+                    archive.extract(zipped_invoice, join(self.config.invoice_dir, 'pdf'))
+
+        # Select imported invoice files ..
+        invoice_files = build_path(join(self.config.invoice_dir, 'pdf'), '*.pdf')
+
+        # .. and extract information from them
+        handler.load(invoice_files)
+
+        # Split invoice data per-month & export it
+        for code, data in group_data(handler.data).items():
+            dump_json(data, join(self.config.invoice_dir, 'data', code + '.json'))
+
 
     def rebuild_orders(self) -> None:
         # Initialize handler
@@ -94,49 +143,6 @@ class Database:
             dump_json(data, join(self.config.info_dir, code + '.json'))
 
 
-    def rebuild_invoices(self) -> None:
-        # Initialize handler
-        handler = Invoices()
-
-        # Select invoice files to be imported
-        import_files = build_path(self.config.import_dir, handler.regex)
-
-        # Check invoices currently in database
-        handler.load(self.invoice_files)
-
-        for file in import_files:
-            try:
-                with ZipFile(file) as archive:
-                    for zipped_invoice in archive.namelist():
-                        # Import only invoices not already in database
-                        if not handler.has(zipped_invoice):
-                            archive.extract(zipped_invoice, self.config.invoice_dir)
-                            handler.add(join(self.config.invoice_dir, zipped_invoice))
-
-            except:
-                raise Exception
-
-
-    def rebuild_payments(self) -> None:
-        for identifier in self.gateways:
-            # Initialize payment gateway handler
-            handler = Payments().load(identifier)
-
-            # Apply VKN & blocklist CLI options
-            handler.VKN = self.config.vkn
-            handler.blocklist = self.config.blocklist
-
-            # Select payment files to be imported
-            import_files = build_path(self.config.import_dir, handler.regex)
-
-            # Extract information from import files
-            handler.load_csv(import_files)
-
-            # Split payments per-month & export them
-            for code, data in group_data(handler.data).items():
-                dump_json(data, join(self.config.payment_dir, identifier, code + '.json'))
-
-
     def rebuild_data(self):
         handler = Shopkonfigurator()
 
@@ -147,13 +153,6 @@ class Database:
 
         for code, data in group_data(handler.data).items():
             dump_json(data, join(self.config.database_dir, code + '.json'))
-
-
-    def rebuild(self):
-        self.rebuild_orders()
-        self.rebuild_infos()
-        self.rebuild_invoices()
-        self.rebuild_data()
 
 
     # GET methods

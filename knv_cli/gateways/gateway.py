@@ -23,12 +23,6 @@ class Gateway(Command):
 
     # DATA methods
 
-    def load(self, data) -> Gateway:
-        self.data = data
-
-        return self
-
-
     def process_data(self, data: list) -> list:
         return self.process_payments(data)
 
@@ -42,6 +36,16 @@ class Gateway(Command):
     def match_payments(self, data: list, invoice_handler: Invoices = None) -> None:
         pass
 
+
+    # MATCHING HELPER methods
+
+    def match_dates(self, start_date, test_date, days=1) -> bool:
+        end_date = (datetime.strptime(start_date, '%Y-%m-%d') + timedelta(days=days)).strftime('%Y-%m-%d')
+
+        return start_date <= test_date <= end_date
+
+
+    # OUTPUT methods
 
     def payments(self):
         # Sort payments by date
@@ -59,11 +63,3 @@ class Gateway(Command):
             return sorted(self._matched_payments, key=itemgetter('Datum', 'ID', 'Name'))
         except TypeError:
             return sorted(self._matched_payments, key=itemgetter('Datum', 'Name'))
-
-
-    # MATCHING HELPER methods
-
-    def match_dates(self, start_date, test_date, days=1) -> bool:
-        end_date = (datetime.strptime(start_date, '%Y-%m-%d') + timedelta(days=days)).strftime('%Y-%m-%d')
-
-        return start_date <= test_date <= end_date

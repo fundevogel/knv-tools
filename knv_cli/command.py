@@ -64,7 +64,7 @@ class Command(ABC):
         except ValueError:
             return []
 
-        self.data = self.process_data(df.to_dict('records'))
+        return self.process_data(df.to_dict('records'))
 
 
     @abstractmethod

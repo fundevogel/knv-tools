@@ -269,6 +269,11 @@ def rebuild(config):
     db.rebuild_payments()
     click.echo(' done.')
 
+    # Import invoice files
+    click.echo('Importing invoices ..', nl=False)
+    db.rebuild_invoices()
+    click.echo(' done.')
+
     # Import order files
     click.echo('Importing orders ..', nl=False)
     db.rebuild_orders()
@@ -277,11 +282,6 @@ def rebuild(config):
     # Import info files
     click.echo('Importing infos ..', nl=False)
     db.rebuild_infos()
-    click.echo(' done.')
-
-    # Import PDF files
-    click.echo('Importing invoices ..', nl=False)
-    db.rebuild_invoices()
     click.echo(' done.')
 
     # Merge data sources
