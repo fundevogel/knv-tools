@@ -3,6 +3,7 @@
 
 
 from datetime import datetime
+from operator import itemgetter
 from os.path import basename, isfile, splitext
 
 import PyPDF2
@@ -19,31 +20,25 @@ class Invoices(Command):
 
     # DATA methods
 
-    def load_data(self, data_files: list) -> list:
+    def load_data(self, data_files: list) -> dict:
         return self.process_data(data_files)
 
 
-    def process_data(self, data_files: list) -> list:
-        return [self.parse(data_file) for data_file in data_files]
+    def process_data(self, data_files: list) -> dict:
+        return {self.invoice2number(data_file): self.parse(data_file) for data_file in data_files}
 
 
     def has(self, invoice_file: str) -> bool:
-        for invoice in self.data:
-            if invoice['Rechnungsnummer'] == self.invoice2number(invoice_file):
-                return True
-
-        return False
+        return self.invoice2number(invoice_file) in self.data
 
 
-    def get(self, invoice_number: str) -> str:
-        for invoice in self.data:
-            if invoice['Rechnungsnummer'] == invoice_number:
-                return invoice['Datei']
+    def get(self, invoice_file: str) -> str:
+        return self.data[self.invoice2number(invoice_file)]
 
 
     # PARSING methods
 
-    def parse(self, invoice_file: str) -> list:
+    def parse(self, invoice_file: str) -> dict:
         # Make sure given invoice is real file
         if not isfile(invoice_file):
             return {}
@@ -55,7 +50,7 @@ class Invoices(Command):
         # Prepare data storage
         invoice = {
             'Datei': invoice_file,
-            'Rechnungsnummer': invoice_number,
+            'Vorgang': invoice_number,
             'Datum': invoice_date,
             'Versandkosten': '0.00',
             'Gesamtbetrag': 'keine Angabe',
@@ -251,4 +246,5 @@ class Invoices(Command):
     # OUTPUT methods
 
     def invoices(self):
-        pass
+        # Sort invoices by date & order number, output as list
+        return sorted(list(self.data.values()), key=itemgetter('Datum', 'Vorgang'))
