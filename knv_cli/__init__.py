@@ -1,6 +1,5 @@
 from .api.webservice import Webservice
 
-from .gateways.payments import Payments
 from .gateways.paypal import Paypal
 from .gateways.volksbank import Volksbank
 
@@ -23,7 +22,6 @@ __all__ = [
     'Invoices',
 
     # Payment gateways
-    'Payments',
     'Paypal',
     'Volksbank',
 

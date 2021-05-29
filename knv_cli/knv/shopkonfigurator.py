@@ -2,6 +2,9 @@
 # 'Auftragsdaten' & 'Ausführungen, as exported from Shopkonfigurator
 # See http://www.knv-info.de/wp-content/uploads/2020/04/Auftragsdatenexport2.pdf
 
+# Works with Python v3.10+
+# See https://stackoverflow.com/a/33533514
+from __future__ import annotations
 
 from operator import itemgetter
 from os.path import splitext
@@ -11,55 +14,53 @@ import pendulum
 from matplotlib import pyplot, rcParams
 from pandas import DataFrame
 
-from ..receiver import Receiver
 from ..utils import load_json
 
 from .infos import Infos
 from .orders import Orders
 
 
-class Shopkonfigurator(Receiver):
+class Shopkonfigurator():
     # PROPS
 
-    orders = None
-    infos = None
+    data = None
+    orders = []
+    infos = []
 
-    orders_regex = 'Orders_*.csv'
-    infos_regex = 'OrdersInfo_*.csv'
+
+    def __init__(self, data_files: list = None) -> None:
+        if data_files:
+            self.data = load_json(data_files)
 
 
     # DATA methods
 
-    def load_orders(self, order_files: list) -> None:
-        # Depending on filetype, proceed with ..
-        extension = splitext(order_files[0])[1]
+    def load(self, identifier: str, data_files: list = None) -> Shopkonfigurator:
+        # Check identifier
+        if identifier not in ['orders', 'infos']:
+            raise Exception('Unsupported identifier: "{}"'.format(identifier))
 
-        if extension == '.csv':
-            order_data = Orders(order_files).orders()
+        # Check filetype
+        extension = splitext(data_files[0])[1]
 
-        if extension == '.json':
-            order_data = load_json(order_files)
+        if extension != '.json':
+            raise Exception('Unsupported filetype: "{}"'.format(extension))
 
-        self.orders = order_data
+        if identifier == 'orders':
+            self.orders = load_json(data_files)
 
+        if identifier == 'infos':
+            self.infos = load_json(data_files)
 
-    def load_infos(self, info_files: list) -> None:
-        # Depending on filetype, proceed with ..
-        extension = splitext(info_files[0])[1]
-
-        if extension == '.csv':
-            info_data = Infos(info_files).infos()
-
-        if extension == '.json':
-            info_data = load_json(info_files)
-
-        self.infos = info_data
+        return self
 
 
-    def init(self, force: bool = False) -> None:
+    def init(self, force: bool = False) -> Shopkonfigurator:
         # Merge orders & infos
         if not self.data or force:
             self.data = self.merge_data(self.orders, self.infos)
+
+        return self
 
 
     def merge_data(self, order_data: list, info_data: list) -> list:
@@ -99,7 +100,7 @@ class Shopkonfigurator(Receiver):
         return sorted(list(data.values()), key=itemgetter('Datum', 'ID', 'Nachname'))
 
 
-    # # RANKING methods
+    # RANKING methods
 
     def get_ranking(self) -> list:
         data = {}
@@ -133,18 +134,18 @@ class Shopkonfigurator(Receiver):
         return ranking
 
 
-    # def get_ranking_chart(self, ranking, limit=1, kind='barh'):
-    #     # Update ranking to only include entries above set limit
-    #     ranking = [{'Anzahl': item['Anzahl'], 'ISBN': item['ISBN']} for item in ranking if item['Anzahl'] >= int(limit)]
-    #     df = DataFrame(ranking, index=[item['ISBN'] for item in ranking])
+    def get_ranking_chart(self, ranking, limit: int = 1, kind: str = 'barh'):
+        # Update ranking to only include entries above set limit
+        ranking = [{'Anzahl': item['Anzahl'], 'ISBN': item['ISBN']} for item in ranking if item['Anzahl'] >= int(limit)]
+        df = DataFrame(ranking, index=[item['ISBN'] for item in ranking])
 
-    #     # Rotate & center x-axis labels
-    #     pyplot.xticks(rotation=45, horizontalalignment='center')
+        # Rotate & center x-axis labels
+        pyplot.xticks(rotation=45, horizontalalignment='center')
 
-    #     # Make graph 'just fit' image dimensions
-    #     rcParams.update({'figure.autolayout': True})
+        # Make graph 'just fit' image dimensions
+        rcParams.update({'figure.autolayout': True})
 
-    #     return df.plot(kind=kind).get_figure()
+        return df.plot(kind=kind).get_figure()
 
 
     # CONTACTS methods

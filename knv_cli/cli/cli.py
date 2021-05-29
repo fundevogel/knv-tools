@@ -11,7 +11,6 @@ from .database import Database
 
 from ..api.exceptions import InvalidLoginException
 from ..api.webservice import Webservice
-from ..gateways.payments import Payments
 from ..utils import _load_json, dump_json, dump_csv
 from ..utils import ask_credentials, build_path, create_path, group_data
 
@@ -60,7 +59,7 @@ def match(config, year, quarter):
     db = Database(config)
 
     # Initialize payment handler
-    for identifier in ['volksbank']:
+    for identifier in db.gateways.keys():
         handler = db.get_payments(identifier, year, quarter)
 
         # Exit if database has no payments
@@ -71,7 +70,7 @@ def match(config, year, quarter):
         click.echo('Matching ' + identifier + ' data ..', nl=False)
 
         # Get combined order data
-        data = db.get_data().data
+        data = db.get_shopkonfigurator().data
 
         # Get invoices in case no order data is provided
         invoices = db.get_invoices()
@@ -139,7 +138,7 @@ def rank(config, year, quarter, enable_chart, limit):
     db = Database(config)
 
     # Initialize handler
-    handler = db.get_data()
+    handler = db.get_shopkonfigurator()
 
     # Exit if database is empty
     data_files = build_path(config.database_dir, year=year, quarter=quarter)
@@ -151,7 +150,7 @@ def rank(config, year, quarter, enable_chart, limit):
     click.echo('Ranking data ..', nl=False)
 
     # Initialize handler
-    handler = db.get_data(data_files)
+    handler = db.get_shopkonfigurator(data_files)
 
     # Extract & rank sales
     ranking = handler.get_ranking()
@@ -196,7 +195,7 @@ def contacts(config, date, blocklist):
     db = Database(config)
 
     # Initialize handler
-    handler = db.get_data()
+    handler = db.get_shopkonfigurator()
 
     # Exit if database is empty
     if not handler.data:
