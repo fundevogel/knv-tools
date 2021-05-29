@@ -29,8 +29,6 @@ class Invoices(Command):
 
     def has(self, invoice_file: str) -> bool:
         for invoice in self.data:
-            print(invoice['Rechnungsnummer'], self.invoice2number(invoice_file))
-
             if invoice['Rechnungsnummer'] == self.invoice2number(invoice_file):
                 return True
 
@@ -45,7 +43,7 @@ class Invoices(Command):
 
     # PARSING methods
 
-    def parse(self, invoice_file) -> list:
+    def parse(self, invoice_file: str) -> list:
         # Make sure given invoice is real file
         if not isfile(invoice_file):
             return {}
@@ -100,7 +98,14 @@ class Invoices(Command):
             if 'Gutschein' in content:
                 coupons = []
 
+                # Check if coupon was purchased ..
+                check_point = 0 if 'Gesamtbetrag' not in content else self.get_index(content, 'Gesamtbetrag')
+
                 for index in self.build_indices(content, 'Gutschein'):
+                    # .. or applied
+                    if check_point < index:
+                        continue
+
                     coupons.append({
                         'Anzahl': int(content[index - 1]),
                         'Wert': self.convert_number(content[index + 2]),
@@ -206,17 +211,8 @@ class Invoices(Command):
 
 
     def convert_number(self, string) -> str:
-        # Clear whitespaces & convert to string (suck it, `int` + `float`)
-        string = str(string).replace('EUR', '').strip()
-
-        # Take care of thousands separator, as in '1.234,56'
-        if '.' in string and ',' in string:
-            string = string.replace('.', '')
-
-        string = float(string.replace(',', '.'))
-        integer = f'{string:.2f}'
-
-        return str(integer)
+        # Strip 'EUR', apart from that as usual
+        return super().convert_number(str(string).replace('EUR', ''))
 
 
     # HELPER methods
