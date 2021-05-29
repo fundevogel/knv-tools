@@ -18,7 +18,7 @@ class Volksbank(Gateway):
     regex = 'Umsaetze_*_*.csv'
 
     # CSV options
-    skiprows=12
+    csv_skiprows=12
 
 
     # DATA methods
@@ -161,7 +161,7 @@ class Volksbank(Gateway):
                     # .. via parsing invoice files
                     matching_invoices = self.parse_invoices(matching_invoices, invoice_handler)
 
-                    payment['Vorgang'] = [invoice['Rechnungsnummer'] for invoice in matching_invoices]
+                    payment['Vorgang'] = [invoice['Vorgang'] for invoice in matching_invoices]
                     payment['Rechnungssumme'] = '0.00'
                     payment['Bestellung'] = []
 

@@ -3,55 +3,45 @@
 
 
 from datetime import datetime
-from os.path import basename
+from operator import itemgetter
+from os.path import basename, isfile, splitext
 
 import PyPDF2
 
 from ..command import Command
+from ..utils import load_json
 
 
-class Invoices():
+class Invoices(Command):
     # PROPS
 
     regex = '*_Invoices_TimeFrom*_TimeTo*.zip'
 
 
-    def __init__(self, invoice_files: list = None):
-        if invoice_files:
-            self.invoices = {self.invoice2number(invoice): invoice for invoice in invoice_files}
-
-
     # DATA methods
 
-    def load(self, invoice_files: list) -> None:
-        self.invoices = {self.invoice2number(invoice): invoice for invoice in invoice_files}
+    def load_data(self, data_files: list) -> list:
+        return self.process_data(data_files)
 
 
-    def has(self, invoice: str) -> bool:
-        return self.invoice2number(invoice) in self.invoices.keys()
+    def process_data(self, data_files: list) -> list:
+        return [self.parse(data_file) for data_file in data_files]
+
+
+    def has(self, invoice_file: str) -> bool:
+        return self.invoice2number(invoice_file) in [invoice['Vorgang'] for invoice in self.data]
 
 
     def get(self, invoice_number: str) -> str:
-        return self.invoices[invoice_number]
-
-
-    def add(self, invoice: str) -> None:
-        self.invoices[self.invoice2number(invoice)] = invoice
-
-
-    def remove(self, invoice_number: str) -> None:
-        del self.invoices[invoice_number]
+        return [invoice['Datei'] for invoice in self.data if invoice['Vorgang'] == self.invoice2number(invoice_number)][0]
 
 
     # PARSING methods
 
-    def parse(self, invoice_file) -> list:
-        # Make sure given invoice is available for parsing
-        if self.invoice2number(invoice_file) not in self.invoices:
-            raise Exception
-
-        # Normalize input
-        invoice_file = self.invoices[self.invoice2number(invoice_file)]
+    def parse(self, invoice_file: str) -> dict:
+        # Make sure given invoice is real file
+        if not isfile(invoice_file):
+            return {}
 
         # Extract general information from file name
         invoice_date = self.invoice2date(invoice_file)
@@ -59,7 +49,8 @@ class Invoices():
 
         # Prepare data storage
         invoice = {
-            'Rechnungsnummer': invoice_number,
+            'Datei': invoice_file,
+            'Vorgang': invoice_number,
             'Datum': invoice_date,
             'Versandkosten': '0.00',
             'Gesamtbetrag': 'keine Angabe',
@@ -102,7 +93,14 @@ class Invoices():
             if 'Gutschein' in content:
                 coupons = []
 
+                # Check if coupon was purchased ..
+                check_point = 0 if 'Gesamtbetrag' not in content else self.get_index(content, 'Gesamtbetrag')
+
                 for index in self.build_indices(content, 'Gutschein'):
+                    # .. or applied
+                    if check_point < index:
+                        continue
+
                     coupons.append({
                         'Anzahl': int(content[index - 1]),
                         'Wert': self.convert_number(content[index + 2]),
@@ -208,17 +206,8 @@ class Invoices():
 
 
     def convert_number(self, string) -> str:
-        # Clear whitespaces & convert to string (suck it, `int` + `float`)
-        string = str(string).replace('EUR', '').strip()
-
-        # Take care of thousands separator, as in '1.234,56'
-        if '.' in string and ',' in string:
-            string = string.replace('.', '')
-
-        string = float(string.replace(',', '.'))
-        integer = f'{string:.2f}'
-
-        return str(integer)
+        # Strip 'EUR', apart from that as usual
+        return super().convert_number(str(string).replace('EUR', ''))
 
 
     # HELPER methods
@@ -252,3 +241,10 @@ class Invoices():
             delimiter = '_'
 
         return string.split(delimiter)
+
+
+    # OUTPUT methods
+
+    def invoices(self):
+        # Sort invoices by date & order number, output as list
+        return sorted(list(self.data.values()), key=itemgetter('Datum', 'Vorgang'))

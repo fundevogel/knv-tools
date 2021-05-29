@@ -11,8 +11,7 @@ from .database import Database
 
 from ..api.exceptions import InvalidLoginException
 from ..api.webservice import Webservice
-from ..gateways.payments import Payments
-from ..utils import load_json, dump_json, dump_csv
+from ..utils import _load_json, dump_json, dump_csv
 from ..utils import ask_credentials, build_path, create_path, group_data
 
 
@@ -60,18 +59,18 @@ def match(config, year, quarter):
     db = Database(config)
 
     # Initialize payment handler
-    for identifier in ['volksbank']:
+    for identifier in db.gateways.keys():
         handler = db.get_payments(identifier, year, quarter)
 
         # Exit if database has no payments
         if not handler.data:
-            click.echo('Error: No payments found in database.')
-            click.Context.exit(1)
+            click.echo('No "{}" payments found in database, skipping.'.format(identifier))
+            continue
 
         click.echo('Matching ' + identifier + ' data ..', nl=False)
 
         # Get combined order data
-        data = db.get_data().data
+        data = db.get_shopkonfigurator().data
 
         # Get invoices in case no order data is provided
         invoices = db.get_invoices()
@@ -139,7 +138,7 @@ def rank(config, year, quarter, enable_chart, limit):
     db = Database(config)
 
     # Initialize handler
-    handler = db.get_data()
+    handler = db.get_shopkonfigurator()
 
     # Exit if database is empty
     data_files = build_path(config.database_dir, year=year, quarter=quarter)
@@ -151,7 +150,7 @@ def rank(config, year, quarter, enable_chart, limit):
     click.echo('Ranking data ..', nl=False)
 
     # Initialize handler
-    handler = db.get_data(data_files)
+    handler = db.get_shopkonfigurator(data_files)
 
     # Extract & rank sales
     ranking = handler.get_ranking()
@@ -196,7 +195,7 @@ def contacts(config, date, blocklist):
     db = Database(config)
 
     # Initialize handler
-    handler = db.get_data()
+    handler = db.get_shopkonfigurator()
 
     # Exit if database is empty
     if not handler.data:
@@ -269,6 +268,11 @@ def rebuild(config):
     db.rebuild_payments()
     click.echo(' done.')
 
+    # Import invoice files
+    click.echo('Importing invoices ..', nl=False)
+    db.rebuild_invoices()
+    click.echo(' done.')
+
     # Import order files
     click.echo('Importing orders ..', nl=False)
     db.rebuild_orders()
@@ -277,11 +281,6 @@ def rebuild(config):
     # Import info files
     click.echo('Importing infos ..', nl=False)
     db.rebuild_infos()
-    click.echo(' done.')
-
-    # Import PDF files
-    click.echo('Importing invoices ..', nl=False)
-    db.rebuild_invoices()
     click.echo(' done.')
 
     # Merge data sources
@@ -338,7 +337,7 @@ def lookup(config, isbn, output_file, cache_only, force_refresh):
 
     if cache_only is False:
         if config.credentials:
-            credentials = load_json(config.credentials)
+            credentials = _load_json(config.credentials)
 
         else:
             click.echo('Please enter your account information first:')
@@ -381,7 +380,7 @@ def lookup(config, isbn, output_file, cache_only, force_refresh):
 @click.option('-q', '--quantity', default=1, help='Number of items to be checked.')
 def ola(config, isbn, quantity):
     if config.credentials:
-        credentials = load_json(config.credentials)
+        credentials = _load_json(config.credentials)
 
     else:
         click.echo('Please enter your account information first:')
