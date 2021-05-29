@@ -32,8 +32,12 @@ class Invoices(Command):
         return self.invoice2number(invoice_file) in [invoice['Vorgang'] for invoice in self.data]
 
 
-    def get(self, invoice_number: str) -> str:
-        return [invoice['Datei'] for invoice in self.data if invoice['Vorgang'] == self.invoice2number(invoice_number)][0]
+    def get(self, invoice_number: str) -> dict:
+        for invoice in self.data:
+            if invoice['Vorgang'] == self.invoice2number(invoice_number):
+                return invoice
+
+        return {}
 
 
     # PARSING methods
@@ -49,9 +53,9 @@ class Invoices(Command):
 
         # Prepare data storage
         invoice = {
-            'Datei': invoice_file,
-            'Vorgang': invoice_number,
             'Datum': invoice_date,
+            'Vorgang': invoice_number,
+            'Datei': invoice_file,
             'Versandkosten': '0.00',
             'Gesamtbetrag': 'keine Angabe',
             'Steuern': {},

@@ -55,6 +55,14 @@ class Shopkonfigurator():
         return self
 
 
+    def get(self, order_number: str) -> dict:
+        for item in self.data:
+            if order_number in item['ID']:
+                return item
+
+        return {}
+
+
     def init(self, force: bool = False) -> Shopkonfigurator:
         # Merge orders & infos
         if not self.data or force:

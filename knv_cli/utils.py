@@ -6,7 +6,16 @@ from hashlib import md5
 from os import makedirs
 from os.path import exists, dirname, join
 
+import click
+
 from pandas import DataFrame
+
+
+# CLI HELPER functions
+
+def pretty_print(dictionary: dict) -> None:
+    for key, value in dictionary.items():
+        click.echo('{key}: "{value}"'.format(key=key, value=value))
 
 
 # CSV functions

@@ -67,6 +67,14 @@ class Command(ABC):
         return self.process_data(df.to_dict('records'))
 
 
+    def get(self, order_number: str) -> dict:
+        for order in self.data:
+            if order_number in order['ID']:
+                return order
+
+        return {}
+
+
     @abstractmethod
     def process_data(self, data: list):
         pass

@@ -171,14 +171,24 @@ class Database:
 
 
     def get_invoices(self, invoice_files: list = None) -> Invoices:
-        if invoice_files:
-            return Invoices(invoice_files)
+        invoice_files = invoice_files if invoice_files else self.invoice_files['data']
 
-        return Invoices(self.invoice_files['data'])
+        return Invoices(invoice_files)
+
+
+    def get_orders(self, order_files: list = None) -> Orders:
+        order_files = order_files if order_files else self.order_files
+
+        return Orders(order_files)
+
+
+    def get_infos(self, info_files: list = None) -> Infos:
+        info_files = info_files if info_files else self.info_files
+
+        return Infos(info_files)
 
 
     def get_shopkonfigurator(self, data_files: list = None) -> Shopkonfigurator:
-        if data_files:
-            return Shopkonfigurator(data_files)
+        data_files = data_files if data_files else self.data_files
 
-        return Shopkonfigurator(self.data_files)
+        return Shopkonfigurator(data_files)

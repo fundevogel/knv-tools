@@ -12,7 +12,7 @@ from .database import Database
 from ..api.exceptions import InvalidLoginException
 from ..api.webservice import Webservice
 from ..utils import _load_json, dump_json, dump_csv
-from ..utils import ask_credentials, build_path, create_path, group_data
+from ..utils import ask_credentials, build_path, create_path, group_data, pretty_print
 
 
 clickpath = click.Path(exists=True)
@@ -58,8 +58,9 @@ def match(config, year, quarter):
     # Initialize database
     db = Database(config)
 
-    # Initialize payment handler
+    # Match payments for all available gateways
     for identifier in db.gateways.keys():
+        # Initialize payment handler
         handler = db.get_payments(identifier, year, quarter)
 
         # Exit if database has no payments
@@ -102,7 +103,7 @@ def match(config, year, quarter):
                 # Merge corresponding invoices
                 for invoice_number in sorted(invoice_numbers):
                     if invoices.has(invoice_number):
-                        pdf_file = invoices.get(invoice_number)
+                        pdf_file = invoices.get(invoice_number)['Datei']
 
                         with open(pdf_file, 'rb') as file:
                             merger.append(PdfFileReader(file))
@@ -297,6 +298,128 @@ def stats():
     """Show statistics"""
 
     pass
+
+
+# DATABASE GET subtasks
+
+@db.group()
+@pass_config
+def get(config):
+    pass
+
+
+@get.command()
+@pass_config
+@click.argument('number')
+def payment(config, number):
+    click.echo('Searching database ..', nl=False)
+
+    # Initialize database
+    db = Database(config)
+
+    # Match payments for all available gateways
+    for identifier in db.gateways.keys():
+        # Initialize payment handler
+        handler = db.get_payments(identifier)
+
+        # Extract payment for given (transaction or order) number
+        payment = handler.get(number)
+
+        if payment:
+            click.echo(' done.')
+            pretty_print(payment)
+            click.Context.exit(0)
+
+    click.echo(' failed: No entry found for "{}"'.format(number))
+
+
+@get.command()
+@pass_config
+@click.argument('invoice_number')
+def invoice(config, invoice_number):
+    click.echo('Searching database ..', nl=False)
+
+    # Initialize database
+    db = Database(config)
+
+    # Initialize info handler
+    handler = db.get_invoices()
+
+    if handler.has(invoice_number):
+        click.echo(' done.')
+        pretty_print(handler.get(invoice_number))
+        click.Context.exit(0)
+
+    click.echo(' failed: No entry found for "{}"'.format(invoice_number))
+
+
+@get.command()
+@pass_config
+@click.argument('order_number')
+def order(config, order_number):
+    click.echo('Searching database ..', nl=False)
+
+    # Initialize database
+    db = Database(config)
+
+    # Initialize order handler
+    handler = db.get_orders()
+
+    # Extract order for given order number
+    order = handler.get(order_number)
+
+    if order:
+        click.echo(' done.')
+        pretty_print(order)
+        click.Context.exit(0)
+
+    click.echo(' failed: No entry found for "{}"'.format(order_number))
+
+
+@get.command()
+@pass_config
+@click.argument('order_number')
+def info(config, order_number):
+    click.echo('Searching database ..', nl=False)
+
+    # Initialize database
+    db = Database(config)
+
+    # Initialize info handler
+    handler = db.get_infos()
+
+    # Extract info for given order number
+    info = handler.get(order_number)
+
+    if info:
+        click.echo(' done.')
+        pretty_print(info)
+        click.Context.exit(0)
+
+    click.echo(' failed: No entry found for "{}"'.format(order_number))
+
+
+@get.command()
+@pass_config
+@click.argument('order_number')
+def data(config, order_number):
+    click.echo('Searching database ..', nl=False)
+
+    # Initialize database
+    db = Database(config)
+
+    # Initialize info handler
+    handler = db.get_shopkonfigurator()
+
+    # Extract combined data record for given order number
+    data = handler.get(order_number)
+
+    if data:
+        click.echo(' done.')
+        pretty_print(data)
+        click.Context.exit(0)
+
+    click.echo(' failed: No entry found for "{}"'.format(order_number))
 
 
 # API tasks

@@ -67,6 +67,14 @@ class Paypal(Gateway):
         return payments
 
 
+    def get(self, transaction: str) -> dict:
+        for payment in self.data:
+            if payment['Transaktion'] == transaction:
+                return payment
+
+        return {}
+
+
     # MATCHING methods
 
     def match_payments(self, data: list, invoice_handler: Invoices = None) -> None:
