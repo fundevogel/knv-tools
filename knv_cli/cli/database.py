@@ -54,9 +54,9 @@ class Database:
     # GENERAL methods
 
     def flush(self) -> None:
-        files = self.payment_files['paypal'] + self.payment_files['volksbank']
-        files = self.invoice_files['pdf'] + self.invoice_files['data']
-        files += self.order_files + self.info_files + self.invoice_files
+        files = self.order_files + self.info_files
+        files += self.invoice_files['pdf'] + self.invoice_files['data']
+        files += self.payment_files['paypal'] + self.payment_files['volksbank']
 
         for file in files:
             remove(file)

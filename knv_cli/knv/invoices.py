@@ -58,7 +58,7 @@ class Invoices(Command):
             'Datei': invoice_file,
             'Versandkosten': '0.00',
             'Gesamtbetrag': 'keine Angabe',
-            'Steuern': {},
+            'Steuern': 'keine Angabe',
             'Gutscheine': 'keine Angabe',
         }
 
@@ -73,7 +73,7 @@ class Invoices(Command):
 
         # Determine invoice kind, as those starting with 'R' are formatted quite differently
         if invoice_number[:1] == 'R':
-            # Parse content, looking for information about ..
+            # Parse content, looking for ..
             # (1) .. general information
             for line in content:
                 if 'Rechnungsbetrag gesamt brutto' in line:
@@ -87,18 +87,29 @@ class Invoices(Command):
                     invoice['Versandkosten'] = self.convert_number(content[content.index(line) + 2])
 
             # (2) .. taxes
+            taxes = {}
+
             for tax_rate in ['5', '7', '16', '19']:
                 tax_string = 'MwSt. ' + tax_rate + ',00 %'
 
                 if tax_string in content:
-                    invoice['Steuern'][tax_rate + '%'] = self.convert_number(content[content.index(tax_string) + 2])
+                    taxes[tax_rate + '%'] = self.convert_number(content[content.index(tax_string) + 2])
+
+            if taxes:
+                invoice['Steuern'] = taxes
 
             # (3) .. coupons
             if 'Gutschein' in content:
                 coupons = []
 
                 # Check if coupon was purchased ..
-                check_point = 0 if 'Gesamtbetrag' not in content else self.get_index(content, 'Gesamtbetrag')
+                check_point = 0
+
+                if 'Gesamt:' in content:
+                    check_point = self.get_index(content, 'Gesamt:')
+
+                if 'Gesamtbetrag' in content:
+                    check_point = self.get_index(content, 'Gesamtbetrag')
 
                 for index in self.build_indices(content, 'Gutschein'):
                     # .. or applied
@@ -113,7 +124,8 @@ class Invoices(Command):
                 invoice['Gutscheine'] = coupons
 
         else:
-            # Gather general information
+            # Parse content, looking for ..
+            # (1) .. general information
             for index, line in enumerate(content):
                 # TODO: Get values via regexes
                 if 'Versandkosten:' in line:
@@ -123,10 +135,10 @@ class Invoices(Command):
                     invoice['Gesamtbetrag'] = self.convert_number(line.replace('Gesamtbetrag', ''))
 
             # Fetch first occurence of ..
-            # (1) .. 'Nettobetrag' (= starting point)
+            # .. 'Nettobetrag' (= starting point)
             starting_point = self.get_index(content, 'Nettobetrag')
 
-            # (2) .. 'Gesamtbetrag' (= terminal point)
+            # .. 'Gesamtbetrag' (= terminal point)
             terminal_point = self.get_index(content, 'Gesamtbetrag')
 
             # Try different setup, since some invoices are the other way around
@@ -138,12 +150,16 @@ class Invoices(Command):
 
             costs = content[starting_point:terminal_point + 1]
 
-            # Determine tax rates:
-            # reduced = 5% or 7%
-            # full = 16% or 19%
+            # (2) .. taxes
+            invoice['Steuern'] = {}
+
+            # Determine tax rates where ..
             tax_rates = [self.format_tax_rate(tax_rate) for tax_rate in costs[:2]]
 
+            # .. 'reduced' equals either 5% or 7%
             reduced_tax = 0
+
+            # .. 'full' equals either 16% or 19%
             full_tax = 0
 
             if len(costs) < 8:
@@ -251,4 +267,4 @@ class Invoices(Command):
 
     def invoices(self):
         # Sort invoices by date & order number, output as list
-        return sorted(list(self.data.values()), key=itemgetter('Datum', 'Vorgang'))
+        return sorted(self.data, key=itemgetter('Datum', 'Vorgang'))
