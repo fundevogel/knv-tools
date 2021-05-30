@@ -1,5 +1,3 @@
-# ~*~ coding=utf-8 ~*~
-
 
 from glob import glob
 from os import getcwd, remove

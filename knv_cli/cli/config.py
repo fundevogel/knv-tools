@@ -1,5 +1,3 @@
-# ~*~ coding=utf-8 ~*~
-
 
 from configparser import SafeConfigParser
 from os import getcwd
