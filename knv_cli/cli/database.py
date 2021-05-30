@@ -43,7 +43,7 @@ class Database:
         }
 
         # Load merged data sources
-        self.data_files = build_path(config.database_dir)
+        self.db_files = build_path(config.database_dir)
 
         # Import config
         self.config = config
@@ -187,6 +187,6 @@ class Database:
 
 
     def get_shopkonfigurator(self, data_files: list = None) -> Shopkonfigurator:
-        data_files = data_files if data_files else self.data_files
+        data_files = data_files if data_files else self.db_files
 
         return Shopkonfigurator(data_files)
