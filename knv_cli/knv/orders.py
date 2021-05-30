@@ -40,12 +40,19 @@ class Orders(Command):
                 order['Anrede'] = item['rechnungaddresstitle']
                 order['Vorname'] = item['rechnungaddressfirstname']
                 order['Nachname'] = item['rechnungaddresslastname']
+                order['Straße'] = item['rechnungaddressstreet']
+                order['Hausnummer'] = str(item['rechnungaddresshousenumber'])
+                order['PLZ'] = str(item['rechnungaddresszipcode'])
+                order['Ort'] = item['rechnungaddresscity']
+                order['Land'] = item['rechnungaddresscountry']
+                order['Telefon'] = str(item['rechnungaddressphonenumber'])
                 order['Email'] = item['rechnungaddressemail']
-                order['Bestellung'] = {}
+                order['Bestellung'] = []
                 order['Bestellsumme'] = self.convert_number(item['totalproductcost'])
                 order['Versand'] = self.convert_number(item['totalshipping'])
-                order['Betrag'] = self.convert_number(item['totalordercost'])
+                order['Gesamtbetrag'] = self.convert_number(item['totalordercost'])
                 order['Währung'] = item['currency']
+                order['Steuern'] = 'keine Angabe'
                 order['Abwicklung'] = {
                     'Zahlungsart': 'keine Angabe',
                     'Transaktionscode': 'keine Angabe'
@@ -57,7 +64,7 @@ class Orders(Command):
             # (1) .. each purchased article
             item_number = str(item['orderitemid'])
 
-            orders[code]['Bestellung'][item_number] = {
+            orders[code]['Bestellung'].append({
                 'Nummer': item_number,
                 'ISBN': isbn,
                 'Titel': item['producttitle'],
@@ -65,7 +72,7 @@ class Orders(Command):
                 'Preis': self.convert_number(item['orderitemunitprice']),
                 'Steuersatz': self.convert_tax_rate(item['vatpercent']),
                 'Steueranteil': self.convert_number(item['vatprice']),
-            }
+            })
 
             # (2) .. method of payment
             if str(item['paymenttype']) != 'nan':
@@ -75,7 +82,26 @@ class Orders(Command):
             if str(item['transactionid']) != 'nan':
                 orders[code]['Abwicklung']['Transaktionscode'] = str(item['transactionid'])
 
+        # Apply total taxes to each order
+        # for code, order in orders.items():
+        #     orders[code]['Steuern'] = self.extract_taxes(order['Bestellung'])
+
         return orders
+
+
+    # DATA HELPER methods
+
+    def convert_tax_rate(self, string: str) -> str:
+        return str(string).replace(',00', '') + '%'
+
+
+    # def extract_taxes(self, items: list) -> dict:
+    #     taxes = {}
+
+    #     for tax_rate in {item['Steuersatz'] for item in items}:
+    #         taxes[tax_rate] = self.convert_number(sum([float(item['Steueranteil']) for item in items if item['Steuersatz'] == tax_rate]))
+
+    #     return taxes
 
 
     # OUTPUT methods
@@ -83,9 +109,3 @@ class Orders(Command):
     def orders(self):
         # Sort orders by date & order number, output as list
         return sorted(list(self.data.values()), key=itemgetter('Datum', 'ID'))
-
-
-    # DATA HELPER methods
-
-    def convert_tax_rate(self, string: str) -> str:
-        return str(string).replace(',00', '') + '%'

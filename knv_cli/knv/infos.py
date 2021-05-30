@@ -35,15 +35,14 @@ class Infos(Command):
 
                 info['ID'] = code
                 info['Datum'] = item['Creation Date'][:10]
-                info['Rechnungen'] = {}
+                info['Bestellung'] = {}
 
                 infos[code] = info
 
-            if invoice_number not in infos[code]['Rechnungen'].keys():
-                infos[code]['Rechnungen'][invoice_number] = [item_number]
+            if invoice_number not in infos[code]['Bestellung']:
+                infos[code]['Bestellung'][invoice_number] = []
 
-            else:
-                infos[code]['Rechnungen'][invoice_number].append(item_number)
+            infos[code]['Bestellung'][invoice_number].append(item_number)
 
         return infos
 

@@ -72,40 +72,29 @@ class Shopkonfigurator():
 
 
     def merge_data(self, order_data: list, info_data: list) -> list:
-        data = {}
+        data = []
 
         for order in order_data:
-            code = order['ID']
+            for info in info_data:
+                # Match order & info one-to-one first
+                if order['ID'] == info['ID']:
+                    # Prepare data storage for invoices & their items
+                    items = {}
 
-            if code not in data:
-                order['Rechnungen'] = 'nicht zugeordnet'
-                order['Abrechnungen'] = 'nicht zugeordnet'
+                    for invoice_number, item_numbers in info['Bestellung'].items():
+                        items[invoice_number] = [item for item in order['Bestellung'] if item['Nummer'] in item_numbers]
 
-                for info in info_data:
-                    # Match order & info one-to-one first
-                    if code == info['ID']:
-                        # Prepare data storage for invoices
-                        invoice_data = {}
+                    order['Bestellung'] = items
 
-                        # Keep original data (as safety measure)
-                        order['Rechnungen'] = info['Rechnungen']
+                    # Move on to next order
+                    break
 
-                        for invoice_number, item_numbers in info['Rechnungen'].items():
-                            # Add empty invoice placeholder
-                            invoice_data[invoice_number] = []
+            data.append(order)
 
-                            for item_number in item_numbers:
-                                # Add invoice data if item numbers match
-                                if item_number in order['Bestellung'].keys():
-                                    invoice_data[invoice_number].append(order['Bestellung'][item_number])
+        # Sort results by date, order number & last name
+        data.sort(key=itemgetter('Datum', 'ID', 'Nachname'))
 
-                        order['Abrechnungen'] = invoice_data
-
-                        break
-
-                data[code] = order
-
-        return sorted(list(data.values()), key=itemgetter('Datum', 'ID', 'Nachname'))
+        return data
 
 
     # RANKING methods
