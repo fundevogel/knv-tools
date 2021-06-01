@@ -244,6 +244,12 @@ def db(config):
 
 @db.command()
 @pass_config
+def stats():
+    pass
+
+
+@db.command()
+@pass_config
 def flush(config):
     """Flush database"""
 
@@ -256,48 +262,118 @@ def flush(config):
     click.echo(' done.')
 
 
-@db.command()
+# DATABASE REBUILD subtasks
+
+@db.group()
 @pass_config
 def rebuild(config):
+    pass
+
+
+@rebuild.command()
+@pass_config
+def all(config):
     """Rebuild database"""
 
     # Initialize database
     db = Database(config)
 
     # Import payment files
-    click.echo('Importing payments ..', nl=False)
+    click.echo('Rebuilding payments ..', nl=False)
     db.rebuild_payments()
     click.echo(' done.')
 
     # Import invoice files
-    click.echo('Importing invoices ..', nl=False)
+    click.echo('Rebuilding invoices ..', nl=False)
     db.rebuild_invoices()
     click.echo(' done.')
 
     # Import order files
-    click.echo('Importing orders ..', nl=False)
+    click.echo('Rebuilding orders ..', nl=False)
     db.rebuild_orders()
     click.echo(' done.')
 
     # Import info files
-    click.echo('Importing infos ..', nl=False)
+    click.echo('Rebuilding infos ..', nl=False)
     db.rebuild_infos()
     click.echo(' done.')
 
     # Merge data sources
-    click.echo('Merging data ..', nl=False)
+    click.echo('Merging data sources ..', nl=False)
     db.rebuild_data()
     click.echo(' done.')
 
     click.echo('Update complete!')
 
 
-@db.command()
+@rebuild.command()
 @pass_config
-def stats():
-    """Show statistics"""
+def payments(config):
+    """Rebuild payments"""
 
-    pass
+    # Initialize database
+    db = Database(config)
+
+    # Import payment files
+    click.echo('Rebuilding payments ..', nl=False)
+    db.rebuild_payments()
+    click.echo(' done.')
+
+
+@rebuild.command()
+@pass_config
+def invoices(config):
+    """Rebuild invoices"""
+
+    # Initialize database
+    db = Database(config)
+
+    # Import invoice files
+    click.echo('Rebuilding invoices ..', nl=False)
+    db.rebuild_invoices()
+    click.echo(' done.')
+
+
+@rebuild.command()
+@pass_config
+def orders(config):
+    """Rebuild orders"""
+
+    # Initialize database
+    db = Database(config)
+
+    # Import order files
+    click.echo('Rebuilding orders ..', nl=False)
+    db.rebuild_orders()
+    click.echo(' done.')
+
+
+@rebuild.command()
+@pass_config
+def infos(config):
+    """Rebuild infos"""
+
+    # Initialize database
+    db = Database(config)
+
+    # Import info files
+    click.echo('Rebuilding infos ..', nl=False)
+    db.rebuild_infos()
+    click.echo(' done.')
+
+
+@rebuild.command()
+@pass_config
+def merge(config):
+    """Rebuild merged data"""
+
+    # Initialize database
+    db = Database(config)
+
+    # Merge data sources
+    click.echo('Merging data sources ..', nl=False)
+    db.rebuild_data()
+    click.echo(' done.')
 
 
 # DATABASE GET subtasks
