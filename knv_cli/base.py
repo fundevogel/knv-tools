@@ -3,8 +3,23 @@ from datetime import datetime
 
 
 class BaseClass(ABC):
+    # PROPS
+
+    data = None
+
+
     def __init__(self):
         pass
+
+
+    # DATA methods
+
+    def get(self, identifier: str) -> dict:
+        if identifier in self.data:
+            return self.data[identifier]
+
+        return {}
+
 
     # HELPER methods
 

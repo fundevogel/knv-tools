@@ -21,7 +21,6 @@ from ..utils import load_json
 class KNV(BaseClass):
     # PROPS
 
-    data = None
     orders = None
     infos = None
     invoices = None
@@ -55,14 +54,6 @@ class KNV(BaseClass):
             self.invoices = load_json(data_files)
 
         return self
-
-
-    def get(self, order_number: str) -> dict:
-        for item in self.data:
-            if order_number in item['ID']:
-                return item
-
-        return {}
 
 
     def init(self, force: bool = False) -> KNV:

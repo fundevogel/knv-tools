@@ -24,16 +24,6 @@ class Invoices(Command):
         return self.process_data(invoice_files)
 
 
-    def has(self, invoice_file: str) -> bool:
-        return self.invoice2number(invoice_file) in self.data
-
-
-    def get(self, invoice_number: str) -> dict:
-        return self.data[invoice_number]
-
-
-    # PARSING methods
-
     def process_data(self, invoice_files: list) -> dict:
         '''
         Processes '{VKN}-{Ymd}-*.pdf' & 'RE_{Ymd}_{VKN}_*.pdf' files
@@ -207,7 +197,7 @@ class Invoices(Command):
         return invoices
 
 
-    # PARSING HELPER methods
+    # DATA HELPER methods
 
     def format_tax_rate(self, string: str) -> str:
         return (string[:-1].replace('Nettobetrag', '')).strip()

@@ -14,10 +14,6 @@ from .utils import load_json
 
 
 class Command(BaseClass):
-    # PROPS
-
-    data = None
-
     # CSV options
     csv_encoding = 'iso-8859-1'
     csv_delimiter = ';'
@@ -65,14 +61,6 @@ class Command(BaseClass):
             return []
 
         return self.process_data(df.to_dict('records'))
-
-
-    def get(self, order_number: str) -> dict:
-        for order in self.data:
-            if order_number in order['ID']:
-                return order
-
-        return {}
 
 
     @abstractmethod
