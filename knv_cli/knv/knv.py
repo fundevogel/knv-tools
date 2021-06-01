@@ -68,38 +68,35 @@ class KNV(BaseClass):
         data = {}
 
         for order_number, order in order_data.items():
-            for info in info_data.values():
-                # Match order & info one-to-one first
-                if order_number == info['ID']:
-                    # Prepare data storage for invoices & their items
-                    purchase = {}
+            # Check for matching info ..
+            if order_number in info_data:
+                # .. which is a one-to-one most the time
+                info = info_data[order_number]
 
-                    for invoice_number, invoice_items in info['Bestellung'].items():
-                        purchase[invoice_number] = []
+                # Prepare invoice data storage
+                purchase = {}
 
-                        matching_order = [order for order in order['Bestellung'] if order['Nummer'] in invoice_items][0]
+                for invoice_number, invoice_items in info['Bestellung'].items():
+                    purchase[invoice_number] = []
 
-                        for invoice_item in invoice_items.values():
-                            invoice_item['ISBN'] = matching_order['ISBN']
-                            invoice_item['Titel'] = matching_order['Titel']
-                            invoice_item['Steuersatz'] = matching_order['Steuersatz']
-                            invoice_item['Steueranteil'] = matching_order['Steueranteil']
-                            invoice_item['ISBN'] = matching_order['ISBN']
+                    # Extract reference order item ..
+                    match = [item for item in order['Bestellung'] if item['Nummer'] in invoice_items][0]
 
-                            purchase[invoice_number].append(invoice_item)
+                    # .. and copy over its data, taking care of invoices with huge amounts of items being split into several invoices
+                    # See '31776-001471'
+                    for invoice_item in invoice_items.values():
+                        invoice_item['ISBN'] = match['ISBN']
+                        invoice_item['Titel'] = match['Titel']
+                        invoice_item['Steuern'] = 'keine Angabe'
+                        invoice_item['Steuersatz'] = match['Steuersatz']
+                        invoice_item['Steueranteil'] = match['Steueranteil']
 
-                    order['Bestellung'] = purchase
+                        purchase[invoice_number].append(invoice_item)
 
-                    # Extract taxes from invoice files if invoice handler is available
-                    # TODO: Add missing invoices to global store
-                    # parsed_invoices = self.invoice_handler.parse_invoices(list(purchase.keys()))
-                    # order['Steuern'] = {invoice['Vorgang']: invoice['Steuern'] for invoice in parsed_invoices[0]}
+                order['Rechnungen'] = purchase
 
-                    # if parsed_invoices[-1]:
-                    #     print(parsed_invoices[-1])
-
-                    # Move on to next order
-                    break
+                # Extract taxes for each invoice from parsed invoice files
+                order['Steuern'] = {invoice_number: invoice_data[invoice_number]['Steuern'] for invoice_number in purchase.keys() if invoice_number in invoice_data}
 
             data[order_number] = order
 

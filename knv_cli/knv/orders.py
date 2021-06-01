@@ -48,6 +48,8 @@ class Orders(Command):
                 order['Telefon'] = str(item['rechnungaddressphonenumber'])
                 order['Email'] = item['rechnungaddressemail']
                 order['Bestellung'] = []
+                order['Rechnungen'] = 'nicht zugeordnet'
+                order['Gutscheine'] = 'keine Angabe'
                 order['Bestellsumme'] = self.convert_number(item['totalproductcost'])
                 order['Versand'] = self.convert_number(item['totalshipping'])
                 order['Gesamtbetrag'] = self.convert_number(item['totalordercost'])
