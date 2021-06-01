@@ -3,10 +3,10 @@
 # TODO: Add link about CSV export in Volksbank online banking
 
 
+from operator import itemgetter
 from re import findall, fullmatch, split
 from string import punctuation
 
-from ..knv.invoices import Invoices
 from ..utils import dedupe
 
 from .gateway import Gateway
@@ -53,6 +53,8 @@ class Volksbank(Gateway):
             payment['Name'] = item['Empfänger/Zahlungspflichtiger']
             payment['Betrag'] = self.convert_number(item['Umsatz'])
             payment['Währung'] = item['Währung']
+            payment['Steuern'] = 'keine Angabe'
+            payment['Dienstleister'] = 'Volksbank'
             payment['Rohdaten'] = item['Vorgang/Verwendungszweck']
 
             # Skip blocked payers by ..
@@ -131,7 +133,7 @@ class Volksbank(Gateway):
     # MATCHING methods
 
     # TODO: Check if payment equals order total
-    def match_payments(self, data: list, invoice_handler: Invoices = None) -> None:
+    def match_payments(self, data: list) -> None:
         results = []
 
         for payment in self.data:
@@ -157,37 +159,37 @@ class Volksbank(Gateway):
                 payment['Vorgang'] = matching_invoices
 
                 # There are two ways extracting information about invoices ..
-                if invoice_handler:
-                    # .. via parsing invoice files
-                    matching_invoices = self.parse_invoices(matching_invoices, invoice_handler)
+                # if invoice_handler:
+                #     # .. via parsing invoice files
+                #     matching_invoices = self.parse_invoices(matching_invoices, invoice_handler)
 
-                    payment['Vorgang'] = [invoice['Vorgang'] for invoice in matching_invoices]
-                    payment['Rechnungssumme'] = '0.00'
-                    payment['Bestellung'] = []
+                #     payment['Vorgang'] = [invoice['Vorgang'] for invoice in matching_invoices]
+                #     payment['Rechnungssumme'] = '0'
+                #     payment['Bestellung'] = []
 
-                    taxes = {}
+                #     taxes = {}
 
-                    for invoice in matching_invoices:
-                        payment['Rechnungssumme'] = self.convert_number(float(payment['Rechnungssumme']) + float(invoice['Gesamtbetrag']))
-                        payment['Bestellung'].append(invoice['Steuern'])
+                #     for invoice in matching_invoices:
+                #         payment['Rechnungssumme'] = self.convert_number(float(payment['Rechnungssumme']) + float(invoice['Gesamtbetrag']))
+                #         payment['Bestellung'].append(invoice['Steuern'])
 
-                        for  tax_rate, tax_amount in invoice['Steuern'].items():
-                            if not tax_rate in taxes:
-                                taxes[tax_rate] = tax_amount
+                #         if isinstance(invoice['Steuern'], dict):
+                #             for tax_rate, tax_amount in invoice['Steuern'].items():
+                #                 if not tax_rate in taxes:
+                #                     taxes[tax_rate] = '0'
 
-                            else:
-                                taxes[tax_rate] = self.convert_number(float(taxes[tax_rate]) + float(tax_amount))
+                #                 taxes[tax_rate] = self.convert_number(float(taxes[tax_rate]) + float(tax_amount))
 
-                    for tax_rate, tax_amount in taxes.items():
-                        payment[tax_rate + ' MwSt'] = tax_amount
+                #     for tax_rate, tax_amount in taxes.items():
+                #         payment[tax_rate + ' MwSt'] = tax_amount
 
-                else:
-                    if matching_orders:
-                        # .. via fetching order data
-                        taxes = self.match_invoices(matching_invoices, matching_orders)
+                # else:
+                #     if matching_orders:
+                #         # .. via fetching order data
+                #         taxes = self.match_invoices(matching_invoices, matching_orders)
 
-                        if taxes:
-                            payment['Bestellung'] = taxes
+                #         if taxes:
+                #             payment['Bestellung'] = taxes
 
                 # Reverse-lookup orders if no matching order number(s) yet
                 # if not matching_orders:
@@ -236,11 +238,18 @@ class Volksbank(Gateway):
         return matches
 
 
-    def parse_invoices(self, invoices: list, handler: Invoices) -> list:
-        results = []
+    # OUTPUT methods
 
-        for invoice in invoices:
-            if handler.has(invoice):
-                results.append(handler.parse(invoice))
+    def payments(self) -> list:
+        # Sort payments by date & full name
+        return sorted(self.data, key=itemgetter('Datum', 'Name'))
 
-        return results
+
+    def blocked_payments(self) -> list:
+        # Sort payments by date & full name
+        return sorted(self._blocked_payments, key=itemgetter('Datum', 'Name'))
+
+
+    def matched_payments(self, csv_compatible: bool = False) -> list:
+        # Sort payments by date & full name
+        return sorted(self._matched_payments, key=itemgetter('Datum', 'Name'))

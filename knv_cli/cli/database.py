@@ -139,11 +139,14 @@ class Database:
     def rebuild_data(self):
         handler = Shopkonfigurator()
 
-        order_files = build_path(self.config.order_dir)
-        info_files = build_path(self.config.info_dir)
+        # Load data files for orders & infos
+        handler.load('orders', self.order_files).load('infos', self.info_files)
 
-        # Load import files & merge their data
-        handler.load('orders', order_files).load('infos', info_files).init()
+        # Load data files for invoices
+        handler.load('invoices', self.invoice_files['data'])
+
+        # Merge their data
+        handler.init()
 
         for code, data in group_data(handler.data).items():
             dump_json(data, join(self.config.database_dir, code + '.json'))
