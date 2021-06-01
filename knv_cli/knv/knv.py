@@ -18,7 +18,7 @@ from ..base import BaseClass
 from ..utils import load_json
 
 
-class Shopkonfigurator(BaseClass):
+class KNV(BaseClass):
     # PROPS
 
     data = None
@@ -34,7 +34,7 @@ class Shopkonfigurator(BaseClass):
 
     # DATA methods
 
-    def load(self, identifier: str, data_files: list = None) -> Shopkonfigurator:
+    def load(self, identifier: str, data_files: list = None) -> KNV:
         # Check identifier
         if identifier not in ['orders', 'infos', 'invoices']:
             raise Exception('Unsupported identifier: "{}"'.format(identifier))
@@ -65,7 +65,7 @@ class Shopkonfigurator(BaseClass):
         return {}
 
 
-    def init(self, force: bool = False) -> Shopkonfigurator:
+    def init(self, force: bool = False) -> KNV:
         # Merge orders & infos
         if not self.data or force:
             self.data = self.merge_data(self.orders, self.infos, self.invoices)

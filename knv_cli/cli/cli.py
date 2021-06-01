@@ -71,7 +71,7 @@ def match(config, year, quarter):
         click.echo('Matching ' + identifier + ' data ..', nl=False)
 
         # Get combined order data
-        data = db.get_shopkonfigurator().data
+        data = db.get_knv().data
 
         # Get invoices in case no order data is provided
         invoices = db.get_invoices()
@@ -139,7 +139,7 @@ def rank(config, year, quarter, enable_chart, limit):
     db = Database(config)
 
     # Initialize handler
-    handler = db.get_shopkonfigurator()
+    handler = db.get_knv()
 
     # Exit if database is empty
     data_files = build_path(config.database_dir, year=year, quarter=quarter)
@@ -151,7 +151,7 @@ def rank(config, year, quarter, enable_chart, limit):
     click.echo('Ranking data ..', nl=False)
 
     # Initialize handler
-    handler = db.get_shopkonfigurator(data_files)
+    handler = db.get_knv(data_files)
 
     # Extract & rank sales
     ranking = handler.get_ranking()
@@ -196,7 +196,7 @@ def contacts(config, date, blocklist):
     db = Database(config)
 
     # Initialize handler
-    handler = db.get_shopkonfigurator()
+    handler = db.get_knv()
 
     # Exit if database is empty
     if not handler.data:
@@ -409,7 +409,7 @@ def data(config, order_number):
     db = Database(config)
 
     # Initialize info handler
-    handler = db.get_shopkonfigurator()
+    handler = db.get_knv()
 
     # Extract combined data record for given order number
     data = handler.get(order_number)

@@ -6,7 +6,7 @@ from .gateways.volksbank import Volksbank
 from .knv.infos import Infos
 from .knv.invoices import Invoices
 from .knv.orders import Orders
-from .knv.shopkonfigurator import Shopkonfigurator
+from .knv.knv import KNV
 
 from .utils import build_path, dedupe, group_data, sort_data
 
@@ -16,7 +16,7 @@ __all__ = [
     'Webservice',
 
     # KNV data sources
-    'Shopkonfigurator',
+    'KNV',
     'Orders',
     'Infos',
     'Invoices',
