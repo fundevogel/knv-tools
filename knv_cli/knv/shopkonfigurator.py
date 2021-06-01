@@ -22,9 +22,9 @@ class Shopkonfigurator(BaseClass):
     # PROPS
 
     data = None
-    orders = []
-    infos = []
-    invoices = []
+    orders = None
+    infos = None
+    invoices = None
 
 
     def __init__(self, data_files: list = None) -> None:
@@ -74,12 +74,12 @@ class Shopkonfigurator(BaseClass):
 
 
     def merge_data(self, order_data: list, info_data: list, invoice_data: list) -> list:
-        data = []
+        data = {}
 
-        for order in order_data:
-            for info in info_data:
+        for order_number, order in order_data.items():
+            for info in info_data.values():
                 # Match order & info one-to-one first
-                if order['ID'] == info['ID']:
+                if order_number == info['ID']:
                     # Prepare data storage for invoices & their items
                     purchase = {}
 
@@ -110,10 +110,7 @@ class Shopkonfigurator(BaseClass):
                     # Move on to next order
                     break
 
-            data.append(order)
-
-        # Sort results by date, order number & last name
-        data.sort(key=itemgetter('Datum', 'ID', 'Nachname'))
+            data[order_number] = order
 
         return data
 

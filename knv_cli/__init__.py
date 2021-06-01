@@ -8,7 +8,7 @@ from .knv.invoices import Invoices
 from .knv.orders import Orders
 from .knv.shopkonfigurator import Shopkonfigurator
 
-from .utils import build_path, dedupe, group_data
+from .utils import build_path, dedupe, group_data, sort_data
 
 
 __all__ = [
@@ -28,5 +28,6 @@ __all__ = [
     # Utilities
     'build_path',
     'dedupe',
-    'group_data'
+    'group_data',
+    'sort_data',
 ]

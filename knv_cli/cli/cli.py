@@ -85,7 +85,7 @@ def match(config, year, quarter):
 
         else:
             # Filter & merge matched invoices
-            for code, data in group_data(handler.matched_payments()).items():
+            for code, data in group_data(handler.data).items():
                 # Extract matching invoice numbers
                 invoice_numbers = set()
 
