@@ -89,9 +89,5 @@ class Orders(Command):
 
     # DATA HELPER methods
 
-    def convert_nan(self, string: str) -> str:
-        return str(string) if str(string) != 'nan' else ''
-
-
     def convert_tax_rate(self, string: str) -> str:
         return str(string).replace(',00', '') + '%'

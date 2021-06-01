@@ -66,3 +66,9 @@ class Command(BaseClass):
     @abstractmethod
     def process_data(self, data: list):
         pass
+
+
+    # DATA HELPER methods
+
+    def convert_nan(self, string: str) -> str:
+        return str(string) if str(string) != 'nan' else ''
