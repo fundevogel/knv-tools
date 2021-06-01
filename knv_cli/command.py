@@ -47,11 +47,11 @@ class Command(BaseClass):
         return self
 
 
-    def load_data(self, data_files: list) -> list:
+    def load_data(self, data_files: list):
         return self.load_csv(data_files)
 
 
-    def load_csv(self, csv_files: list) -> list:
+    def load_csv(self, csv_files: list):
         try:
             df = concat(map(lambda file: read_csv(
                 file,

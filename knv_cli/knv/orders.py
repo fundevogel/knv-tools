@@ -40,11 +40,11 @@ class Orders(Command):
                 order['Anrede'] = item['rechnungaddresstitle']
                 order['Vorname'] = item['rechnungaddressfirstname']
                 order['Nachname'] = item['rechnungaddresslastname']
-                order['Straße'] = item['rechnungaddressstreet']
-                order['Hausnummer'] = str(item['rechnungaddresshousenumber'])
-                order['PLZ'] = str(item['rechnungaddresszipcode'])
-                order['Ort'] = item['rechnungaddresscity']
-                order['Land'] = item['rechnungaddresscountry']
+                order['Straße'] = self.convert_nan(item['rechnungaddressstreet'])
+                order['Hausnummer'] = self.convert_nan(item['rechnungaddresshousenumber'])
+                order['PLZ'] = self.convert_nan(item['rechnungaddresszipcode']).replace('.0', '')
+                order['Ort'] = self.convert_nan(item['rechnungaddresscity'])
+                order['Land'] = self.convert_nan(item['rechnungaddresscountry'])
                 order['Telefon'] = str(item['rechnungaddressphonenumber'])
                 order['Email'] = item['rechnungaddressemail']
                 order['Bestellung'] = []
@@ -69,7 +69,7 @@ class Orders(Command):
                 'ISBN': isbn,
                 'Titel': item['producttitle'],
                 'Anzahl': int(item['quantity']),
-                'Preis': self.convert_number(item['orderitemunitprice']),
+                'Einzelpreis': self.convert_number(item['orderitemunitprice']),
                 'Steuersatz': self.convert_tax_rate(item['vatpercent']),
                 'Steueranteil': self.convert_number(item['vatprice']),
             })
@@ -82,30 +82,14 @@ class Orders(Command):
             if str(item['transactionid']) != 'nan':
                 orders[code]['Abwicklung']['Transaktionscode'] = str(item['transactionid'])
 
-        # Apply total taxes to each order
-        # for code, order in orders.items():
-        #     orders[code]['Steuern'] = self.extract_taxes(order['Bestellung'])
-
         return orders
 
 
     # DATA HELPER methods
 
+    def convert_nan(self, string: str) -> str:
+        return str(string) if str(string) != 'nan' else ''
+
+
     def convert_tax_rate(self, string: str) -> str:
         return str(string).replace(',00', '') + '%'
-
-
-    # def extract_taxes(self, items: list) -> dict:
-    #     taxes = {}
-
-    #     for tax_rate in {item['Steuersatz'] for item in items}:
-    #         taxes[tax_rate] = self.convert_number(sum([float(item['Steueranteil']) for item in items if item['Steuersatz'] == tax_rate]))
-
-    #     return taxes
-
-
-    # OUTPUT methods
-
-    def orders(self):
-        # Sort orders by date & order number, output as list
-        return sorted(list(self.data.values()), key=itemgetter('Datum', 'ID'))

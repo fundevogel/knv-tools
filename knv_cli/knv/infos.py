@@ -40,15 +40,12 @@ class Infos(Command):
                 infos[code] = info
 
             if invoice_number not in infos[code]['Bestellung']:
-                infos[code]['Bestellung'][invoice_number] = []
+                infos[code]['Bestellung'][invoice_number] = {}
 
-            infos[code]['Bestellung'][invoice_number].append(item_number)
+            infos[code]['Bestellung'][invoice_number][item_number] = {
+                'Nummer': item_number,
+                'Anzahl': int(item['Quantity']),
+                'Einzelpreis': self.convert_number(item['Total Cost']),
+            }
 
         return infos
-
-
-    # OUTPUT methods
-
-    def infos(self):
-        # Sort infos by date & order number, output as list
-        return sorted(list(self.data.values()), key=itemgetter('Datum', 'ID'))

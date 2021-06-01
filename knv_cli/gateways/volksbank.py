@@ -24,6 +24,10 @@ class Volksbank(Gateway):
     # DATA methods
 
     def process_payments(self, data) -> list:
+        '''
+        Processes 'Umsaetze_{IBAN}_{Y.m.d}.csv' files
+        '''
+
         payments = []
 
         for item in data:

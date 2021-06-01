@@ -202,7 +202,7 @@ class Paypal(Gateway):
                 del item['Transaktion']
 
                 # Convert invoice numbers to string
-                if item['Vorgang'] != 'nicht zugeordnet':
+                if isinstance(item['Vorgang'], list):
                     item['Vorgang'] = ';'.join(item['Vorgang'])
 
                 # Extract tax rates & their respective amount
