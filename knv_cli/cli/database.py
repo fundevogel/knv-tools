@@ -10,7 +10,7 @@ from ..gateways.volksbank import Volksbank
 from ..knv.invoices import Invoices
 from ..knv.orders import Orders
 from ..knv.infos import Infos
-from ..knv.shopkonfigurator import Shopkonfigurator
+from ..knv.knv import KNV
 from ..utils import build_path, create_path, dump_json, group_data, sort_data
 
 
@@ -137,7 +137,7 @@ class Database:
 
 
     def rebuild_data(self):
-        handler = Shopkonfigurator()
+        handler = KNV()
 
         # Load data files for orders & infos
         handler.load('orders', self.order_files).load('infos', self.info_files)
@@ -189,7 +189,7 @@ class Database:
         return Infos(info_files)
 
 
-    def get_shopkonfigurator(self, data_files: list = None) -> Shopkonfigurator:
+    def get_knv(self, data_files: list = None) -> KNV:
         data_files = data_files if data_files else self.db_files
 
-        return Shopkonfigurator(data_files)
+        return KNV(data_files)

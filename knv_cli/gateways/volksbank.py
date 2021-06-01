@@ -236,20 +236,3 @@ class Volksbank(Gateway):
                     matches[invoice] = order['Abrechnungen'][invoice]
 
         return matches
-
-
-    # OUTPUT methods
-
-    def payments(self) -> list:
-        # Sort payments by date & full name
-        return sorted(self.data, key=itemgetter('Datum', 'Name'))
-
-
-    def blocked_payments(self) -> list:
-        # Sort payments by date & full name
-        return sorted(self._blocked_payments, key=itemgetter('Datum', 'Name'))
-
-
-    def matched_payments(self, csv_compatible: bool = False) -> list:
-        # Sort payments by date & full name
-        return sorted(self._matched_payments, key=itemgetter('Datum', 'Name'))
