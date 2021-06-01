@@ -2,18 +2,18 @@
 # See https://stackoverflow.com/a/33533514
 from __future__ import annotations
 
-from abc import ABC, abstractmethod
-from datetime import datetime
+from abc import abstractmethod
 from hashlib import md5
 from operator import itemgetter
 from os.path import splitext
 
 from pandas import concat, read_csv
 
+from .base import BaseClass
 from .utils import load_json
 
 
-class Command(ABC):
+class Command(BaseClass):
     # PROPS
 
     data = None
@@ -78,23 +78,3 @@ class Command(ABC):
     @abstractmethod
     def process_data(self, data: list):
         pass
-
-
-    # HELPER methods
-
-    def convert_date(self, string: str) -> str:
-        return datetime.strptime(string, '%d.%m.%Y').strftime('%Y-%m-%d')
-
-
-    def convert_number(self, string) -> str:
-        # Convert to string & clear whitespaces
-        string = str(string).strip()
-
-        # Take care of thousands separator, as in '1.234,56'
-        if '.' in string and ',' in string:
-            string = string.replace('.', '')
-
-        string = float(string.replace(',', '.'))
-        integer = f'{string:.2f}'
-
-        return str(integer)

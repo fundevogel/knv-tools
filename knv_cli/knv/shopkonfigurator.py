@@ -14,18 +14,17 @@ import pendulum
 from matplotlib import pyplot, rcParams
 from pandas import DataFrame
 
+from ..base import BaseClass
 from ..utils import load_json
 
-from .infos import Infos
-from .orders import Orders
 
-
-class Shopkonfigurator():
+class Shopkonfigurator(BaseClass):
     # PROPS
 
     data = None
     orders = []
     infos = []
+    invoices = []
 
 
     def __init__(self, data_files: list = None) -> None:
@@ -37,7 +36,7 @@ class Shopkonfigurator():
 
     def load(self, identifier: str, data_files: list = None) -> Shopkonfigurator:
         # Check identifier
-        if identifier not in ['orders', 'infos']:
+        if identifier not in ['orders', 'infos', 'invoices']:
             raise Exception('Unsupported identifier: "{}"'.format(identifier))
 
         # Check filetype
@@ -51,6 +50,9 @@ class Shopkonfigurator():
 
         if identifier == 'infos':
             self.infos = load_json(data_files)
+
+        if identifier == 'invoices':
+            self.invoices = load_json(data_files)
 
         return self
 
@@ -66,12 +68,12 @@ class Shopkonfigurator():
     def init(self, force: bool = False) -> Shopkonfigurator:
         # Merge orders & infos
         if not self.data or force:
-            self.data = self.merge_data(self.orders, self.infos)
+            self.data = self.merge_data(self.orders, self.infos, self.invoices)
 
         return self
 
 
-    def merge_data(self, order_data: list, info_data: list) -> list:
+    def merge_data(self, order_data: list, info_data: list, invoice_data: list) -> list:
         data = []
 
         for order in order_data:
@@ -79,12 +81,31 @@ class Shopkonfigurator():
                 # Match order & info one-to-one first
                 if order['ID'] == info['ID']:
                     # Prepare data storage for invoices & their items
-                    items = {}
+                    purchase = {}
 
-                    for invoice_number, item_numbers in info['Bestellung'].items():
-                        items[invoice_number] = [item for item in order['Bestellung'] if item['Nummer'] in item_numbers]
+                    for invoice_number, invoice_items in info['Bestellung'].items():
+                        purchase[invoice_number] = []
 
-                    order['Bestellung'] = items
+                        matching_order = [order for order in order['Bestellung'] if order['Nummer'] in invoice_items][0]
+
+                        for invoice_item in invoice_items.values():
+                            invoice_item['ISBN'] = matching_order['ISBN']
+                            invoice_item['Titel'] = matching_order['Titel']
+                            invoice_item['Steuersatz'] = matching_order['Steuersatz']
+                            invoice_item['Steueranteil'] = matching_order['Steueranteil']
+                            invoice_item['ISBN'] = matching_order['ISBN']
+
+                            purchase[invoice_number].append(invoice_item)
+
+                    order['Bestellung'] = purchase
+
+                    # Extract taxes from invoice files if invoice handler is available
+                    # TODO: Add missing invoices to global store
+                    # parsed_invoices = self.invoice_handler.parse_invoices(list(purchase.keys()))
+                    # order['Steuern'] = {invoice['Vorgang']: invoice['Steuern'] for invoice in parsed_invoices[0]}
+
+                    # if parsed_invoices[-1]:
+                    #     print(parsed_invoices[-1])
 
                     # Move on to next order
                     break
