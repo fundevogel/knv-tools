@@ -78,6 +78,9 @@ class Invoices(Command):
                 # (2) .. taxes
                 taxes = {}
 
+                # Determine tax rates where ..
+                # .. 'reduced' equals either 5% or 7%
+                # .. 'full' equals either 16% or 19%
                 for tax_rate in ['5', '7', '16', '19']:
                     tax_string = 'MwSt. ' + tax_rate + ',00 %'
 

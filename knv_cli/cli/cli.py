@@ -73,11 +73,11 @@ def match(config, year, quarter):
         # Get combined order data
         data = db.get_knv().data
 
-        # Get invoices in case no order data is provided
+        # Load invoices from database
         invoices = db.get_invoices()
 
         # Match payments with orders & infos
-        handler.match_payments(data, invoices)
+        handler.match_payments(data, invoices.data)
 
         if config.verbose:
             # Write matches to stdout
@@ -89,20 +89,17 @@ def match(config, year, quarter):
                 # Extract matching invoice numbers
                 invoice_numbers = set()
 
-                for item in data:
-                    if isinstance(item['Vorgang'], list):
-                        for invoice_number in item['Vorgang']:
+                for item in data.values():
+                    if isinstance(item['Rechnungen'], list):
+                        for invoice_number in item['Rechnungen']:
                             invoice_numbers.add(invoice_number)
 
                 # Init merger object
                 merger = PdfFileMerger()
 
-                # Load invoices from database
-                invoices = db.get_invoices()
-
                 # Merge corresponding invoices
                 for invoice_number in sorted(invoice_numbers):
-                    if invoices.has(invoice_number):
+                    if invoice_number in invoices.data:
                         pdf_file = invoices.get(invoice_number)['Datei']
 
                         with open(pdf_file, 'rb') as file:
@@ -421,7 +418,7 @@ def invoice(config, invoice_number):
     # Initialize info handler
     handler = db.get_invoices()
 
-    if handler.has(invoice_number):
+    if invoice_number in handler.data:
         click.echo(' done.')
         pretty_print(handler.get(invoice_number))
         click.Context.exit(0)
