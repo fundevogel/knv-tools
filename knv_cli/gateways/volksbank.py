@@ -28,9 +28,9 @@ class Volksbank(Gateway):
         Processes 'Umsaetze_{IBAN}_{Y.m.d}.csv' files
         '''
 
-        payments = []
+        payments = {}
 
-        for item in data:
+        for code, item in enumerate(data):
             # Skip all payments not related to customers
             # (1) Skip withdrawals
             if item[' '] == 'S':
@@ -53,7 +53,7 @@ class Volksbank(Gateway):
 
             payment['ID'] = 'nicht zugeordnet'
             payment['Datum'] = self.convert_date(item['Buchungstag'])
-            payment['Vorgang'] = 'nicht zugeordnet'
+            payment['Rechnungen'] = 'nicht zugeordnet'
             payment['Name'] = item['Empfänger/Zahlungspflichtiger']
             payment['Betrag'] = self.convert_number(item['Umsatz'])
             payment['Währung'] = item['Währung']
@@ -105,8 +105,11 @@ class Volksbank(Gateway):
             if order_candidates:
                 payment['ID'] = order_candidates
 
-            # Prepare reference string for further investigation
-            reference = reference.replace('/', ' ').translate(str.maketrans('', '', punctuation))
+            # Prepare reference string for further investigation by removing ..
+            # (1) .. punctuation
+            # (2) .. whitespaces
+            # (3) .. tabs
+            reference = reference.translate(str.maketrans('', '', punctuation)).replace(' ', '').replace("\t", '')
 
             # Extract invoice numbers, matching ..
             # (1) .. '20' + 9 random digits
@@ -114,22 +117,19 @@ class Volksbank(Gateway):
             pattern = r"([2][0]\d{9}|[9]\d{11})"
             invoice_candidates = findall(pattern, reference)
 
-            # If this yields no invoices as result ..
-            if not invoice_candidates:
-                # .. remove whitespace & try again
-                reference = reference.replace(' ', '')
-                invoice_candidates = findall(pattern, reference)
-
             if invoice_candidates:
-                payment['Vorgang'] = []
+                payment['Rechnungen'] = []
 
                 for invoice in invoice_candidates:
                     if invoice[:1] == '2':
                         invoice = 'R' + invoice
 
-                    payment['Vorgang'].append(invoice)
+                    payment['Rechnungen'].append(invoice)
 
-            payments.append(payment)
+                # Remove duplicates AFTER normalization
+                payment['Rechnungen'] = dedupe(payment['Rechnungen'])
+
+            payments[code] = payment
 
         return payments
 
@@ -137,37 +137,78 @@ class Volksbank(Gateway):
     # MATCHING methods
 
     # TODO: Check if payment equals order total
-    def match_payments(self, data: list) -> None:
+    def match_payments(self, orders: dict, invoices: dict) -> None:
         results = []
 
-        for payment in self.data:
-            # Assign payment to order number(s) & invoices
-            # (1) Find matching order(s) for current payment
-            matching_orders = self.match_orders(payment, data)
+        for payment in self.data.values():
+            # Find matching invoices for each invoice candidate
+            if isinstance(payment['Rechnungen'], list):
+                # Consider only valid (= currently available) invoices
+                payment['Rechnungen'] = [invoice for invoice in payment['Rechnungen'] if invoice in invoices]
 
-            # (2) Find matching invoices for each identified order
-            matching_invoices = []
+                if not payment['Rechnungen']:
+                    # Use other criteria since all detected invoice numbers were invalid
+                    payment['Rechnungen'] = 'nicht zugeordnet'
 
-            if isinstance(payment['Vorgang'], list):
-                # Extracted invoices most likely sum up to total order cost
-                matching_invoices = payment['Vorgang']
+                else:
+                    # Check if extracted invoices sum up to total order cost ..
+                    if self.compare_invoice_total(payment, invoices):
+                        # .. which is perfect, so add taxes
+                        payment['Steuern'] = self.extract_taxes(payment['Rechnungen'], invoices)
 
-            # if notmatching_orders:
-            #     for matching_order in matching_orders:
-            #         if isinstance(matching_order['Rechnungen'], dict):
-            #             matching_invoices += list(matching_order['Rechnungen'].keys())
+                        results.append(payment)
+
+                        # Move on to next payment
+                        continue
+
+                    # TODO: Yeah, what if not?
+                    else:
+                        pass
+
+            # Find matching order(s) for each order candidate
+            matching_orders = self.match_orders(payment, orders)
+
+            # Apply matching order number(s)
+            if matching_orders:
+                # Consider only valid (= currently available) orders
+                payment['ID'] = [order['ID'] for order in matching_orders if order['ID'] in orders]
+
+                payment['Rechnungen'] = []
+
+                # Fill up on potential invoices ..
+                for order_number in payment['ID']:
+                    payment['Rechnungen'] += [invoice_number for invoice_number in orders[order_number]['Rechnungen'].keys() if isinstance(orders[order_number]['Rechnungen'], dict)]
+
+                if not payment['Rechnungen']:
+                    # Use other criteria since all detected invoice numbers were invalid
+                    payment['Rechnungen'] = 'nicht zugeordnet'
+
+                else:
+                    # .. and here we go again, checking if extracted invoices sum up to total order cost ..
+                    if self.compare_invoice_total(payment, invoices):
+                        # .. which is perfect, so add taxes
+                        payment['Steuern'] = self.extract_taxes(payment['Rechnungen'], invoices)
+
+                        results.append(payment)
+
+                        # Move on to next payment
+                        continue
+
+                    # TODO: Yeah, what if not?
+                    else:
+                        pass
 
             # Store data
             # (1) Add invoice number(s)
-            if matching_invoices:
-                payment['Vorgang'] = matching_invoices
+            # if matching_invoices:
+            #     payment['Rechnungen'] = matching_invoices
 
                 # There are two ways extracting information about invoices ..
                 # if invoice_handler:
                 #     # .. via parsing invoice files
                 #     matching_invoices = self.parse_invoices(matching_invoices, invoice_handler)
 
-                #     payment['Vorgang'] = [invoice['Vorgang'] for invoice in matching_invoices]
+                #     payment['Rechnungen'] = [invoice['Rechnungen'] for invoice in matching_invoices]
                 #     payment['Rechnungssumme'] = '0'
                 #     payment['Bestellung'] = []
 
@@ -199,25 +240,35 @@ class Volksbank(Gateway):
                 # if not matching_orders:
                 #     matching_orders = self.lookup_orders(matching_invoices, infos)
 
-            # (2) Apply matching order number(s)
-            if matching_orders:
-                payment['ID'] = [matching_order['ID'] for matching_order in matching_orders]
-
-            # (3) Save matched payment
+            # Save processed payment
             results.append(payment)
 
         self._matched_payments = results
 
 
     def match_orders(self, payment: dict, orders: list) -> list:
-        matches = []
+        if isinstance(payment['ID'], list):
+            return [orders[order_number] for order_number in payment['ID'] if order_number in orders]
 
-        for order in orders:
-            if order['ID'] in payment['ID']:
-                matches.append(order)
 
-        return dedupe(matches)
+    # MATCHING HELPER methods
 
+    def compare_invoice_total(self, payment: dict, invoices: dict) -> bool:
+        return payment['Betrag'] == self.convert_number(sum([float(invoices[invoice]['Gesamtbetrag']) for invoice in payment['Rechnungen']]))
+
+
+    def extract_taxes(self, invoice_candidates: list, invoices: dict) -> dict:
+        taxes = {}
+
+        for invoice_number, invoice in invoices.items():
+            if invoice_number in invoice_candidates and isinstance(invoice['Steuern'], dict):
+                for tax_rate, tax_amount in invoice['Steuern'].items():
+                    if tax_rate not in taxes:
+                        taxes[tax_rate] = '0'
+
+                    taxes[tax_rate] = self.convert_number(float(taxes[tax_rate]) + float(tax_amount))
+
+        return taxes
 
     # def lookup_orders(self, invoices: list, infos: list) -> list:
     #     matches = []
@@ -240,3 +291,12 @@ class Volksbank(Gateway):
                     matches[invoice] = order['Abrechnungen'][invoice]
 
         return matches
+
+
+    # MATCHING OUTPUT HELPER methods
+
+    def get_total_taxes(self, taxes) -> str:
+        print(taxes)
+        # for taxes
+        # print(sum([float(tax_amount) for tax_amount in (tax.values() for tax in taxes)]))
+        # return sum([float(tax_amount) for tax_amount in taxes.values()])
