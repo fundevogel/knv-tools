@@ -55,9 +55,10 @@ class Paypal(Gateway):
             payment['Land'] = item['Land']
             payment['Telefon'] = self.convert_nan(item['Telefon'])
             payment['Email'] = item['Absender E-Mail-Adresse']
-            payment['Transaktion'] = code
+            payment['Treffer'] = 'unsicher'
             payment['Dienstleister'] = 'PayPal'
             payment['Zahlungsart'] = 'Shopbestellung'
+            payment['Transaktion'] = code
 
             if payment['Telefon']:
                 payment['Telefon'] = '0' + payment['Telefon'].replace('.0', '')
@@ -81,12 +82,12 @@ class Paypal(Gateway):
 
             # (1) Distinguish between online shop payments ..
             if payment['Zahlungsart'] == 'Shopbestellung':
-
                 # Find matching order for current payment
                 for order in orders.values():
                     # .. whose transaction codes will match ..
                     if payment['Transaktion'] == order['Abwicklung']['Transaktionscode']:
                         # .. which represents a one-to-one match
+                        payment['Treffer'] = 'sicher'
                         matching_order = order
 
                         # Abort iterations
@@ -230,12 +231,16 @@ class Paypal(Gateway):
                 # Extract tax rates & their respective amount
                 if isinstance(item['Steuern'], dict):
                     # Add taxe rates
+                    taxes = {}
+
+                    # for invoice_number,
                     for tax_rate, tax_amount in item['Steuern'].items():
                         item[tax_rate + ' MwSt'] = tax_amount
 
                     # Add share of payment fees for each tax rate
                     # (1) Calculate total amount of taxes
                     total_taxes = [taxes for invoice_number, taxes in item['Steuern'].items() if invoice_number in item['Rechnungen']]
+
 
                     # (2) Calculate share for each tax rate
                     # for tax_rate, tax_amount in item['Steuern'].items():
