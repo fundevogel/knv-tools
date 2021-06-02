@@ -56,8 +56,8 @@ class Volksbank(Gateway):
             payment['Rechnungen'] = 'nicht zugeordnet'
             payment['Name'] = item['Empfänger/Zahlungspflichtiger']
             payment['Betrag'] = self.convert_number(item['Umsatz'])
-            payment['Währung'] = item['Währung']
             payment['Steuern'] = 'keine Angabe'
+            payment['Währung'] = item['Währung']
             payment['Dienstleister'] = 'Volksbank'
             payment['Rohdaten'] = item['Vorgang/Verwendungszweck']
 
@@ -198,49 +198,6 @@ class Volksbank(Gateway):
                     else:
                         pass
 
-            # Store data
-            # (1) Add invoice number(s)
-            # if matching_invoices:
-            #     payment['Rechnungen'] = matching_invoices
-
-                # There are two ways extracting information about invoices ..
-                # if invoice_handler:
-                #     # .. via parsing invoice files
-                #     matching_invoices = self.parse_invoices(matching_invoices, invoice_handler)
-
-                #     payment['Rechnungen'] = [invoice['Rechnungen'] for invoice in matching_invoices]
-                #     payment['Rechnungssumme'] = '0'
-                #     payment['Bestellung'] = []
-
-                #     taxes = {}
-
-                #     for invoice in matching_invoices:
-                #         payment['Rechnungssumme'] = self.convert_number(float(payment['Rechnungssumme']) + float(invoice['Gesamtbetrag']))
-                #         payment['Bestellung'].append(invoice['Steuern'])
-
-                #         if isinstance(invoice['Steuern'], dict):
-                #             for tax_rate, tax_amount in invoice['Steuern'].items():
-                #                 if not tax_rate in taxes:
-                #                     taxes[tax_rate] = '0'
-
-                #                 taxes[tax_rate] = self.convert_number(float(taxes[tax_rate]) + float(tax_amount))
-
-                #     for tax_rate, tax_amount in taxes.items():
-                #         payment[tax_rate + ' MwSt'] = tax_amount
-
-                # else:
-                #     if matching_orders:
-                #         # .. via fetching order data
-                #         taxes = self.match_invoices(matching_invoices, matching_orders)
-
-                #         if taxes:
-                #             payment['Bestellung'] = taxes
-
-                # Reverse-lookup orders if no matching order number(s) yet
-                # if not matching_orders:
-                #     matching_orders = self.lookup_orders(matching_invoices, infos)
-
-            # Save processed payment
             results.append(payment)
 
         self._matched_payments = results
@@ -270,17 +227,6 @@ class Volksbank(Gateway):
 
         return taxes
 
-    # def lookup_orders(self, invoices: list, infos: list) -> list:
-    #     matches = []
-
-    #     for invoice in invoices:
-    #         for info in infos:
-    #             if invoice in info['Rechnungen']:
-    #                 matches.append(info['ID'])
-    #                 break
-
-    #     return dedupe(matches)
-
 
     def match_invoices(self, invoices: list, orders: list) -> dict:
         matches = {}
@@ -291,12 +237,3 @@ class Volksbank(Gateway):
                     matches[invoice] = order['Abrechnungen'][invoice]
 
         return matches
-
-
-    # MATCHING OUTPUT HELPER methods
-
-    def get_total_taxes(self, taxes) -> str:
-        print(taxes)
-        # for taxes
-        # print(sum([float(tax_amount) for tax_amount in (tax.values() for tax in taxes)]))
-        # return sum([float(tax_amount) for tax_amount in taxes.values()])

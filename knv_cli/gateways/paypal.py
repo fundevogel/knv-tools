@@ -44,21 +44,17 @@ class Paypal(Gateway):
             payment['Datum'] = self.convert_date(item['Datum'])
             payment['Rechnungen'] = 'nicht zugeordnet'
             payment['Name'] = item['Name']
+            payment['Brutto'] = self.convert_number(item['Brutto'])
+            payment['Gebühr'] = self.convert_number(item['Gebühr'])
+            payment['Netto'] = self.convert_number(item['Netto'])
+            payment['Währung'] = item['Währung']
+            payment['Steuern'] = 'keine Angabe'
             payment['Anschrift'] = item['Adresszeile 1']
             payment['PLZ'] = item['PLZ']
             payment['Ort'] = item['Ort']
             payment['Land'] = item['Land']
             payment['Telefon'] = self.convert_nan(item['Telefon'])
             payment['Email'] = item['Absender E-Mail-Adresse']
-            payment['Bestellung'] = 'keine Angabe'
-            payment['Rechnungen'] = 'nicht zugeordnet'
-            payment['Bestellsumme'] = 'keine Angabe'
-            payment['Versand'] = 'keine Angabe'
-            payment['Brutto'] = self.convert_number(item['Brutto'])
-            payment['Gebühr'] = self.convert_number(item['Gebühr'])
-            payment['Netto'] = self.convert_number(item['Netto'])
-            payment['Währung'] = item['Währung']
-            payment['Steuern'] = 'keine Angabe'
             payment['Transaktion'] = code
             payment['Dienstleister'] = 'PayPal'
             payment['Zahlungsart'] = 'Shopbestellung'
@@ -80,74 +76,81 @@ class Paypal(Gateway):
         results = []
 
         for payment in self.data.values():
-            # Assign invoice number(s) to each payment
-            # (1) Find matching order for current payment
-            matching_order = self.match_orders(payment, orders)
+            # Search for matching order
+            matching_order = {}
 
-            if not matching_order:
-                results.append(payment)
-                continue
+            # (1) Distinguish between online shop payments ..
+            if payment['Zahlungsart'] == 'Shopbestellung':
 
-            # (2) Check invoice number(s) for matching order
+                # Find matching order for current payment
+                for order in orders.values():
+                    # .. whose transaction codes will match ..
+                    if payment['Transaktion'] == order['Abwicklung']['Transaktionscode']:
+                        # .. which represents a one-to-one match
+                        matching_order = order
+
+                        # Abort iterations
+                        break
+
+            # (2) .. and regular payments
+            else:
+                # Find matching order, but this will almost always fail
+                matching_order = self.match_orders(payment, orders)
+
+            # Search for matching invoice(s)
             matching_invoices = []
 
-            if isinstance(matching_order['Bestellung'], dict):
-                matching_invoices = list(matching_order['Bestellung'].keys())
+            if matching_order and isinstance(matching_order, dict):
+                # Apply order data
+                # (1) Add matching order number
+                payment['ID'] = matching_order['ID']
+
+                # (2) Add taxes
+                payment['Steuern'] = matching_order['Steuern']
+
+                # (3) Add invoice numbers
+                if isinstance(matching_order['Rechnungen'], dict):
+                    matching_invoices = list(matching_order['Rechnungen'].keys())
+
+            # .. without matching order, this can only be achieved by going through invoices
+            else:
+                matching_invoice = self.match_invoices(payment, invoices)
+
+                if matching_invoice:
+                    matching_invoices = [matching_invoice['Vorgang']]
+
+                    # Add taxes
+                    payment['Steuern'] = {
+                        matching_invoice['Vorgang']: matching_invoice['Steuern']
+                    }
 
             # Skip if no matching invoice numbers
-            if not matching_invoices:
-                results.append(payment)
-                continue
+            if matching_invoices:
+                # Add invoice number(s) to payment data
+                payment['Rechnungen'] = matching_invoices
 
-            # Store data
-            # (1) Apply matching order number
-            payment['ID'] = matching_order['ID']
-
-            # (2) Add invoice number(s) to payment data
-            payment['Rechnungen'] = matching_invoices
-
-            # (3) Add total order / shipping cost & taxes
-            payment['Bestellung'] = matching_order['Bestellung']
-            payment['Bestellsumme'] = matching_order['Bestellsumme']
-            payment['Versand'] = matching_order['Versand']
-            payment['Steuern'] = matching_order['Steuern']
-
-            # (4) Save matched payment
             results.append(payment)
 
         self._matched_payments = results
 
 
-    def match_orders(self, payment, orders) -> dict:
-        # Determine matching orders by highest probability
-        candidates = []
-
+    def match_orders(self, payment: dict, orders: dict) -> dict:
         for order in orders.values():
-            # (1) Distinguish between online shop payments ..
-            if payment['Zahlungsart'] == 'Shopbestellung':
-                # .. whose transaction codes will match ..
-                if payment['Transaktion'] == order['Abwicklung']['Transaktionscode']:
-                    # .. which represents a one-to-one match
-                    return order
+            candidates = []
 
-                continue
-
-            # (2) .. and regular payments ..
-            else:
-                # .. in which case common properties are being compared to determine the most likely match
-                for days in range(1, 7):
-                    candidate = self.approximate_order(payment, order, days)
-
-                    if candidate:
-                        break
+            # Determine matching orders by highest probability
+            for days in range(1, 14):
+                candidate = self.approximate_order(payment, order, days)
 
                 if candidate:
                     candidates.append(candidate)
 
-        matches = sorted(candidates, key=itemgetter(1), reverse=True)
+            if candidates:
+                # Sort candidates by hits ..
+                candidates.sort(key=itemgetter(1), reverse=True)
 
-        if matches:
-            return matches[0][0]
+                # .. and select most promising one
+                return candidates[0][0]
 
         return {}
 
@@ -190,12 +193,23 @@ class Paypal(Gateway):
             if payment['PLZ'] == order['PLZ']:
                 hits += 1
 
-            # TODO: If that doesn't cut it, use data from available invoice files
-            # See 'R20210031789'
-
             candidate = (order, hits)
 
         return candidate
+
+
+    def match_invoices(self, payment: dict, invoices: dict) -> dict:
+        for invoice in invoices.values():
+            # Check for matching invoice within two months ..
+            for days in range(1, 60):
+                costs_match = payment['Brutto'] == invoice['Gesamtbetrag']
+                dates_match = self.match_dates(payment['Datum'], invoice['Datum'], days)
+
+                # .. returning the first invoice matching cost & date
+                if costs_match and dates_match:
+                    return invoice
+
+        return {}
 
 
     # MATCHING OUTPUT methods
@@ -235,9 +249,3 @@ class Paypal(Gateway):
             return sorted(csv_data, key=itemgetter('Datum'))
 
         return sorted(self._matched_payments, key=itemgetter('Datum'))
-
-
-    # MATCHING OUTPUT HELPER methods
-
-    def get_total_taxes(self, taxes) -> str:
-        return sum([float(tax_amount) for tax_amount in taxes.values()])

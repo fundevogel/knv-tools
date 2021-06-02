@@ -39,7 +39,7 @@ class Gateway(Command):
 
     # MATCHING HELPER methods
 
-    def match_dates(self, start_date, test_date, days=1) -> bool:
+    def match_dates(self, test_date, start_date, days=1) -> bool:
         end_date = (datetime.strptime(start_date, '%Y-%m-%d') + timedelta(days=days)).strftime('%Y-%m-%d')
 
         return start_date <= test_date <= end_date
