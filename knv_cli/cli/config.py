@@ -1,5 +1,3 @@
-# ~*~ coding=utf-8 ~*~
-
 
 from configparser import SafeConfigParser
 from os import getcwd
@@ -38,19 +36,19 @@ class Config(object):
 
         # Expose useful directories ..
         # (1) .. when establishing the database
-        self.payment_dir = join(self.data_dir, 'payments')
-        self.order_dir = join(self.data_dir, 'orders')
-        self.info_dir = join(self.data_dir, 'infos')
-        self.invoice_dir = join(self.data_dir, 'invoices')
+        self.info_dir = join(self.data_dir, 'src', 'infos')
+        self.invoice_dir = join(self.data_dir, 'src', 'invoices')
+        self.order_dir = join(self.data_dir, 'src', 'orders')
+        self.payment_dir = join(self.data_dir, 'src', 'payments')
         self.cache_dir = join(self.data_dir, 'webservice')
 
         # (2) .. when merging data sources
         self.database_dir = join(self.data_dir, 'db')
 
         # (3) .. when generating data
+        self.contacts_dir = join(self.export_dir, 'contacts')
         self.matches_dir = join(self.export_dir, 'matches')
         self.rankings_dir = join(self.export_dir, 'rankings')
-        self.contacts_dir = join(self.export_dir, 'contacts')
 
         # Load blocklist if one exists
         self.blocklist = []

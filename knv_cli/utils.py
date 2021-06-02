@@ -3,6 +3,7 @@ import json
 from getpass import getpass
 from glob import glob
 from hashlib import md5
+from operator import itemgetter
 from os import makedirs
 from os.path import exists, dirname, join
 
@@ -30,11 +31,11 @@ def dump_csv(data, csv_file) -> None:
 
 # JSON functions
 
-def load_json(json_files: list) -> list:
-    data = []
+def load_json(json_files: list) -> dict:
+    data = {}
 
     for json_file in json_files:
-        data += _load_json(json_file)
+        data.update(_load_json(json_file))
 
     return data
 
@@ -122,7 +123,13 @@ def dedupe(duped_data, encoding='utf-8') -> list:
     return deduped_data
 
 
-def group_data(ungrouped_data) -> dict:
+def group_data(data) -> dict:
+    data = group_dict(data) if isinstance(data, dict) else group_list(data)
+
+    return data
+
+
+def group_list(ungrouped_data: list) -> dict:
     grouped_data = {}
 
     for item in ungrouped_data:
@@ -141,3 +148,38 @@ def group_data(ungrouped_data) -> dict:
         grouped_data[code].append(item)
 
     return grouped_data
+
+
+def group_dict(ungrouped_data: dict) -> dict:
+    grouped_data = {}
+
+    for identifier, item in ungrouped_data.items():
+        try:
+            year, month = str(item['Datum'])[:7].split('-')
+
+        except ValueError:
+            # EOF
+            pass
+
+        code = '-'.join([str(year), str(month)])
+
+        if code not in grouped_data.keys():
+            grouped_data[code] = {}
+
+        grouped_data[code][identifier] = item
+
+    return grouped_data
+
+
+def sort_data(data):
+    data = sort_dict(data) if isinstance(data, dict) else sort_list(data)
+
+    return data
+
+
+def sort_list(data: list) -> list:
+    return sorted(data, key=itemgetter('Datum'))
+
+
+def sort_dict(data: dict) -> dict:
+    return dict(sorted(data.items()))

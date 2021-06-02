@@ -14,18 +14,16 @@ import pendulum
 from matplotlib import pyplot, rcParams
 from pandas import DataFrame
 
+from ..base import BaseClass
 from ..utils import load_json
 
-from .infos import Infos
-from .orders import Orders
 
-
-class Shopkonfigurator():
+class KNV(BaseClass):
     # PROPS
 
-    data = None
-    orders = []
-    infos = []
+    orders = None
+    infos = None
+    invoices = None
 
 
     def __init__(self, data_files: list = None) -> None:
@@ -35,9 +33,9 @@ class Shopkonfigurator():
 
     # DATA methods
 
-    def load(self, identifier: str, data_files: list = None) -> Shopkonfigurator:
+    def load(self, identifier: str, data_files: list = None) -> KNV:
         # Check identifier
-        if identifier not in ['orders', 'infos']:
+        if identifier not in ['orders', 'infos', 'invoices']:
             raise Exception('Unsupported identifier: "{}"'.format(identifier))
 
         # Check filetype
@@ -52,60 +50,57 @@ class Shopkonfigurator():
         if identifier == 'infos':
             self.infos = load_json(data_files)
 
+        if identifier == 'invoices':
+            self.invoices = load_json(data_files)
+
         return self
 
 
-    def get(self, order_number: str) -> dict:
-        for item in self.data:
-            if order_number in item['ID']:
-                return item
-
-        return {}
-
-
-    def init(self, force: bool = False) -> Shopkonfigurator:
+    def init(self, force: bool = False) -> KNV:
         # Merge orders & infos
         if not self.data or force:
-            self.data = self.merge_data(self.orders, self.infos)
+            self.data = self.merge_data(self.orders, self.infos, self.invoices)
 
         return self
 
 
-    def merge_data(self, order_data: list, info_data: list) -> list:
+    def merge_data(self, order_data: list, info_data: list, invoice_data: list) -> list:
         data = {}
 
-        for order in order_data:
-            code = order['ID']
+        for order_number, order in order_data.items():
+            # Check for matching info ..
+            if order_number in info_data:
+                # .. which is a one-to-one most the time
+                info = info_data[order_number]
 
-            if code not in data:
-                order['Rechnungen'] = 'nicht zugeordnet'
-                order['Abrechnungen'] = 'nicht zugeordnet'
+                # Prepare invoice data storage
+                purchase = {}
 
-                for info in info_data:
-                    # Match order & info one-to-one first
-                    if code == info['ID']:
-                        # Prepare data storage for invoices
-                        invoice_data = {}
+                for invoice_number, invoice_items in info['Bestellung'].items():
+                    purchase[invoice_number] = []
 
-                        # Keep original data (as safety measure)
-                        order['Rechnungen'] = info['Rechnungen']
+                    # Extract reference order item ..
+                    match = [item for item in order['Bestellung'] if item['Nummer'] in invoice_items][0]
 
-                        for invoice_number, item_numbers in info['Rechnungen'].items():
-                            # Add empty invoice placeholder
-                            invoice_data[invoice_number] = []
+                    # .. and copy over its data, taking care of invoices with huge amounts of items being split into several invoices
+                    # See '31776-001471'
+                    for invoice_item in invoice_items.values():
+                        invoice_item['ISBN'] = match['ISBN']
+                        invoice_item['Titel'] = match['Titel']
+                        invoice_item['Steuern'] = 'keine Angabe'
+                        invoice_item['Steuersatz'] = match['Steuersatz']
+                        invoice_item['Steueranteil'] = match['Steueranteil']
 
-                            for item_number in item_numbers:
-                                # Add invoice data if item numbers match
-                                if item_number in order['Bestellung'].keys():
-                                    invoice_data[invoice_number].append(order['Bestellung'][item_number])
+                        purchase[invoice_number].append(invoice_item)
 
-                        order['Abrechnungen'] = invoice_data
+                order['Rechnungen'] = purchase
 
-                        break
+                # Extract taxes for each invoice from parsed invoice files
+                order['Steuern'] = {invoice_number: invoice_data[invoice_number]['Steuern'] for invoice_number in purchase.keys() if invoice_number in invoice_data}
 
-                data[code] = order
+            data[order_number] = order
 
-        return sorted(list(data.values()), key=itemgetter('Datum', 'ID', 'Nachname'))
+        return data
 
 
     # RANKING methods

@@ -2,22 +2,18 @@
 # See https://stackoverflow.com/a/33533514
 from __future__ import annotations
 
-from abc import ABC, abstractmethod
-from datetime import datetime
+from abc import abstractmethod
 from hashlib import md5
 from operator import itemgetter
 from os.path import splitext
 
 from pandas import concat, read_csv
 
+from .base import BaseClass
 from .utils import load_json
 
 
-class Command(ABC):
-    # PROPS
-
-    data = None
-
+class Command(BaseClass):
     # CSV options
     csv_encoding = 'iso-8859-1'
     csv_delimiter = ';'
@@ -47,11 +43,11 @@ class Command(ABC):
         return self
 
 
-    def load_data(self, data_files: list) -> list:
+    def load_data(self, data_files: list):
         return self.load_csv(data_files)
 
 
-    def load_csv(self, csv_files: list) -> list:
+    def load_csv(self, csv_files: list):
         try:
             df = concat(map(lambda file: read_csv(
                 file,
@@ -67,34 +63,12 @@ class Command(ABC):
         return self.process_data(df.to_dict('records'))
 
 
-    def get(self, order_number: str) -> dict:
-        for order in self.data:
-            if order_number in order['ID']:
-                return order
-
-        return {}
-
-
     @abstractmethod
     def process_data(self, data: list):
         pass
 
 
-    # HELPER methods
+    # DATA HELPER methods
 
-    def convert_date(self, string: str) -> str:
-        return datetime.strptime(string, '%d.%m.%Y').strftime('%Y-%m-%d')
-
-
-    def convert_number(self, string) -> str:
-        # Convert to string & clear whitespaces
-        string = str(string).strip()
-
-        # Take care of thousands separator, as in '1.234,56'
-        if '.' in string and ',' in string:
-            string = string.replace('.', '')
-
-        string = float(string.replace(',', '.'))
-        integer = f'{string:.2f}'
-
-        return str(integer)
+    def convert_nan(self, string: str) -> str:
+        return str(string) if str(string) != 'nan' else ''

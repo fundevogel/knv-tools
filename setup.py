@@ -1,5 +1,3 @@
-# ~*~ coding=utf-8 ~*~
-
 import io
 from os.path import abspath, dirname, join
 from setuptools import find_packages, setup

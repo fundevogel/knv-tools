@@ -71,13 +71,13 @@ def match(config, year, quarter):
         click.echo('Matching ' + identifier + ' data ..', nl=False)
 
         # Get combined order data
-        data = db.get_shopkonfigurator().data
+        data = db.get_knv().data
 
-        # Get invoices in case no order data is provided
+        # Load invoices from database
         invoices = db.get_invoices()
 
         # Match payments with orders & infos
-        handler.match_payments(data, invoices)
+        handler.match_payments(data, invoices.data)
 
         if config.verbose:
             # Write matches to stdout
@@ -85,24 +85,21 @@ def match(config, year, quarter):
 
         else:
             # Filter & merge matched invoices
-            for code, data in group_data(handler.matched_payments()).items():
+            for code, data in group_data(handler.data).items():
                 # Extract matching invoice numbers
                 invoice_numbers = set()
 
-                for item in data:
-                    if isinstance(item['Vorgang'], list):
-                        for invoice_number in item['Vorgang']:
+                for item in data.values():
+                    if isinstance(item['Rechnungen'], list):
+                        for invoice_number in item['Rechnungen']:
                             invoice_numbers.add(invoice_number)
 
                 # Init merger object
                 merger = PdfFileMerger()
 
-                # Load invoices from database
-                invoices = db.get_invoices()
-
                 # Merge corresponding invoices
                 for invoice_number in sorted(invoice_numbers):
-                    if invoices.has(invoice_number):
+                    if invoice_number in invoices.data:
                         pdf_file = invoices.get(invoice_number)['Datei']
 
                         with open(pdf_file, 'rb') as file:
@@ -139,7 +136,7 @@ def rank(config, year, quarter, enable_chart, limit):
     db = Database(config)
 
     # Initialize handler
-    handler = db.get_shopkonfigurator()
+    handler = db.get_knv()
 
     # Exit if database is empty
     data_files = build_path(config.database_dir, year=year, quarter=quarter)
@@ -151,7 +148,7 @@ def rank(config, year, quarter, enable_chart, limit):
     click.echo('Ranking data ..', nl=False)
 
     # Initialize handler
-    handler = db.get_shopkonfigurator(data_files)
+    handler = db.get_knv(data_files)
 
     # Extract & rank sales
     ranking = handler.get_ranking()
@@ -196,7 +193,7 @@ def contacts(config, date, blocklist):
     db = Database(config)
 
     # Initialize handler
-    handler = db.get_shopkonfigurator()
+    handler = db.get_knv()
 
     # Exit if database is empty
     if not handler.data:
@@ -244,6 +241,12 @@ def db(config):
 
 @db.command()
 @pass_config
+def stats():
+    pass
+
+
+@db.command()
+@pass_config
 def flush(config):
     """Flush database"""
 
@@ -256,48 +259,118 @@ def flush(config):
     click.echo(' done.')
 
 
-@db.command()
+# DATABASE REBUILD subtasks
+
+@db.group()
 @pass_config
 def rebuild(config):
+    pass
+
+
+@rebuild.command()
+@pass_config
+def all(config):
     """Rebuild database"""
 
     # Initialize database
     db = Database(config)
 
     # Import payment files
-    click.echo('Importing payments ..', nl=False)
+    click.echo('Rebuilding payments ..', nl=False)
     db.rebuild_payments()
     click.echo(' done.')
 
     # Import invoice files
-    click.echo('Importing invoices ..', nl=False)
+    click.echo('Rebuilding invoices ..', nl=False)
     db.rebuild_invoices()
     click.echo(' done.')
 
     # Import order files
-    click.echo('Importing orders ..', nl=False)
+    click.echo('Rebuilding orders ..', nl=False)
     db.rebuild_orders()
     click.echo(' done.')
 
     # Import info files
-    click.echo('Importing infos ..', nl=False)
+    click.echo('Rebuilding infos ..', nl=False)
     db.rebuild_infos()
     click.echo(' done.')
 
     # Merge data sources
-    click.echo('Merging data ..', nl=False)
+    click.echo('Merging data sources ..', nl=False)
     db.rebuild_data()
     click.echo(' done.')
 
     click.echo('Update complete!')
 
 
-@db.command()
+@rebuild.command()
 @pass_config
-def stats():
-    """Show statistics"""
+def payments(config):
+    """Rebuild payments"""
 
-    pass
+    # Initialize database
+    db = Database(config)
+
+    # Import payment files
+    click.echo('Rebuilding payments ..', nl=False)
+    db.rebuild_payments()
+    click.echo(' done.')
+
+
+@rebuild.command()
+@pass_config
+def invoices(config):
+    """Rebuild invoices"""
+
+    # Initialize database
+    db = Database(config)
+
+    # Import invoice files
+    click.echo('Rebuilding invoices ..', nl=False)
+    db.rebuild_invoices()
+    click.echo(' done.')
+
+
+@rebuild.command()
+@pass_config
+def orders(config):
+    """Rebuild orders"""
+
+    # Initialize database
+    db = Database(config)
+
+    # Import order files
+    click.echo('Rebuilding orders ..', nl=False)
+    db.rebuild_orders()
+    click.echo(' done.')
+
+
+@rebuild.command()
+@pass_config
+def infos(config):
+    """Rebuild infos"""
+
+    # Initialize database
+    db = Database(config)
+
+    # Import info files
+    click.echo('Rebuilding infos ..', nl=False)
+    db.rebuild_infos()
+    click.echo(' done.')
+
+
+@rebuild.command()
+@pass_config
+def merge(config):
+    """Rebuild merged data"""
+
+    # Initialize database
+    db = Database(config)
+
+    # Merge data sources
+    click.echo('Merging data sources ..', nl=False)
+    db.rebuild_data()
+    click.echo(' done.')
 
 
 # DATABASE GET subtasks
@@ -345,7 +418,7 @@ def invoice(config, invoice_number):
     # Initialize info handler
     handler = db.get_invoices()
 
-    if handler.has(invoice_number):
+    if invoice_number in handler.data:
         click.echo(' done.')
         pretty_print(handler.get(invoice_number))
         click.Context.exit(0)
@@ -409,7 +482,7 @@ def data(config, order_number):
     db = Database(config)
 
     # Initialize info handler
-    handler = db.get_shopkonfigurator()
+    handler = db.get_knv()
 
     # Extract combined data record for given order number
     data = handler.get(order_number)

@@ -46,27 +46,10 @@ class Gateway(Command):
 
 
     # OUTPUT methods
-    # TODO: Workaround for Volksbank
 
-    def payments(self):
-        # Sort payments by date
-        try:
-            return sorted(self.data, key=itemgetter('Datum', 'ID', 'Name'))
-        except TypeError:
-            return sorted(self.data, key=itemgetter('Datum', 'Name'))
+    def blocked_payments(self) -> list:
+        return self._blocked_payments
 
 
-    def blocked_payments(self):
-        try:
-            return sorted(self._blocked_payments, key=itemgetter('Datum', 'ID', 'Name'))
-        except TypeError:
-            return sorted(self._blocked_payments, key=itemgetter('Datum', 'Name'))
-
-
-    def matched_payments(self):
-        # Sort payments by date
-        try:
-            # TODO: Workaround for Volksbank
-            return sorted(self._matched_payments, key=itemgetter('Datum', 'ID', 'Name'))
-        except TypeError:
-            return sorted(self._matched_payments, key=itemgetter('Datum', 'Name'))
+    def matched_payments(self, csv_compatible: bool = False) -> list:
+        return self._matched_payments

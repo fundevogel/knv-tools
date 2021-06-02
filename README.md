@@ -26,8 +26,8 @@ Adjusting most options to suit your needs is straightforward, global config is s
 
 ```ini
 [DEFAULT]
-vkn = 12345    # 'Verkehrsnummer'
-verbose = off  # Enable verbose mode
+vkn = 12345                        # 'Verkehrsnummer'
+verbose = off                      # Enable verbose mode
 
 [directories]
 data_dir = ~/.local/share/knv-cli  # database directory

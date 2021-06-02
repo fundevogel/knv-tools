@@ -6,8 +6,6 @@
 from operator import itemgetter
 from os.path import join
 
-from ..knv.invoices import Invoices
-
 from .gateway import Gateway
 
 
@@ -29,8 +27,7 @@ class Paypal(Gateway):
         Processes 'Download*.CSV' files
         '''
 
-        codes = set()
-        payments = []
+        payments = {}
 
         for item in data:
             # Skip withdrawals
@@ -45,45 +42,47 @@ class Paypal(Gateway):
 
             payment['ID'] = 'nicht zugeordnet'
             payment['Datum'] = self.convert_date(item['Datum'])
-            payment['Vorgang'] = 'nicht zugeordnet'
+            payment['Rechnungen'] = 'nicht zugeordnet'
             payment['Name'] = item['Name']
+            payment['Anschrift'] = item['Adresszeile 1']
+            payment['PLZ'] = item['PLZ']
+            payment['Ort'] = item['Ort']
+            payment['Land'] = item['Land']
+            payment['Telefon'] = self.convert_nan(item['Telefon'])
             payment['Email'] = item['Absender E-Mail-Adresse']
+            payment['Bestellung'] = 'keine Angabe'
+            payment['Rechnungen'] = 'nicht zugeordnet'
             payment['Bestellsumme'] = 'keine Angabe'
             payment['Versand'] = 'keine Angabe'
             payment['Brutto'] = self.convert_number(item['Brutto'])
             payment['Gebühr'] = self.convert_number(item['Gebühr'])
             payment['Netto'] = self.convert_number(item['Netto'])
             payment['Währung'] = item['Währung']
+            payment['Steuern'] = 'keine Angabe'
             payment['Transaktion'] = code
+            payment['Dienstleister'] = 'PayPal'
             payment['Zahlungsart'] = 'Shopbestellung'
+
+            if payment['Telefon']:
+                payment['Telefon'] = '0' + payment['Telefon'].replace('.0', '')
 
             if item['Typ'] == 'Allgemeine Zahlung':
                 payment['Zahlungsart'] = 'Überweisung'
 
-            if code not in codes:
-                codes.add(code)
-                payments.append(payment)
+            payments[code] = payment
 
         return payments
 
 
-    def get(self, transaction: str) -> dict:
-        for payment in self.data:
-            if payment['Transaktion'] == transaction:
-                return payment
-
-        return {}
-
-
     # MATCHING methods
 
-    def match_payments(self, data: list, invoice_handler: Invoices = None) -> None:
+    def match_payments(self, orders: dict, invoices: dict) -> None:
         results = []
 
-        for payment in self.data:
+        for payment in self.data.values():
             # Assign invoice number(s) to each payment
             # (1) Find matching order for current payment
-            matching_order = self.match_orders(payment, data)
+            matching_order = self.match_orders(payment, orders)
 
             if not matching_order:
                 results.append(payment)
@@ -92,8 +91,8 @@ class Paypal(Gateway):
             # (2) Check invoice number(s) for matching order
             matching_invoices = []
 
-            if isinstance(matching_order['Rechnungen'], dict):
-                matching_invoices = list(matching_order['Rechnungen'].keys())
+            if isinstance(matching_order['Bestellung'], dict):
+                matching_invoices = list(matching_order['Bestellung'].keys())
 
             # Skip if no matching invoice numbers
             if not matching_invoices:
@@ -105,11 +104,13 @@ class Paypal(Gateway):
             payment['ID'] = matching_order['ID']
 
             # (2) Add invoice number(s) to payment data
-            payment['Vorgang'] = matching_invoices
+            payment['Rechnungen'] = matching_invoices
 
-            # (3) Add total order & shipping cost
+            # (3) Add total order / shipping cost & taxes
+            payment['Bestellung'] = matching_order['Bestellung']
             payment['Bestellsumme'] = matching_order['Bestellsumme']
             payment['Versand'] = matching_order['Versand']
+            payment['Steuern'] = matching_order['Steuern']
 
             # (4) Save matched payment
             results.append(payment)
@@ -121,21 +122,27 @@ class Paypal(Gateway):
         # Determine matching orders by highest probability
         candidates = []
 
-        for order in orders:
-            # (1) Check if transaction code matches ..
-            if payment['Transaktion'] == order['Abwicklung']['Transaktionscode']:
-                # .. in which case there's a one-to-one match
-                return order
+        for order in orders.values():
+            # (1) Distinguish between online shop payments ..
+            if payment['Zahlungsart'] == 'Shopbestellung':
+                # .. whose transaction codes will match ..
+                if payment['Transaktion'] == order['Abwicklung']['Transaktionscode']:
+                    # .. which represents a one-to-one match
+                    return order
 
-            # (2) Check for common properties of payment and orders within one day
-            for days in range(1, 7):
-                candidate = self.approximate_order(payment, order, days)
+                continue
+
+            # (2) .. and regular payments ..
+            else:
+                # .. in which case common properties are being compared to determine the most likely match
+                for days in range(1, 7):
+                    candidate = self.approximate_order(payment, order, days)
+
+                    if candidate:
+                        break
 
                 if candidate:
-                    break
-
-            if candidate:
-                candidates.append(candidate)
+                    candidates.append(candidate)
 
         matches = sorted(candidates, key=itemgetter(1), reverse=True)
 
@@ -148,7 +155,7 @@ class Paypal(Gateway):
     def approximate_order(self, payment: dict, order: dict, days: int) -> tuple:
         candidate = ()
 
-        costs_match = payment['Brutto'] == order['Betrag']
+        costs_match = payment['Brutto'] == order['Gesamtbetrag']
         dates_match = self.match_dates(payment['Datum'], order['Datum'], days)
 
         if costs_match and dates_match:
@@ -169,16 +176,19 @@ class Paypal(Gateway):
             if payment_last.lower() == order_last.lower():
                 hits += 2
 
-            # (2) .. by comparing their mail addresses
-            if str(payment['Email']).lower() == str(order['Email']).lower():
+            # (2) .. by comparing their contact details
+            if payment['Telefon'].lower() == order['Telefon'].lower():
+                hits += 5
+
+            if payment['Email'].lower() == order['Email'].lower():
                 hits += 5
 
             # (3) .. by comparing their home / shipping address
-            # TODO: Use address details for comparison
-            # Orders:
-            # rechnungaddressstreet	rechnungaddresshousenumber	rechnungaddresszipcode	rechnungaddresscity
-            # Paypal:
-            # Adresszeile 1 (= street, number) Ort PLZ
+            if order['Straße'].lower() in order['Anschrift'].lower():
+                hits += 2
+
+            if payment['PLZ'] == order['PLZ']:
+                hits += 1
 
             # TODO: If that doesn't cut it, use data from available invoice files
             # See 'R20210031789'
@@ -200,29 +210,25 @@ class Paypal(Gateway):
                 del item['Transaktion']
 
                 # Convert invoice numbers to string
-                if item['Vorgang'] != 'nicht zugeordnet':
-                    item['Vorgang'] = ';'.join(item['Vorgang'])
+                if isinstance(item['Rechnungen'], list):
+                    item['Rechnungen'] = ';'.join(item['Rechnungen'])
 
                 # Extract tax rates & their respective amount
-                if 'Bestellung' in item:
-                    # Determine taxes from purchase information
-                    taxes = self.get_taxes(item['Bestellung'])
-                    del item['Bestellung']
-
+                if isinstance(item['Steuern'], dict):
                     # Add taxe rates
-                    for tax_rate, tax_amount in taxes.items():
+                    for tax_rate, tax_amount in item['Steuern'].items():
                         item[tax_rate + ' MwSt'] = tax_amount
 
                     # Add share of payment fees for each tax rate
                     # (1) Calculate total amount of taxes
-                    total_taxes = self.get_total_taxes(taxes)
+                    total_taxes = [taxes for invoice_number, taxes in item['Steuern'].items() if invoice_number in item['Rechnungen']]
 
                     # (2) Calculate share for each tax rate
-                    for tax_rate, tax_amount in taxes.items():
-                        ratio = total_taxes / tax_amount
-                        share = float(item['Gebühr'].replace('-', '')) / ratio
+                    # for tax_rate, tax_amount in item['Steuern'].items():
+                    #     ratio = total_taxes / tax_amount
+                    #     share = float(item['Gebühr'].replace('-', '')) / ratio
 
-                        item['Gebührenanteil ' + tax_rate] = self.convert_number(share)
+                    #     item['Gebührenanteil ' + tax_rate] = self.convert_number(share)
 
                 csv_data.append(item)
 
@@ -233,20 +239,5 @@ class Paypal(Gateway):
 
     # MATCHING OUTPUT HELPER methods
 
-    def get_taxes(self, purchase):
-        taxes = {}
-
-        for item in purchase.values():
-            tax_rate = str(item['Steuersatz']).split('.')[0]
-
-            if tax_rate not in taxes:
-                taxes[tax_rate] = float(item['Steueranteil'])
-
-            else:
-                taxes[tax_rate] += float(item['Steueranteil'])
-
-        return taxes
-
-
     def get_total_taxes(self, taxes) -> str:
-        return sum([tax_amount for tax_amount in taxes.values()])
+        return sum([float(tax_amount) for tax_amount in taxes.values()])

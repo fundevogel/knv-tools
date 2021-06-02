@@ -1,5 +1,3 @@
-# ~*~ coding=utf-8 ~*~
-
 
 import json
 
@@ -12,8 +10,8 @@ from ..gateways.volksbank import Volksbank
 from ..knv.invoices import Invoices
 from ..knv.orders import Orders
 from ..knv.infos import Infos
-from ..knv.shopkonfigurator import Shopkonfigurator
-from ..utils import build_path, create_path, dump_json, group_data
+from ..knv.knv import KNV
+from ..utils import build_path, create_path, dump_json, group_data, sort_data
 
 
 class Database:
@@ -45,7 +43,7 @@ class Database:
         }
 
         # Load merged data sources
-        self.data_files = build_path(config.database_dir)
+        self.db_files = build_path(config.database_dir)
 
         # Import config
         self.config = config
@@ -80,8 +78,8 @@ class Database:
             handler.load(import_files)
 
             # Split payments per-month & export them
-            for code, data in group_data(handler.payments()).items():
-                dump_json(data, join(self.config.payment_dir, identifier, code + '.json'))
+            for code, data in group_data(handler.data).items():
+                dump_json(sort_data(data), join(self.config.payment_dir, identifier, code + '.json'))
 
 
     def rebuild_invoices(self) -> None:
@@ -104,8 +102,8 @@ class Database:
         handler.load(invoice_files)
 
         # Split invoice data per-month & export it
-        for code, data in group_data(handler.invoices()).items():
-            dump_json(data, join(self.config.invoice_dir, 'data', code + '.json'))
+        for code, data in group_data(handler.data).items():
+            dump_json(sort_data(data), join(self.config.invoice_dir, 'data', code + '.json'))
 
 
     def rebuild_orders(self) -> None:
@@ -119,8 +117,8 @@ class Database:
         handler.load(import_files)
 
         # Split orders per-month & export them
-        for code, data in group_data(handler.orders()).items():
-            dump_json(data, join(self.config.order_dir, code + '.json'))
+        for code, data in group_data(handler.data).items():
+            dump_json(sort_data(data), join(self.config.order_dir, code + '.json'))
 
 
     def rebuild_infos(self) -> None:
@@ -134,21 +132,24 @@ class Database:
         handler.load(import_files)
 
         # Split infos per-month & export them
-        for code, data in group_data(handler.infos()).items():
-            dump_json(data, join(self.config.info_dir, code + '.json'))
+        for code, data in group_data(handler.data).items():
+            dump_json(sort_data(data), join(self.config.info_dir, code + '.json'))
 
 
     def rebuild_data(self):
-        handler = Shopkonfigurator()
+        handler = KNV()
 
-        order_files = build_path(self.config.order_dir)
-        info_files = build_path(self.config.info_dir)
+        # Load data files for orders & infos
+        handler.load('orders', self.order_files).load('infos', self.info_files)
 
-        # Load import files & merge their data
-        handler.load('orders', order_files).load('infos', info_files).init()
+        # Load data files for invoices
+        handler.load('invoices', self.invoice_files['data'])
+
+        # Merge their data
+        handler.init()
 
         for code, data in group_data(handler.data).items():
-            dump_json(data, join(self.config.database_dir, code + '.json'))
+            dump_json(sort_data(data), join(self.config.database_dir, code + '.json'))
 
 
     # GET methods
@@ -188,7 +189,7 @@ class Database:
         return Infos(info_files)
 
 
-    def get_shopkonfigurator(self, data_files: list = None) -> Shopkonfigurator:
-        data_files = data_files if data_files else self.data_files
+    def get_knv(self, data_files: list = None) -> KNV:
+        data_files = data_files if data_files else self.db_files
 
-        return Shopkonfigurator(data_files)
+        return KNV(data_files)
