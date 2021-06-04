@@ -151,7 +151,7 @@ def rank(config, year, quarter, enable_chart, limit):
     handler = db.get_knv(data_files)
 
     # Extract & rank sales
-    ranking = handler.get_ranking()
+    ranking = handler.get_ranking(limit)
 
     if config.verbose:
         # Write ranking to stdout
@@ -159,7 +159,7 @@ def rank(config, year, quarter, enable_chart, limit):
 
     else:
         # Count total
-        count = sum([item['Anzahl'] for item in ranking])
+        count = sum([item[-1] for item in ranking])
 
         # Write ranking to CSV file
         file_name = basename(data_files[0])[:-5] + '_' + basename(data_files[-1])[:-5]
@@ -176,7 +176,7 @@ def rank(config, year, quarter, enable_chart, limit):
         # Plot graph into PNG file
         chart_file = join(config.rankings_dir, file_name + '_' + str(limit) + '.png')
 
-        bar_chart = handler.get_ranking_chart(ranking, limit)
+        bar_chart = handler.get_ranking_chart(ranking)
         bar_chart.savefig(chart_file)
 
         click.echo(' done!')
