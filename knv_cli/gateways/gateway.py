@@ -13,8 +13,8 @@ from ..knv.invoices import Invoices
 class Gateway(Command):
     # PROPS
 
-    _blocked_payments = []
     _matched_payments = []
+    _blocked_payments = []
 
     # Class-specific
     VKN = None
@@ -33,7 +33,7 @@ class Gateway(Command):
 
 
     @abstractmethod
-    def match_payments(self, data: list, invoice_handler: Invoices = None) -> None:
+    def match_payments(self, data: list) -> None:
         pass
 
 

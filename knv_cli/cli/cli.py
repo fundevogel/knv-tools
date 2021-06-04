@@ -11,7 +11,7 @@ from .database import Database
 
 from ..api.exceptions import InvalidLoginException
 from ..api.webservice import Webservice
-from ..utils import _load_json, dump_json, dump_csv
+from ..utils import load_json, dump_json, dump_csv
 from ..utils import ask_credentials, build_path, create_path, group_data, pretty_print
 
 
@@ -52,81 +52,6 @@ def cli(config, verbose, vkn, data_dir, import_dir, export_dir):
 @pass_config
 @click.option('-y', '--year', default=None, help='Year.')
 @click.option('-q', '--quarter', default=None, help='Quarter.')
-def match(config, year, quarter):
-    """Match payments & invoices"""
-
-    # Initialize database
-    db = Database(config)
-
-    # Match payments for all available gateways
-    for identifier in db.gateways.keys():
-        # Initialize payment handler
-        handler = db.get_payments(identifier, year, quarter)
-
-        # Exit if database has no payments
-        if not handler.data:
-            click.echo('No "{}" payments found in database, skipping.'.format(identifier))
-            continue
-
-        click.echo('Matching ' + identifier + ' data ..', nl=False)
-
-        # Get combined order data
-        data = db.get_knv().data
-
-        # Load invoices from database
-        invoices = db.get_invoices()
-
-        # Match payments with orders & infos
-        handler.match_payments(data, invoices.data)
-
-        if config.verbose:
-            # Write matches to stdout
-            click.echo(handler.matched_payments())
-
-        else:
-            # Filter & merge matched invoices
-            for code, data in group_data(handler.data).items():
-                # Extract matching invoice numbers
-                invoice_numbers = set()
-
-                for item in data.values():
-                    if isinstance(item['Rechnungen'], list):
-                        for invoice_number in item['Rechnungen']:
-                            invoice_numbers.add(invoice_number)
-
-                # Init merger object
-                merger = PdfFileMerger()
-
-                # Merge corresponding invoices
-                for invoice_number in sorted(invoice_numbers):
-                    if invoice_number in invoices.data:
-                        pdf_file = invoices.get(invoice_number)['Datei']
-
-                        with open(pdf_file, 'rb') as file:
-                            merger.append(PdfFileReader(file))
-
-                    else:
-                        click.echo("\n" + 'Missing invoice: ' + str(invoice_number))
-
-                # Write merged PDF to disk
-                invoice_file = join(config.matches_dir, identifier, code, code + '.pdf')
-                create_path(invoice_file)
-                merger.write(invoice_file)
-
-            # Write results to CSV files
-            for code, data in group_data(handler.matched_payments()).items():
-                csv_file = join(config.matches_dir, identifier, code, code + '.csv')
-                dump_csv(data, csv_file)
-
-        click.echo(' done!')
-
-    click.echo('Process complete!')
-
-
-@cli.command()
-@pass_config
-@click.option('-y', '--year', default=None, help='Year.')
-@click.option('-q', '--quarter', default=None, help='Quarter.')
 @click.option('-c', '--enable-chart', is_flag=True, help='Create bar chart alongside results.')
 @click.option('-l', '--limit', default=1, help='Minimum limit to be included in bar chart.')
 def rank(config, year, quarter, enable_chart, limit):
@@ -151,7 +76,7 @@ def rank(config, year, quarter, enable_chart, limit):
     handler = db.get_knv(data_files)
 
     # Extract & rank sales
-    ranking = handler.get_ranking()
+    ranking = handler.get_ranking(limit)
 
     if config.verbose:
         # Write ranking to stdout
@@ -159,7 +84,7 @@ def rank(config, year, quarter, enable_chart, limit):
 
     else:
         # Count total
-        count = sum([item['Anzahl'] for item in ranking])
+        count = sum([item[-1] for item in ranking])
 
         # Write ranking to CSV file
         file_name = basename(data_files[0])[:-5] + '_' + basename(data_files[-1])[:-5]
@@ -176,7 +101,7 @@ def rank(config, year, quarter, enable_chart, limit):
         # Plot graph into PNG file
         chart_file = join(config.rankings_dir, file_name + '_' + str(limit) + '.png')
 
-        bar_chart = handler.get_ranking_chart(ranking, limit)
+        bar_chart = handler.get_ranking_chart(ranking)
         bar_chart.savefig(chart_file)
 
         click.echo(' done!')
@@ -495,6 +420,96 @@ def data(config, order_number):
     click.echo(' failed: No entry found for "{}"'.format(order_number))
 
 
+# ACCOUNTING tasks
+
+@cli.group()
+@pass_config
+def acc(config):
+    pass
+
+
+@acc.command()
+@pass_config
+def run(config):
+    """Start accounting mode"""
+    pass
+
+
+@acc.command()
+@pass_config
+@click.option('-y', '--year', default=None, help='Year.')
+@click.option('-q', '--quarter', default=None, help='Quarter.')
+def match(config, year, quarter):
+    """Match payments & invoices"""
+
+    # Initialize database
+    db = Database(config)
+
+    # Match payments for all available gateways
+    for identifier in db.gateways.keys():
+        # Initialize payment handler
+        handler = db.get_payments(identifier, year, quarter)
+
+        # Exit if database has no payments
+        if not handler.data:
+            click.echo('No "{}" payments found in database, skipping.'.format(identifier))
+            continue
+
+        click.echo('Matching ' + identifier + ' data ..', nl=False)
+
+        # Get combined order data
+        data = db.get_knv().data
+
+        # Load invoices from database
+        invoices = db.get_invoices()
+
+        # Match payments with orders & infos
+        handler.match_payments(data, invoices.data)
+
+        if config.verbose:
+            # Write matches to stdout
+            click.echo(handler.matched_payments())
+
+        else:
+            # Filter & merge matched invoices
+            for code, data in group_data(handler.data).items():
+                # Extract matching invoice numbers
+                invoice_numbers = set()
+
+                for item in data.values():
+                    if isinstance(item['Rechnungen'], list):
+                        for invoice_number in item['Rechnungen']:
+                            invoice_numbers.add(invoice_number)
+
+                # Init merger object
+                merger = PdfFileMerger()
+
+                # Merge corresponding invoices
+                for invoice_number in sorted(invoice_numbers):
+                    if invoice_number in invoices.data:
+                        pdf_file = invoices.get(invoice_number)['Datei']
+
+                        with open(pdf_file, 'rb') as file:
+                            merger.append(PdfFileReader(file))
+
+                    else:
+                        click.echo("\n" + 'Missing invoice: ' + str(invoice_number))
+
+                # Write merged PDF to disk
+                invoice_file = join(config.matches_dir, identifier, code, code + '.pdf')
+                create_path(invoice_file)
+                merger.write(invoice_file)
+
+            # Write results to CSV files
+            for code, data in group_data(handler.matched_payments(True)).items():
+                csv_file = join(config.matches_dir, identifier, code, code + '.csv')
+                dump_csv(data, csv_file)
+
+        click.echo(' done!')
+
+    click.echo('Process complete!')
+
+
 # API tasks
 
 @cli.group()
@@ -533,7 +548,7 @@ def lookup(config, isbn, output_file, cache_only, force_refresh):
 
     if cache_only is False:
         if config.credentials:
-            credentials = _load_json(config.credentials)
+            credentials = load_json(config.credentials)
 
         else:
             click.echo('Please enter your account information first:')
@@ -576,7 +591,7 @@ def lookup(config, isbn, output_file, cache_only, force_refresh):
 @click.option('-q', '--quantity', default=1, help='Number of items to be checked.')
 def ola(config, isbn, quantity):
     if config.credentials:
-        credentials = _load_json(config.credentials)
+        credentials = load_json(config.credentials)
 
     else:
         click.echo('Please enter your account information first:')

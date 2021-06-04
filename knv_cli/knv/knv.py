@@ -57,21 +57,21 @@ class KNV(BaseClass):
 
 
     def init(self, force: bool = False) -> KNV:
-        # Merge orders & infos
+        # Merge orders, infos & invoices
         if not self.data or force:
-            self.data = self.merge_data(self.orders, self.infos, self.invoices)
+            self.data = self.merge_sources(self.orders, self.infos, self.invoices)
 
         return self
 
 
-    def merge_data(self, order_data: list, info_data: list, invoice_data: list) -> list:
-        data = {}
+    def merge_sources(self, orders: dict, infos: dict, invoices: dict) -> dict:
+        main_data = {}
 
-        for order_number, order in order_data.items():
+        for order_number, order in orders.items():
             # Check for matching info ..
-            if order_number in info_data:
+            if order_number in infos:
                 # .. which is a one-to-one most the time
-                info = info_data[order_number]
+                info = infos[order_number]
 
                 # Prepare invoice data storage
                 purchase = {}
@@ -96,51 +96,32 @@ class KNV(BaseClass):
                 order['Rechnungen'] = purchase
 
                 # Extract taxes for each invoice from parsed invoice files
-                order['Steuern'] = {invoice_number: invoice_data[invoice_number]['Steuern'] for invoice_number in purchase.keys() if invoice_number in invoice_data}
+                order['Steuern'] = {invoice_number: invoices[invoice_number]['Steuern'] for invoice_number in purchase.keys() if invoice_number in invoices}
 
-            data[order_number] = order
+            main_data[order_number] = order
 
-        return data
+        return main_data
 
 
     # RANKING methods
 
-    def get_ranking(self) -> list:
+    def get_ranking(self, limit: int = 1) -> list:
         data = {}
 
         # Sum up number of sales
-        for order in self.data:
-            for isbn, product in order['Bestellung'].items():
-                # Skip total order cost
-                if isbn == 'Summe':
-                    continue
+        for item in [item[0] for item in [order['Bestellung'] for order in self.data.values()]]:
+            if item['ISBN'] not in data:
+                data[item['ISBN']] = 0
 
-                if isbn not in data:
-                    data[isbn] = product['Anzahl']
+            data[item['ISBN']] = data[item['ISBN']] + item['Anzahl']
 
-                else:
-                    data[isbn] = data[isbn] + product['Anzahl']
-
-        ranking = []
-
-        for isbn, quantity in data.items():
-            item = {}
-
-            item['ISBN'] = isbn
-            item['Anzahl'] = quantity
-
-            ranking.append(item)
-
-        # Sort sales by quantity & in descending order
-        ranking.sort(key=itemgetter('Anzahl'), reverse=True)
-
-        return ranking
+        # Sort by quantity, only including items if above given limit
+        return sorted([(isbn, quantity) for isbn, quantity in data.items() if quantity >= int(limit)], key=itemgetter(1), reverse=True)
 
 
-    def get_ranking_chart(self, ranking, limit: int = 1, kind: str = 'barh'):
-        # Update ranking to only include entries above set limit
-        ranking = [{'Anzahl': item['Anzahl'], 'ISBN': item['ISBN']} for item in ranking if item['Anzahl'] >= int(limit)]
-        df = DataFrame(ranking, index=[item['ISBN'] for item in ranking])
+    def get_ranking_chart(self, ranking, kind: str = 'barh'):
+        # Load ranking into dataframe
+        df = DataFrame([{'Anzahl': item[-1], 'ISBN': item[0]} for item in ranking], index=[item['ISBN'] for item in ranking])
 
         # Rotate & center x-axis labels
         pyplot.xticks(rotation=45, horizontalalignment='center')
@@ -167,7 +148,7 @@ class KNV(BaseClass):
         codes = set()
         contacts  = []
 
-        for order in self.data:
+        for order in self.data.values():
             mail_address = order['Email']
 
             # Check for blocklisted mail addresses
