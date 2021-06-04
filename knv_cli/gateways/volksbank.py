@@ -1,6 +1,5 @@
 # This module contains a class for processing & working with
 # 'Umsätze', as exported from Volksbank
-# TODO: Add link about CSV export in Volksbank online banking
 
 
 from operator import itemgetter
@@ -52,12 +51,13 @@ class Volksbank(Gateway):
             payment = {}
 
             payment['ID'] = 'nicht zugeordnet'
-            payment['Datum'] = self.convert_date(item['Buchungstag'])
+            payment['Datum'] = self.convert_date(item['Valuta'])
             payment['Rechnungen'] = 'nicht zugeordnet'
             payment['Name'] = item['Empfänger/Zahlungspflichtiger']
             payment['Betrag'] = self.convert_number(item['Umsatz'])
             payment['Steuern'] = 'keine Angabe'
             payment['Währung'] = item['Währung']
+            payment['Treffer'] = 'unsicher'
             payment['Dienstleister'] = 'Volksbank'
             payment['Rohdaten'] = item['Vorgang/Verwendungszweck']
 
@@ -136,7 +136,6 @@ class Volksbank(Gateway):
 
     # MATCHING methods
 
-    # TODO: Check if payment equals order total
     def match_payments(self, orders: dict, invoices: dict) -> None:
         results = []
 
@@ -153,7 +152,10 @@ class Volksbank(Gateway):
                 else:
                     # Check if extracted invoices sum up to total order cost ..
                     if self.compare_invoice_total(payment, invoices):
-                        # .. which is perfect, so add taxes
+                        # .. which is a one-to-one hit
+                        payment['Treffer'] = 'sicher'
+
+                        # Add taxes
                         payment['Steuern'] = self.extract_taxes(payment['Rechnungen'], invoices)
 
                         results.append(payment)
@@ -166,7 +168,8 @@ class Volksbank(Gateway):
                         pass
 
             # Find matching order(s) for each order candidate
-            matching_orders = self.match_orders(payment, orders)
+            if isinstance(payment['ID'], list):
+                matching_orders = [orders[order_number] for order_number in payment['ID'] if order_number in orders]
 
             # Apply matching order number(s)
             if matching_orders:
@@ -186,7 +189,10 @@ class Volksbank(Gateway):
                 else:
                     # .. and here we go again, checking if extracted invoices sum up to total order cost ..
                     if self.compare_invoice_total(payment, invoices):
-                        # .. which is perfect, so add taxes
+                        # .. which is (probably) a one-to-one hit
+                        payment['Treffer'] = 'fast sicher'
+
+                        # Add taxes
                         payment['Steuern'] = self.extract_taxes(payment['Rechnungen'], invoices)
 
                         results.append(payment)
@@ -201,11 +207,6 @@ class Volksbank(Gateway):
             results.append(payment)
 
         self._matched_payments = results
-
-
-    def match_orders(self, payment: dict, orders: list) -> list:
-        if isinstance(payment['ID'], list):
-            return [orders[order_number] for order_number in payment['ID'] if order_number in orders]
 
 
     # MATCHING HELPER methods
@@ -226,14 +227,3 @@ class Volksbank(Gateway):
                     taxes[tax_rate] = self.convert_number(float(taxes[tax_rate]) + float(tax_amount))
 
         return taxes
-
-
-    def match_invoices(self, invoices: list, orders: list) -> dict:
-        matches = {}
-
-        for invoice in invoices:
-            for order in orders:
-                if invoice in order['Abrechnungen']:
-                    matches[invoice] = order['Abrechnungen'][invoice]
-
-        return matches
