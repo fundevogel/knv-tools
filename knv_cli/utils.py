@@ -31,27 +31,23 @@ def dump_csv(data, csv_file) -> None:
 
 # JSON functions
 
-def load_json(json_files: list) -> dict:
+def load_json(json_files) -> dict:
+    # Normalize single files being passed as input
+    if isinstance(json_files, str):
+        json_files = glob(json_files)
+
     data = {}
 
-    for json_file in json_files:
-        data.update(_load_json(json_file))
+    for json_file in list(json_files):
+        try:
+            with open(json_file, 'r') as file:
+                data.update(json.load(file))
 
-    return data
+        except json.decoder.JSONDecodeError:
+            raise Exception
 
-
-def _load_json(json_file: str) -> dict:
-    data = {}
-
-    try:
-        with open(json_file, 'r') as file:
-            data = json.load(file)
-
-    except json.decoder.JSONDecodeError:
-        raise Exception
-
-    except FileNotFoundError:
-        pass
+        except FileNotFoundError:
+            pass
 
     return data
 

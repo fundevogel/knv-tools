@@ -3,7 +3,7 @@ from glob import glob
 from os import getcwd, remove
 from os.path import basename, exists, join
 
-from ..utils import _load_json, dump_json
+from ..utils import load_json, dump_json
 
 
 class Cache:
@@ -24,7 +24,7 @@ class Cache:
 
 
     def fetch(self, id: str) -> dict:
-        return _load_json(self.id2file(id))
+        return load_json(self.id2file(id))
 
 
     def save(self, id: str, data: dict) -> None:
