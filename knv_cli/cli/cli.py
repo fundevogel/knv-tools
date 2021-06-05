@@ -1,5 +1,3 @@
-import json
-
 from os.path import basename, join
 
 import click
@@ -8,6 +6,7 @@ from PyPDF2 import PdfFileReader, PdfFileMerger
 
 from .config import Config
 from .database import Database
+from ..processors.knv.invoices import InvoiceProcessor
 
 from ..api.exceptions import InvalidLoginException
 from ..api.webservice import Webservice
@@ -47,6 +46,21 @@ def cli(config, verbose, vkn, data_dir, import_dir, export_dir):
 
 
 # GENERAL tasks
+
+@cli.command()
+@pass_config
+def test(config):
+    # Initialize handler
+    handler = Invoices()
+
+    # Select invoice files to be imported
+    import_files1 = build_path(config.import_dir, '31776_Invoices_TimeFrom01.01.2016_TimeTo31.12.2016.zip')
+    handler.load_files(import_files1)
+
+    import_files2 = build_path(join(config.import_dir, 'shit'), '*.pdf')
+    handler.load_files(import_files2)
+
+
 
 @cli.command()
 @pass_config
@@ -200,6 +214,21 @@ def all(config):
     # Initialize database
     db = Database(config)
 
+    # Import info files
+    click.echo('Rebuilding infos ..', nl=False)
+    db.rebuild_infos()
+    click.echo(' done.')
+
+    # Import order files
+    click.echo('Rebuilding orders ..', nl=False)
+    db.rebuild_orders()
+    click.echo(' done.')
+
+    # Merge data sources
+    click.echo('Merging data sources ..', nl=False)
+    db.rebuild_data()
+    click.echo(' done.')
+
     # Import payment files
     click.echo('Rebuilding payments ..', nl=False)
     db.rebuild_payments()
@@ -208,21 +237,6 @@ def all(config):
     # Import invoice files
     click.echo('Rebuilding invoices ..', nl=False)
     db.rebuild_invoices()
-    click.echo(' done.')
-
-    # Import order files
-    click.echo('Rebuilding orders ..', nl=False)
-    db.rebuild_orders()
-    click.echo(' done.')
-
-    # Import info files
-    click.echo('Rebuilding infos ..', nl=False)
-    db.rebuild_infos()
-    click.echo(' done.')
-
-    # Merge data sources
-    click.echo('Merging data sources ..', nl=False)
-    db.rebuild_data()
     click.echo(' done.')
 
     click.echo('Update complete!')
@@ -239,6 +253,20 @@ def payments(config):
     # Import payment files
     click.echo('Rebuilding payments ..', nl=False)
     db.rebuild_payments()
+    click.echo(' done.')
+
+
+@rebuild.command()
+@pass_config
+def infos(config):
+    """Rebuild infos"""
+
+    # Initialize database
+    db = Database(config)
+
+    # Import info files
+    click.echo('Rebuilding infos ..', nl=False)
+    db.rebuild_infos()
     click.echo(' done.')
 
 
@@ -267,20 +295,6 @@ def orders(config):
     # Import order files
     click.echo('Rebuilding orders ..', nl=False)
     db.rebuild_orders()
-    click.echo(' done.')
-
-
-@rebuild.command()
-@pass_config
-def infos(config):
-    """Rebuild infos"""
-
-    # Initialize database
-    db = Database(config)
-
-    # Import info files
-    click.echo('Rebuilding infos ..', nl=False)
-    db.rebuild_infos()
     click.echo(' done.')
 
 

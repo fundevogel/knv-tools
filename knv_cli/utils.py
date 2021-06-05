@@ -9,7 +9,7 @@ from os.path import exists, dirname, join
 
 import click
 
-from pandas import DataFrame
+from pandas import DataFrame, concat, read_csv
 
 
 # CLI HELPER functions
@@ -21,7 +21,28 @@ def pretty_print(dictionary: dict) -> None:
 
 # CSV functions
 
-def dump_csv(data, csv_file) -> None:
+def load_csv(
+    csv_files: list,
+    delimiter: str = None,
+    encoding: str = None,
+    skiprows: int = None
+) -> list:
+    try:
+        return concat(map(lambda file: read_csv(
+            file,
+            sep=delimiter,
+            encoding=encoding,
+            skiprows=skiprows,
+            low_memory=False,
+        ), csv_files)).to_dict('records')
+
+    except ValueError:
+        pass
+
+    return []
+
+
+def dump_csv(data: dict, csv_file: str) -> None:
     # Create directory if necessary
     create_path(csv_file)
 
@@ -31,7 +52,7 @@ def dump_csv(data, csv_file) -> None:
 
 # JSON functions
 
-def load_json(json_files) -> dict:
+def load_json(json_files: list) -> dict:
     # Normalize single files being passed as input
     if isinstance(json_files, str):
         json_files = glob(json_files)
@@ -52,7 +73,7 @@ def load_json(json_files) -> dict:
     return data
 
 
-def dump_json(data, json_file) -> None:
+def dump_json(data: dict, json_file: str) -> None:
     create_path(json_file)
 
     with open(json_file, 'w') as file:

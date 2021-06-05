@@ -1,24 +1,26 @@
-from operator import itemgetter
+# Works with Python v3.10+
+# See https://stackoverflow.com/a/33533514
+from __future__ import annotations
 
-from ..command import Command
+from ..processor import Processor
 
 
-class Infos(Command):
+class InfoProcessor(Processor):
     # PROPS
 
     regex = 'OrdersInfo_*.csv'
 
 
-    # DATA methods
+    # CORE methods
 
-    def process_data(self, info_data: list) -> dict:
+    def process(self) -> InfoProcessor:
         '''
         Processes 'OrdersInfo_*.csv' files
         '''
 
         infos = {}
 
-        for item in info_data:
+        for item in self._data:
             # Skip availability information
             if str(item['Invoice Number']) == 'nan':
                 continue
@@ -48,4 +50,6 @@ class Infos(Command):
                 'Einzelpreis': self.convert_number(item['Total Cost']),
             }
 
-        return infos
+        self.data = infos
+
+        return self

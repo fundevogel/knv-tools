@@ -1,24 +1,26 @@
-from operator import itemgetter
+# Works with Python v3.10+
+# See https://stackoverflow.com/a/33533514
+from __future__ import annotations
 
-from ..command import Command
+from ..processor import Processor
 
 
-class Orders(Command):
+class OrderProcessor(Processor):
     # PROPS
 
     regex = 'Orders_*.csv'
 
 
-    # DATA methods
+    # CORE methods
 
-    def process_data(self, order_data: list) -> dict:
+    def process(self) -> OrderProcessor:
         '''
         Processes 'Orders_*.csv' files
         '''
 
         orders = {}
 
-        for item in order_data:
+        for item in self._data:
             # Create reliable article number ..
             isbn = item['knvnumber']
 
@@ -84,10 +86,12 @@ class Orders(Command):
             if str(item['transactionid']) != 'nan':
                 orders[code]['Abwicklung']['Transaktionscode'] = str(item['transactionid'])
 
-        return orders
+        self.data = orders
+
+        return self
 
 
-    # DATA HELPER methods
+    # HELPER methods
 
     def convert_tax_rate(self, string: str) -> str:
         return str(string).replace(',00', '') + '%'
