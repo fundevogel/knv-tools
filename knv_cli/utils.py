@@ -14,9 +14,18 @@ from pandas import DataFrame, concat, read_csv
 
 # CLI HELPER functions
 
-def pretty_print(dictionary: dict) -> None:
-    for key, value in dictionary.items():
-        click.echo('{key}: "{value}"'.format(key=key, value=value))
+def pretty_print(data: dict, number: str) -> None:
+    if data:
+        click.echo(' done.')
+
+        # Print result & exit ..
+        for key, value in data.items():
+            click.echo('{key}: "{value}"'.format(key=key, value=value))
+
+        click.Context.exit(0)
+
+    # .. otherwise, end with error message
+    click.echo(' failed: No entry found for "{}"'.format(number))
 
 
 # CSV functions

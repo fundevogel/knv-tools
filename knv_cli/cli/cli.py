@@ -336,10 +336,10 @@ def get(config):
 
 @get.command()
 @pass_config
-@click.argument('number')
-def payment(config, number):
+@click.argument('order_number')
+def data(config, order_number):
     '''
-    Retrieve payment from database
+    Retrieve full order from database
     '''
 
     click.echo('Searching database ..', nl=False)
@@ -347,20 +347,31 @@ def payment(config, number):
     # Initialize database
     db = Database(config)
 
-    # Match payments for all available gateways
-    for identifier in db.gateways.keys():
-        # Initialize payment handler
-        handler = db.get_payments(identifier)
+    # Extract data record for given order number
+    data = db.get_data(order_number)
 
-        # Extract payment for given (transaction or order) number
-        payment = handler.get(number)
+    # Print result
+    pretty_print(data, order_number)
 
-        if payment:
-            click.echo(' done.')
-            pretty_print(payment)
-            click.Context.exit(0)
 
-    click.echo(' failed: No entry found for "{}"'.format(number))
+@get.command()
+@pass_config
+@click.argument('order_number')
+def info(config, order_number):
+    '''
+    Retrieve (raw) info from database
+    '''
+
+    click.echo('Searching database ..', nl=False)
+
+    # Initialize database
+    db = Database(config)
+
+    # Extract info for given order number
+    info = db.get_info(order_number)
+
+    # Print result
+    pretty_print(info, order_number)
 
 
 @get.command()
@@ -376,15 +387,11 @@ def invoice(config, invoice_number):
     # Initialize database
     db = Database(config)
 
-    # Initialize info handler
-    handler = db.get_invoices()
+    # Extract invoice for given invoice number
+    invoice = db.get_invoice(invoice_number)
 
-    if invoice_number in handler.data:
-        click.echo(' done.')
-        pretty_print(handler.get(invoice_number))
-        click.Context.exit(0)
-
-    click.echo(' failed: No entry found for "{}"'.format(invoice_number))
+    # Print result
+    pretty_print(invoice, invoice_number)
 
 
 @get.command()
@@ -393,32 +400,27 @@ def invoice(config, invoice_number):
 def order(config, order_number):
     click.echo('Searching database ..', nl=False)
     '''
-    Retrieve order from database
+    Retrieve (raw) order from database
     '''
+
+    click.echo('Searching database ..', nl=False)
 
     # Initialize database
     db = Database(config)
-
-    # Initialize order handler
-    handler = db.get_orders()
 
     # Extract order for given order number
-    order = handler.get(order_number)
+    order = db.get_order(order_number)
 
-    if order:
-        click.echo(' done.')
-        pretty_print(order)
-        click.Context.exit(0)
-
-    click.echo(' failed: No entry found for "{}"'.format(order_number))
+    # Print result
+    pretty_print(order, order_number)
 
 
 @get.command()
 @pass_config
-@click.argument('order_number')
-def info(config, order_number):
+@click.argument('transaction')
+def payment(config, transaction):
     '''
-    Retrieve info from database
+    Retrieve payment from database
     '''
 
     click.echo('Searching database ..', nl=False)
@@ -426,45 +428,11 @@ def info(config, order_number):
     # Initialize database
     db = Database(config)
 
-    # Initialize info handler
-    handler = db.get_infos()
+    # Extract payment for given transaction
+    payment = db.get_payment(transaction)
 
-    # Extract info for given order number
-    info = handler.get(order_number)
-
-    if info:
-        click.echo(' done.')
-        pretty_print(info)
-        click.Context.exit(0)
-
-    click.echo(' failed: No entry found for "{}"'.format(order_number))
-
-
-@get.command()
-@pass_config
-@click.argument('order_number')
-def data(config, order_number):
-    '''
-    Retrieve order from database
-    '''
-
-    click.echo('Searching database ..', nl=False)
-
-    # Initialize database
-    db = Database(config)
-
-    # Initialize info handler
-    handler = db.get_knv()
-
-    # Extract combined data record for given order number
-    data = handler.get(order_number)
-
-    if data:
-        click.echo(' done.')
-        pretty_print(data)
-        click.Context.exit(0)
-
-    click.echo(' failed: No entry found for "{}"'.format(order_number))
+    # Print result
+    pretty_print(payment, transaction)
 
 
 # ACCOUNTING tasks

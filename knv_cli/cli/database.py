@@ -8,6 +8,7 @@ from ..processors.knv.infos import InfoProcessor
 from ..processors.knv.invoices import InvoiceProcessor
 from ..processors.knv.orders import OrderProcessor
 from ..processors.knv.shopkonfigurator import ShopkonfiguratorProcessor
+from ..structure.invoices.invoices import Invoices
 from ..structure.orders.orders import Orders
 from ..structure.payments.payments import Payments
 from ..utils import load_json, dump_json
@@ -150,6 +151,25 @@ class Database:
 
     # GET methods
 
+    def get_invoices(self, invoice_files: list = None) -> Invoices:
+        invoice_files = invoice_files if invoice_files else self.invoice_files['data']
+
+        # Load respective database entries
+        invoices = load_json(invoice_files)
+
+        return Invoices(invoices)
+
+
+    def get_orders(self, order_files: list = None):
+        order_files = order_files if order_files else self.order_files
+
+        # Load respective database entries
+        orders = load_json(order_files)
+        invoices = load_json(self.invoice_files['data'])
+
+        return Orders(orders, invoices)
+
+
     def get_payments(self,
         identifier: str,
         year: int = None,
@@ -167,29 +187,31 @@ class Database:
         return self.gateways[identifier]().load_files(payment_files)
 
 
-    # def get_invoices(self, invoice_files: list = None) -> Invoices:
-    #     invoice_files = invoice_files if invoice_files else self.invoice_files['data']
+    def get_data(self, identifier: str) -> dict:
+        data = load_json(self.db_files)
 
-    #     return Invoices(invoice_files)
+        return {} if identifier not in data else data[identifier]
 
 
-    def get_orders(self, order_files: list = None):
-        order_files = order_files if order_files else self.order_files
+    def get_info(self, identifier: str) -> dict:
+        infos = load_json(self.info_files)
 
-        # Load respective database entries
-        orders = load_json(order_files)
+        return {} if identifier not in infos else infos[identifier]
+
+
+    def get_invoice(self, identifier: str) -> dict:
         invoices = load_json(self.invoice_files['data'])
 
-        return Orders(orders, invoices)
+        return {} if identifier not in invoices else invoices[identifier]
 
 
-    # def get_infos(self, info_files: list = None) -> Infos:
-    #     info_files = info_files if info_files else self.info_files
+    def get_order(self, identifier: str) -> dict:
+        orders = load_json(self.order_files)
 
-    #     return Infos(info_files)
+        return {} if identifier not in orders else orders[identifier]
 
 
-    # def get_knv(self, data_files: list = None) -> KNV:
-    #     data_files = data_files if data_files else self.db_files
+    def get_payment(self, identifier: str) -> dict:
+        payments = load_json(self.payment_files['paypal'])
 
-    #     return KNV(data_files)
+        return {} if identifier not in payments else payments[identifier]
