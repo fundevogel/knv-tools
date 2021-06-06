@@ -2,14 +2,16 @@ from os.path import basename, join
 
 import click
 import pendulum
+
+from matplotlib import pyplot, rcParams
+from pandas import DataFrame
 from PyPDF2 import PdfFileReader, PdfFileMerger
 
 from .config import Config
 from .database import Database
-from ..processors.knv.invoices import InvoiceProcessor
-
 from ..api.exceptions import InvalidLoginException
 from ..api.webservice import Webservice
+from ..processors.knv.invoices import InvoiceProcessor
 from ..utils import load_json, dump_json, dump_csv
 from ..utils import ask_credentials, build_path, create_path, group_data, pretty_print
 
@@ -95,10 +97,15 @@ def rank(config, year, quarter, enable_chart, limit):
         click.echo('Creating graph from data ..', nl=False)
 
         # Plot graph into PNG file
-        chart_file = join(config.rankings_dir, file_name + '_' + str(limit) + '.png')
+        # (1) Load ranking into dataframe
+        # (2) Rotate & center x-axis labels
+        # (3) Make graph 'just fit' image dimensions
+        df = DataFrame([{'Anzahl': item[-1], 'Titel': item[0]} for item in ranking], index=[item[0] for item in ranking])
+        pyplot.xticks(rotation=45, horizontalalignment='center')
+        rcParams.update({'figure.autolayout': True})
 
-        bar_chart = handler.get_ranking_chart(ranking)
-        bar_chart.savefig(chart_file)
+        # (4) Output graph
+        df.plot(kind='barh').get_figure().savefig(join(config.rankings_dir, file_name + '_' + str(limit) + '.png'))
 
         click.echo(' done!')
 
@@ -429,6 +436,54 @@ def acc(config):
 def run(config):
     """Start accounting mode"""
     pass
+
+
+@acc.command()
+@pass_config
+@click.option('-y', '--year', default=None, help='Year.')
+@click.option('-q', '--quarter', default=None, help='Quarter.')
+@click.option('-b', '--years_back', default=2, help='Years back.')
+@click.option('-c', '--enable-chart', is_flag=True, help='Create bar chart alongside results.')
+def report(config, year, quarter, years_back, enable_chart):
+    '''
+    Generate revenue report
+    '''
+
+    # Initialize database
+    db = Database(config)
+
+    handler = db.get_orders()
+
+    if year is None:
+        year = pendulum.today().year
+
+    click.echo('Generating revenue report ..', nl=config.verbose)
+
+    revenues = {}
+
+    for i in range(0, 1 + int(years_back)):
+        this_year = str(int(year) - i)
+        revenues[this_year] = handler.get_revenues(this_year, quarter)
+
+    df = DataFrame(revenues, index=list(revenues.values())[0].keys())
+
+    click.echo(' done!')
+
+    if config.verbose:
+        # Write revenues to stdout
+        print(revenues)
+
+    else:
+        # Print well-formatted revenue report
+        click.echo(df)
+
+    # Create graph if enabled
+    if enable_chart and not config.verbose:
+        click.echo('Creating graph from data ..', nl=False)
+
+        # Build filename indicating year range
+        file_name = 'revenues-' + year + '-' + str(int(year) + '-' + years_back) + '.png'
+        df.plot(kind='bar').get_figure().savefig(join(config.rankings_dir, file_name))
 
 
 @acc.command()
