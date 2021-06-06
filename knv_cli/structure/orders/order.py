@@ -15,14 +15,6 @@ class Order(Molecule):
         return list(self.data.values())
 
 
-    def get_revenue(self) -> float:
-        return float(self.data['Gesamtbetrag'])
-
-
-    def get_taxes(self) -> dict:
-        pass
-
-
     def get_contact(self) -> dict:
         return {
             'Anrede': self.form_of_address(),
@@ -31,6 +23,16 @@ class Order(Molecule):
             'Email': self.mail(),
             'Letzte Bestellung': self.date(),
         }
+
+
+    # ACCOUNTING methods
+
+    def get_revenues(self) -> float:
+        return float(self.data['Gesamtbetrag'])
+
+
+    def get_taxes(self) -> dict:
+        pass
 
 
     # HELPER methods

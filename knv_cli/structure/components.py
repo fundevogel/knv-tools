@@ -63,7 +63,7 @@ class Molecule(Component):
             if item.month() not in data:
                 data[item.month()] = []
 
-            data[item.month()].append(item.get_revenue())
+            data[item.month()].append(item.get_revenues())
 
         # Assign data to respective month
         data = {int(month): sum(revenues) for month, revenues in data.items()}
@@ -99,4 +99,11 @@ class Atom(Component):
 
     @abstractmethod
     def export(self) -> None:
+        pass
+
+
+    # ACCOUNTING methods
+
+    @abstractmethod
+    def get_revenues(self) -> None:
         pass

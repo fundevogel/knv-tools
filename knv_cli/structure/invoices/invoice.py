@@ -10,3 +10,9 @@ class Invoice(Atom):
 
     def export(self) -> list:
         return list(self.data.values())
+
+
+    # ACCOUNTING methods
+
+    def get_revenues(self) -> float:
+        return float(self.data['Gesamtbetrag'])

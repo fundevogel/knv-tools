@@ -27,6 +27,13 @@ class Component(metaclass=ABCMeta):
         pass
 
 
+    # ACCOUNTING methods
+
+    @abstractmethod
+    def get_revenues(self) -> None:
+        pass
+
+
     # HELPER methods
 
     def date(self) -> str:
