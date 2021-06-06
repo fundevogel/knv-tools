@@ -3,9 +3,27 @@ from operator import itemgetter
 import pendulum
 
 from ..components import Molecule
+from ..shared.invoice import Invoice
+from .order import Order
 
 
 class Orders(Molecule):
+    def __init__(self, orders: dict, invoices: dict) -> None:
+        # Initialize 'Molecule' props
+        super().__init__()
+
+        # Build composite structure
+        for data in orders.values():
+            order = Order(data)
+
+            if isinstance(data['Rechnungen'], dict):
+                # Ensure validity & availability of each invoice
+                for invoice in [invoices[invoice] for invoice in data['Rechnungen'].keys() if invoice in invoices]:
+                    order.add(Invoice(invoice))
+
+            self.add(order)
+
+
     # CORE methods
 
     def export(self) -> list:
@@ -17,22 +35,13 @@ class Orders(Molecule):
         return data
 
 
-    def get_orders(self, year: str, quarter: str = None) -> list:
-        orders = [order for order in self._children if order.year() == year]
-
-        if quarter is not None:
-            orders = [order for order in orders if int(order.month()) in [month + 3 * (int(quarter) - 1) for month in [1, 2, 3]]]
-
-        return orders
-
-
     # ACCOUNTING methods
 
     def get_revenues(self, year: str, quarter: str = None) -> dict:
         data = {}
 
         # Select orders matching given time period
-        for order in self.get_orders(year, quarter):
+        for order in self.filter(year, quarter)._children:
             if order.month() not in data:
                 data[order.month()] = []
 
@@ -54,7 +63,12 @@ class Orders(Molecule):
             if i not in data:
                 data[i] = 0
 
-        return data
+        # Sort results
+        return {k: data[k] for k in sorted(data)}
+
+
+    def get_taxes(self):
+        pass
 
 
     # ACCOUNTING HELPER methods

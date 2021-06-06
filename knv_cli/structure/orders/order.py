@@ -19,19 +19,11 @@ class Order(Molecule):
         return float(self.data['Gesamtbetrag'])
 
 
+    def get_taxes(self) -> dict:
+        pass
+
+
     # HELPER methods
 
-    def date(self) -> str:
-        return self.data['Datum']
-
-
-    def year(self) -> str:
-        return self.data['Datum'].split('-')[0]
-
-
-    def month(self) -> str:
-        return self.data['Datum'].split('-')[1]
-
-
-    def day(self) -> str:
-        return self.data['Datum'].split('-')[-1]
+    def taxes(self) -> dict:
+        return self.data['Steuern']
