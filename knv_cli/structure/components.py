@@ -53,6 +53,47 @@ class Molecule(Component):
         pass
 
 
+    # ACCOUNTING methods
+
+    def get_revenues(self, year: str, quarter: str = None) -> dict:
+        data = {}
+
+        # Select orders matching given time period
+        for item in self.filter(year, quarter)._children:
+            if item.month() not in data:
+                data[item.month()] = []
+
+            data[item.month()].append(item.get_revenue())
+
+        # Assign data to respective month
+        data = {int(month): sum(revenues) for month, revenues in data.items()}
+
+        # Fill missing months with zeroes
+        # (1) .. generally including all months
+        month_range = range(1, 13)
+
+        # (2) .. or only those for given quarter
+        if quarter is not None:
+            month_range = range(self.qm(quarter), self.qm(quarter, True) + 1)
+
+        # (3) .. execute!
+        for i in month_range:
+            if i not in data:
+                data[i] = 0
+
+        # Sort results
+        return {k: data[k] for k in sorted(data)}
+
+
+    # ACCOUNTING HELPER methods
+
+    def qm(self, quarter: str, last: bool = False) -> int:
+        # Determine if first or last q(uarter) m(onth)
+        start = 1 if not last else 3
+
+        return start + 3 * (int(quarter) - 1)
+
+
 class Atom(Component):
     # CORE methods
 
