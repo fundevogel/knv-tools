@@ -98,45 +98,31 @@ class Orders(Molecule):
 
     # CONTACTS methods
 
-    # def get_contacts(self, cutoff_date: str = None, blocklist = []) -> list:
-    #     # Check if order entries are present
-    #     if not self.data:
-    #         raise Exception
+    def get_contacts(self, cutoff_date: str = None, blocklist = []) -> list:
+        # Set default date
+        if cutoff_date is None:
+            today = pendulum.today()
+            cutoff_date = today.subtract(years=2).to_datetime_string()[:10]
 
+        codes = set()
+        contacts  = []
 
-    #     # Set default date
-    #     if cutoff_date is None:
-    #         today = pendulum.today()
-    #         cutoff_date = today.subtract(years=2).to_datetime_string()[:10]
+        for order in self._children:
+            mail_address = order.mail()
 
-    #     codes = set()
-    #     contacts  = []
+            # Check for blocklisted mail addresses
+            if mail_address in blocklist:
+                continue
 
-    #     for order in self.data.values():
-    #         mail_address = order['Email']
+            # Throw out everything before cutoff date (if provided)
+            if order.date() < cutoff_date:
+                continue
 
-    #         # Check for blocklisted mail addresses
-    #         if mail_address in blocklist:
-    #             continue
+            if mail_address not in codes:
+                codes.add(mail_address)
+                contacts.append(order.get_contact())
 
-    #         # Throw out everything before cutoff date (if provided)
-    #         if order['Datum'] < cutoff_date:
-    #             continue
+        # Sort by date & lastname, in descending order
+        contacts.sort(key=itemgetter('Letzte Bestellung', 'Nachname'), reverse=True)
 
-    #         # Prepare dictionary
-    #         contact = {}
-
-    #         contact['Anrede'] = order['Anrede']
-    #         contact['Vorname'] = order['Vorname']
-    #         contact['Nachname'] = order['Nachname']
-    #         contact['Email'] = order['Email']
-    #         contact['Letzte Bestellung'] = order['Datum']
-
-    #         if mail_address not in codes:
-    #             codes.add(mail_address)
-    #             contacts.append(contact)
-
-    #     # Sort by date & lastname, in descending order
-    #     contacts.sort(key=itemgetter('Letzte Bestellung', 'Nachname'), reverse=True)
-
-    #     return contacts
+        return contacts

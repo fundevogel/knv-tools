@@ -11,8 +11,7 @@ from .config import Config
 from .database import Database
 from ..api.exceptions import InvalidLoginException
 from ..api.webservice import Webservice
-from ..processors.knv.invoices import InvoiceProcessor
-from ..utils import load_json, dump_json, dump_csv
+from ..utils import load_json, dump_csv
 from ..utils import ask_credentials, build_path, create_path, group_data, pretty_print
 
 
@@ -28,7 +27,9 @@ pass_config = click.make_pass_decorator(Config, ensure=True)
 @click.option('--import-dir', type=clickpath, help='Custom import directory.')
 @click.option('--export-dir', type=clickpath, help='Custom export directory.')
 def cli(config, verbose, vkn, data_dir, import_dir, export_dir):
-    """CLI utility for handling data exported from KNV & pcbis.de"""
+    '''
+    CLI utility for handling data exported from KNV & pcbis.de
+    '''
 
     # Apply CLI options
     if verbose is not None:
@@ -56,7 +57,9 @@ def cli(config, verbose, vkn, data_dir, import_dir, export_dir):
 @click.option('-c', '--enable-chart', is_flag=True, help='Create bar chart alongside results.')
 @click.option('-l', '--limit', default=1, help='Minimum limit to be included in bar chart.')
 def rank(config, year, quarter, enable_chart, limit):
-    """Rank sales"""
+    '''
+    Rank sales
+    '''
 
     # Initialize database
     db = Database(config)
@@ -115,18 +118,15 @@ def rank(config, year, quarter, enable_chart, limit):
 @click.option('-d', '--date', default=None, help='Cutoff date in ISO date format, eg \'YYYY-MM-DD\'. Default: today two years ago')
 @click.option('-b', '--blocklist', type=click.File('r'), help='Path to file containing mail addresses that should be ignored.')
 def contacts(config, date, blocklist):
-    """Generate customer contact list"""
+    '''
+    Generate customer contact list
+    '''
 
     # Initialize database
     db = Database(config)
 
     # Initialize handler
-    handler = db.get_knv()
-
-    # Exit if database is empty
-    if not handler.data:
-        click.echo('Error: No orders found in database.')
-        click.Context.exit(1)
+    handler = db.get_orders()
 
     click.echo('Generating contact list ..', nl=config.verbose)
 
@@ -163,7 +163,10 @@ def contacts(config, date, blocklist):
 @cli.group()
 @pass_config
 def db(config):
-    """Database tasks"""
+    '''
+    Database tasks
+    '''
+
     pass
 
 
@@ -176,7 +179,9 @@ def stats():
 @db.command()
 @pass_config
 def flush(config):
-    """Flush database"""
+    '''
+    Flush database
+    '''
 
     # Initialize database
     db = Database(config)
@@ -192,13 +197,19 @@ def flush(config):
 @db.group()
 @pass_config
 def rebuild(config):
+    '''
+    Database "rebuild" subtasks
+    '''
+
     pass
 
 
 @rebuild.command()
 @pass_config
 def all(config):
-    """Rebuild database"""
+    '''
+    Rebuild database
+    '''
 
     # Initialize database
     db = Database(config)
@@ -234,7 +245,9 @@ def all(config):
 @rebuild.command()
 @pass_config
 def payments(config):
-    """Rebuild payments"""
+    '''
+    Rebuild payments
+    '''
 
     # Initialize database
     db = Database(config)
@@ -248,7 +261,9 @@ def payments(config):
 @rebuild.command()
 @pass_config
 def infos(config):
-    """Rebuild infos"""
+    '''
+    Rebuild infos
+    '''
 
     # Initialize database
     db = Database(config)
@@ -262,7 +277,9 @@ def infos(config):
 @rebuild.command()
 @pass_config
 def invoices(config):
-    """Rebuild invoices"""
+    '''
+    Rebuild invoices
+    '''
 
     # Initialize database
     db = Database(config)
@@ -276,7 +293,9 @@ def invoices(config):
 @rebuild.command()
 @pass_config
 def orders(config):
-    """Rebuild orders"""
+    '''
+    Rebuild orders
+    '''
 
     # Initialize database
     db = Database(config)
@@ -290,7 +309,9 @@ def orders(config):
 @rebuild.command()
 @pass_config
 def merge(config):
-    """Rebuild merged data"""
+    '''
+    Rebuild merged data
+    '''
 
     # Initialize database
     db = Database(config)
@@ -306,6 +327,10 @@ def merge(config):
 @db.group()
 @pass_config
 def get(config):
+    '''
+    Database "get" subtasks
+    '''
+
     pass
 
 
@@ -313,6 +338,10 @@ def get(config):
 @pass_config
 @click.argument('number')
 def payment(config, number):
+    '''
+    Retrieve payment from database
+    '''
+
     click.echo('Searching database ..', nl=False)
 
     # Initialize database
@@ -338,6 +367,10 @@ def payment(config, number):
 @pass_config
 @click.argument('invoice_number')
 def invoice(config, invoice_number):
+    '''
+    Retrieve invoice from database
+    '''
+
     click.echo('Searching database ..', nl=False)
 
     # Initialize database
@@ -359,6 +392,9 @@ def invoice(config, invoice_number):
 @click.argument('order_number')
 def order(config, order_number):
     click.echo('Searching database ..', nl=False)
+    '''
+    Retrieve order from database
+    '''
 
     # Initialize database
     db = Database(config)
@@ -381,6 +417,10 @@ def order(config, order_number):
 @pass_config
 @click.argument('order_number')
 def info(config, order_number):
+    '''
+    Retrieve info from database
+    '''
+
     click.echo('Searching database ..', nl=False)
 
     # Initialize database
@@ -404,6 +444,10 @@ def info(config, order_number):
 @pass_config
 @click.argument('order_number')
 def data(config, order_number):
+    '''
+    Retrieve order from database
+    '''
+
     click.echo('Searching database ..', nl=False)
 
     # Initialize database
@@ -428,13 +472,20 @@ def data(config, order_number):
 @cli.group()
 @pass_config
 def acc(config):
+    '''
+    Accounting tasks
+    '''
+
     pass
 
 
 @acc.command()
 @pass_config
 def run(config):
-    """Start accounting mode"""
+    '''
+    Start accounting mode
+    '''
+
     pass
 
 
@@ -491,7 +542,9 @@ def report(config, year, quarter, years_back, enable_chart):
 @click.option('-y', '--year', default=None, help='Year.')
 @click.option('-q', '--quarter', default=None, help='Quarter.')
 def match(config, year, quarter):
-    """Match payments & invoices"""
+    '''
+    Match payments & invoices
+    '''
 
     # Initialize database
     db = Database(config)
@@ -567,7 +620,9 @@ def match(config, year, quarter):
 @pass_config
 @click.option('--credentials', type=clickpath, help='Path to JSON file containing credentials.')
 def api(config, credentials):
-    """KNV Webservice API tasks"""
+    '''
+    KNV Webservice API tasks
+    '''
 
     if credentials is not None:
         config.credentials = credentials
@@ -576,7 +631,9 @@ def api(config, credentials):
 @api.command()
 @pass_config
 def version(config):
-    """Check current API version"""
+    '''
+    Check current API version
+    '''
 
     # Initialize webservice
     ws = Webservice()
@@ -591,11 +648,12 @@ def version(config):
 @api.command()
 @pass_config
 @click.argument('isbn')
-@click.option('-o', '--output-file', type=click.Path(), help='Path to output JSON file.')
 @click.option('-c', '--cache-only', is_flag=True, help='Only return cached database records.')
 @click.option('-f', '--force-refresh', is_flag=True, help='Force database record being updated.')
-def lookup(config, isbn, output_file, cache_only, force_refresh):
-    """Lookup information about ISBN"""
+def lookup(config, isbn, cache_only, force_refresh):
+    '''
+    Lookup information about ISBN
+    '''
 
     if cache_only is False:
         if config.credentials:
@@ -628,12 +686,9 @@ def lookup(config, isbn, output_file, cache_only, force_refresh):
         click.echo(data)
 
     else:
+        # TODO: Print complete dataset
         if 'AutorSachtitel' in data:
             click.echo('Match: ' + data['AutorSachtitel'])
-
-    if output_file:
-        dump_json(data, output_file)
-        click.echo('Data saved: ' + output_file)
 
 
 @api.command()
@@ -641,6 +696,10 @@ def lookup(config, isbn, output_file, cache_only, force_refresh):
 @click.argument('isbn')
 @click.option('-q', '--quantity', default=1, help='Number of items to be checked.')
 def ola(config, isbn, quantity):
+    '''
+    Check order availability (OLA)
+    '''
+
     if config.credentials:
         credentials = load_json(config.credentials)
 
