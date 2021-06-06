@@ -49,21 +49,6 @@ def cli(config, verbose, vkn, data_dir, import_dir, export_dir):
 
 @cli.command()
 @pass_config
-def test(config):
-    # Initialize handler
-    handler = Invoices()
-
-    # Select invoice files to be imported
-    import_files1 = build_path(config.import_dir, '31776_Invoices_TimeFrom01.01.2016_TimeTo31.12.2016.zip')
-    handler.load_files(import_files1)
-
-    import_files2 = build_path(join(config.import_dir, 'shit'), '*.pdf')
-    handler.load_files(import_files2)
-
-
-
-@cli.command()
-@pass_config
 @click.option('-y', '--year', default=None, help='Year.')
 @click.option('-q', '--quarter', default=None, help='Quarter.')
 @click.option('-c', '--enable-chart', is_flag=True, help='Create bar chart alongside results.')
@@ -74,9 +59,6 @@ def rank(config, year, quarter, enable_chart, limit):
     # Initialize database
     db = Database(config)
 
-    # Initialize handler
-    handler = db.get_knv()
-
     # Exit if database is empty
     data_files = build_path(config.database_dir, year=year, quarter=quarter)
 
@@ -84,10 +66,10 @@ def rank(config, year, quarter, enable_chart, limit):
         click.echo('Error: No orders found in database.')
         click.Context.exit(1)
 
-    click.echo('Ranking data ..', nl=False)
-
     # Initialize handler
-    handler = db.get_knv(data_files)
+    handler = db.get_orders(data_files)
+
+    click.echo('Ranking data ..', nl=False)
 
     # Extract & rank sales
     ranking = handler.get_ranking(limit)

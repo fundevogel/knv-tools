@@ -8,6 +8,8 @@ from ..processors.knv.infos import InfoProcessor
 from ..processors.knv.invoices import InvoiceProcessor
 from ..processors.knv.orders import OrderProcessor
 from ..processors.knv.shopkonfigurator import ShopkonfiguratorProcessor
+from ..structure.orders.maker import OrdersMaker
+from ..structure.payments.maker import PaymentsMaker
 from ..utils import load_json, dump_json
 from ..utils import build_path, create_path, group_data, sort_data
 
@@ -171,11 +173,14 @@ class Database:
     #     return Invoices(invoice_files)
 
 
-    # def get_orders(self, order_files: list = None) -> Orders:
-    #     order_files = order_files if order_files else self.order_files
+    def get_orders(self, order_files: list = None):
+        order_files = order_files if order_files else self.order_files
 
-    #     return Orders(order_files)
+        # Load respective database entries
+        orders = load_json(order_files)
+        invoices = load_json(self.invoice_files['data'])
 
+        return OrdersMaker(orders, invoices).build()
 
     # def get_infos(self, info_files: list = None) -> Infos:
     #     info_files = info_files if info_files else self.info_files
