@@ -25,25 +25,12 @@ class Molecule(Component):
         component.parent = None
 
 
-    def filter(self, year: str, quarter: str = None) -> Molecule:
-        if quarter is not None:
-            months = [month + 3 * (int(quarter) - 1) for month in [1, 2, 3]]
+    def filter(self, year: str, quarter: str = None) -> list:
+        # Determine appropriate month range
+        month_range = self.month_range(quarter)
 
-        for child in self._children:
-            # Remove children with unmatching ..
-            # (1) .. year
-            if child.year() != year:
-                self.remove(child)
-
-                # Move to next child
-                continue
-
-            # (2) .. month
-            if quarter is not None:
-                if int(child.month()) not in months:
-                    self.remove(child)
-
-        return self
+        # Filter out children not matching given year and quarter
+        return [child for child in self._children if child.year() == year and int(child.month()) in month_range]
 
 
     # CORE methods
@@ -59,7 +46,7 @@ class Molecule(Component):
         data = {}
 
         # Select orders matching given time period
-        for item in self.filter(year, quarter)._children:
+        for item in self.filter(year, quarter):
             if item.month() not in data:
                 data[item.month()] = []
 
@@ -68,18 +55,13 @@ class Molecule(Component):
         # Assign data to respective month
         data = {int(month): sum(revenues) for month, revenues in data.items()}
 
+        # Determine appropriate month range
+        month_range = self.month_range(quarter)
+
         # Fill missing months with zeroes
-        # (1) .. generally including all months
-        month_range = range(1, 13)
-
-        # (2) .. or only those for given quarter
-        if quarter is not None:
-            month_range = range(self.qm(quarter), self.qm(quarter, True) + 1)
-
-        # (3) .. execute!
         for i in month_range:
             if i not in data:
-                data[i] = 0
+                data[i] = float(0)
 
         # Sort results
         return {k: data[k] for k in sorted(data)}
@@ -87,11 +69,8 @@ class Molecule(Component):
 
     # ACCOUNTING HELPER methods
 
-    def qm(self, quarter: str, last: bool = False) -> int:
-        # Determine if first or last q(uarter) m(onth)
-        start = 1 if not last else 3
-
-        return start + 3 * (int(quarter) - 1)
+    def month_range(self, quarter) -> list:
+        return range(1, 13) if quarter is None else [month + 3 * (int(quarter) - 1) for month in [1, 2, 3]]
 
 
 class Atom(Component):
