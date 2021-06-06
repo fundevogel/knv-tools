@@ -31,7 +31,7 @@ class Paypal(Gateway):
 
         payments = {}
 
-        for item in self._data:
+        for item in self.data:
             # Skip withdrawals
             if item['Brutto'][:1] == '-':
                 self._blocked_payments.append(payment)

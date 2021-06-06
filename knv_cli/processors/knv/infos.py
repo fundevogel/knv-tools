@@ -20,7 +20,7 @@ class InfoProcessor(Processor):
 
         infos = {}
 
-        for item in self._data:
+        for item in self.data:
             # Skip availability information
             if str(item['Invoice Number']) == 'nan':
                 continue

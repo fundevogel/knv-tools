@@ -34,7 +34,7 @@ class Volksbank(Gateway):
 
         payments = {}
 
-        for code, item in enumerate(self._data):
+        for code, item in enumerate(self.data):
             # Skip all payments not related to customers
             # (1) Skip withdrawals
             if item[' '] == 'S':

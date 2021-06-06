@@ -61,7 +61,7 @@ class InvoiceProcessor(Processor):
                     for page in pdf.pages:
                         invoices[basename(file)] += [text.strip() for text in page.extractText().splitlines() if text]
 
-        self._data = invoices
+        self.data = invoices
 
         return self
 
@@ -75,7 +75,7 @@ class InvoiceProcessor(Processor):
 
         invoices = {}
 
-        for invoice, content in self._data.items():
+        for invoice, content in self.data.items():
             # Extract general information from file name
             invoice_number = self.invoice2number(invoice)
             invoice_date = self.invoice2date(invoice)

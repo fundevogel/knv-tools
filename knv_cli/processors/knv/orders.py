@@ -20,7 +20,7 @@ class OrderProcessor(Processor):
 
         orders = {}
 
-        for item in self._data:
+        for item in self.data:
             # Create reliable article number ..
             isbn = item['knvnumber']
 
