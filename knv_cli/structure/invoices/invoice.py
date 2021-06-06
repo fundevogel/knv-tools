@@ -6,5 +6,7 @@ class Invoice(Atom):
         self.data = data
 
 
+    # CORE methods
+
     def export(self) -> list:
         return list(self.data.values())

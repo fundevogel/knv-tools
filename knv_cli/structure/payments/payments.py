@@ -1,5 +1,5 @@
 from ..components import Molecule
-from ..shared.invoice import Invoice
+from ..invoices.invoice import Invoice
 from .payment import Payment
 
 
