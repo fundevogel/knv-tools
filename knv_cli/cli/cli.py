@@ -77,7 +77,7 @@ def rank(config, year, quarter, enable_chart, limit):
     click.echo('Ranking data ..', nl=False)
 
     # Extract & rank sales
-    ranking = handler.get_ranking(limit)
+    ranking = handler.ranking(limit)
 
     if config.verbose:
         # Write ranking to stdout
@@ -142,7 +142,7 @@ def contacts(config, date, blocklist):
         config.blocklist = blocklist.read().splitlines()
 
     # (3) Extract & export contacts
-    contacts = handler.get_contacts(date, config.blocklist)
+    contacts = handler.contacts(date, config.blocklist)
 
     if config.verbose:
         # Write contacts to stdout
@@ -219,6 +219,11 @@ def all(config):
     db.rebuild_infos()
     click.echo(' done.')
 
+    # Import invoice files
+    click.echo('Rebuilding invoices ..', nl=False)
+    db.rebuild_invoices()
+    click.echo(' done.')
+
     # Import order files
     click.echo('Rebuilding orders ..', nl=False)
     db.rebuild_orders()
@@ -232,11 +237,6 @@ def all(config):
     # Import payment files
     click.echo('Rebuilding payments ..', nl=False)
     db.rebuild_payments()
-    click.echo(' done.')
-
-    # Import invoice files
-    click.echo('Rebuilding invoices ..', nl=False)
-    db.rebuild_invoices()
     click.echo(' done.')
 
     click.echo('Update complete!')
@@ -468,13 +468,15 @@ def report(config, year, quarter, years_back, enable_chart):
     Generate revenue report
     '''
 
+    # Fallback to current year
+    if year is None:
+        year = pendulum.today().year
+
     # Initialize database
     db = Database(config)
 
+    # Initialize handler
     handler = db.get_orders()
-
-    if year is None:
-        year = pendulum.today().year
 
     click.echo('Generating revenue report ..', nl=config.verbose)
 
@@ -482,7 +484,7 @@ def report(config, year, quarter, years_back, enable_chart):
 
     for i in range(0, 1 + int(years_back)):
         this_year = str(int(year) - i)
-        revenues[this_year] = handler.get_revenues(this_year, quarter)
+        revenues[this_year] = handler.revenues(this_year, quarter)
 
     df = DataFrame(revenues, index=list(revenues.values())[0].keys())
 
@@ -490,7 +492,7 @@ def report(config, year, quarter, years_back, enable_chart):
 
     if config.verbose:
         # Write revenues to stdout
-        print(revenues)
+        click.echo(revenues)
 
     else:
         # Print well-formatted revenue report
@@ -518,37 +520,34 @@ def match(config, year, quarter):
     db = Database(config)
 
     # Match payments for all available gateways
-    for identifier in db.gateways.keys():
-        # Initialize payment handler
-        handler = db.get_payments(identifier, year, quarter)
+    for identifier in db.structures.keys():
+        # Exit if database is empty
+        data_files = build_path(join(config.payment_dir, identifier), year=year, quarter=quarter)
 
-        # Exit if database has no payments
-        if not handler.data:
-            click.echo('No "{}" payments found in database, skipping.'.format(identifier))
-            continue
+        if not data_files:
+            click.echo('Error: No orders found in database.')
+            click.Context.exit(1)
 
         click.echo('Matching ' + identifier + ' data ..', nl=False)
 
-        # Get combined order data
-        data = db.get_knv().data
-
-        # Load invoices from database
+        # Initialize invoice handler
         invoices = db.get_invoices()
 
-        # Match payments with orders & infos
-        handler.match_payments(data, invoices.data)
+        # Initialize payment handler
+        handler = db.get_payments(identifier, data_files)
+        payment_data = handler.export()
 
         if config.verbose:
             # Write matches to stdout
-            click.echo(handler.matched_payments())
+            click.echo(payment_data)
 
         else:
             # Filter & merge matched invoices
-            for code, data in group_data(handler.data).items():
+            for code, data in group_data(payment_data).items():
                 # Extract matching invoice numbers
                 invoice_numbers = set()
 
-                for item in data.values():
+                for item in data:
                     if isinstance(item['Rechnungen'], list):
                         for invoice_number in item['Rechnungen']:
                             invoice_numbers.add(invoice_number)
@@ -558,8 +557,8 @@ def match(config, year, quarter):
 
                 # Merge corresponding invoices
                 for invoice_number in sorted(invoice_numbers):
-                    if invoice_number in invoices.data:
-                        pdf_file = invoices.get(invoice_number)['Datei']
+                    if invoices.has(invoice_number):
+                        pdf_file = invoices.get(invoice_number).file()
 
                         with open(pdf_file, 'rb') as file:
                             merger.append(PdfFileReader(file))
@@ -573,7 +572,7 @@ def match(config, year, quarter):
                 merger.write(invoice_file)
 
             # Write results to CSV files
-            for code, data in group_data(handler.matched_payments(True)).items():
+            for code, data in group_data(payment_data).items():
                 csv_file = join(config.matches_dir, identifier, code, code + '.csv')
                 dump_csv(data, csv_file)
 
