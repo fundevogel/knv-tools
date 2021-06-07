@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from abc import ABCMeta, abstractmethod
 
+from ..utils import convert_number
+
 
 class Component(metaclass=ABCMeta):
     # PROPS
@@ -34,7 +36,7 @@ class Component(metaclass=ABCMeta):
         pass
 
 
-    # HELPER methods
+    # CORE HELPER methods
 
     def date(self) -> str:
         return self.data['Datum']
@@ -50,3 +52,9 @@ class Component(metaclass=ABCMeta):
 
     def day(self) -> str:
         return self.data['Datum'].split('-')[-1]
+
+
+    # HELPER methods
+
+    def convert_number(self, string: str) -> str:
+        return convert_number(string)

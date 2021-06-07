@@ -8,13 +8,13 @@ from os.path import splitext
 
 from pandas import concat, read_csv
 
-from ..utils import load_csv, dump_json
+from ..utils import convert_number, dump_json, load_csv
 
 
 class Processor(metaclass=ABCMeta):
     # PROPS
 
-    data = None
+    data = {}
 
     # CSV options
     csv_delimiter = ';'
@@ -79,16 +79,7 @@ class Processor(metaclass=ABCMeta):
 
 
     def convert_number(self, string: str) -> str:
-        # Convert to string & clear whitespaces
-        string = str(string).strip()
-
-        # Take care of thousands separator, as in '1.234,56'
-        if '.' in string and ',' in string:
-            string = string.replace('.', '')
-
-        string = float(string.replace(',', '.'))
-
-        return str(f'{string:.2f}')
+        return convert_number(string)
 
 
     def convert_nan(self, string: str) -> str:

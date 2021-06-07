@@ -89,6 +89,20 @@ def dump_json(data: dict, json_file: str) -> None:
         json.dump(data, file, ensure_ascii=False, indent=4)
 
 
+# DATA HELPER functions
+def convert_number(string: str) -> str:
+    # Convert to string & clear whitespaces
+    string = str(string).strip()
+
+    # Take care of thousands separator, as in '1.234,56'
+    if '.' in string and ',' in string:
+        string = string.replace('.', '')
+
+    string = float(string.replace(',', '.'))
+
+    return str(f'{string:.2f}')
+
+
 # UTILITY functions
 
 def ask_credentials() -> dict:
