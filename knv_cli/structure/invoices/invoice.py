@@ -6,13 +6,21 @@ class Invoice(Atom):
         self.data = data
 
 
-    # CORE methods
-
-    def export(self) -> list:
-        return list(self.data.values())
-
-
     # ACCOUNTING methods
 
-    def get_revenues(self) -> float:
+    def revenues(self) -> float:
         return float(self.data['Gesamtbetrag'])
+
+
+    def taxes(self) -> float:
+        return self.data['Steuern']
+
+
+    # HELPER methods
+
+    def identifier(self) -> str:
+        return self.data['Vorgang']
+
+
+    def file(self) -> str:
+        return self.data['Datei']

@@ -45,19 +45,19 @@ class VolksbankPayments(Payments):
             # Find matching order(s) for each order candidate
             matching_orders = []
 
-            if isinstance(data['ID'], list):
+            if isinstance(data['Auftrag'], list):
                 # Consider only valid (= currently available) orders
-                matching_orders = [orders[order_number] for order_number in data['ID'] if order_number in orders]
+                matching_orders = [orders[order_number] for order_number in data['Auftrag'] if order_number in orders]
 
             # Apply matching order number(s)
             if matching_orders:
                 # Consider only valid (= currently available) orders
-                data['ID'] = [order['ID'] for order in matching_orders if order['ID'] in orders]
+                data['Auftrag'] = [order['ID'] for order in matching_orders if order['ID'] in orders]
 
                 data['Rechnungen'] = []
 
                 # Fill up on potential invoices ..
-                for order_number in data['ID']:
+                for order_number in data['Auftrag']:
                     data['Rechnungen'] += [invoice_number for invoice_number in orders[order_number]['Rechnungen'].keys() if isinstance(orders[order_number]['Rechnungen'], dict)]
 
                 if not data['Rechnungen']:
@@ -111,14 +111,3 @@ class VolksbankPayments(Payments):
                     taxes[tax_rate] = self.number2string(float(taxes[tax_rate]) + float(tax_amount))
 
         return taxes
-
-
-    # CORE methods
-
-    def export(self) -> list:
-        data = []
-
-        for child in self._children:
-            data.append(child.export())
-
-        return data

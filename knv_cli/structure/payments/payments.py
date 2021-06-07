@@ -7,15 +7,9 @@ from .payment import Payment
 
 
 class Payments(Molecule):
-    # PROPS
+    # ACCOUNTING methods
 
-    _blocked_payments: List[Payment] = []
-
-
-    # CORE methods
-
-    @abstractmethod
-    def export(self) -> None:
+    def taxes(self) -> None:
         pass
 
 

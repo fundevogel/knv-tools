@@ -24,26 +24,15 @@ class Orders(Molecule):
             self.add(order)
 
 
-    # CORE methods
-
-    def export(self) -> list:
-        data = []
-
-        for child in self._children:
-            data.append(child.export())
-
-        return data
-
-
     # ACCOUNTING methods
 
-    def get_taxes(self):
+    def taxes(self):
         pass
 
 
     # RANKING methods
 
-    def get_ranking(self, limit: int = 1) -> list:
+    def ranking(self, limit: int = 1) -> list:
         data = {}
 
         # Sum up number of sales
@@ -59,7 +48,7 @@ class Orders(Molecule):
 
     # CONTACTS methods
 
-    def get_contacts(self, cutoff_date: str = None, blocklist = []) -> list:
+    def contacts(self, cutoff_date: str = None, blocklist = []) -> list:
         # Set default date
         if cutoff_date is None:
             today = pendulum.today()
@@ -81,7 +70,7 @@ class Orders(Molecule):
 
             if mail_address not in codes:
                 codes.add(mail_address)
-                contacts.append(order.get_contact())
+                contacts.append(order.contact())
 
         # Sort by date & lastname, in descending order
         contacts.sort(key=itemgetter('Letzte Bestellung', 'Nachname'), reverse=True)

@@ -42,8 +42,9 @@ class Paypal(Gateway):
 
             payment = {}
 
-            payment['ID'] = 'nicht zugeordnet'
             payment['Datum'] = self.convert_date(item['Datum'])
+            payment['Treffer'] = 'unsicher'
+            payment['Auftrag'] = 'nicht zugeordnet'
             payment['Rechnungen'] = 'nicht zugeordnet'
             payment['Name'] = item['Name']
             payment['Brutto'] = self.number2string(item['Brutto'])
@@ -57,7 +58,6 @@ class Paypal(Gateway):
             payment['Land'] = item['Land']
             payment['Telefon'] = self.normalize(item['Telefon'])
             payment['Email'] = item['Absender E-Mail-Adresse']
-            payment['Treffer'] = 'unsicher'
             payment['Dienstleister'] = 'PayPal'
             payment['Zahlungsart'] = 'Shopbestellung'
             payment['Transaktion'] = code

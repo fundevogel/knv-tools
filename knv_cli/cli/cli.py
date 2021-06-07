@@ -503,8 +503,10 @@ def report(config, year, quarter, years_back, enable_chart):
         click.echo('Creating graph from data ..', nl=False)
 
         # Build filename indicating year range
-        file_name = 'revenues-' + year + '-' + str(int(year) + '-' + years_back) + '.png'
+        file_name = 'revenues-' + year + '-' + str(int(year) - int(years_back)) + '.png'
         df.plot(kind='bar').get_figure().savefig(join(config.rankings_dir, file_name))
+
+    click.echo(' done!')
 
 
 @acc.command()
@@ -525,7 +527,7 @@ def match(config, year, quarter):
         data_files = build_path(join(config.payment_dir, identifier), year=year, quarter=quarter)
 
         if not data_files:
-            click.echo('Error: No orders found in database.')
+            click.echo('Error: No payments found in database.')
             click.Context.exit(1)
 
         click.echo('Matching ' + identifier + ' data ..', nl=False)

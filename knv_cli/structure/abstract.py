@@ -32,7 +32,12 @@ class Component(metaclass=ABCMeta):
     # ACCOUNTING methods
 
     @abstractmethod
-    def get_revenues(self) -> None:
+    def revenues(self) -> None:
+        pass
+
+
+    @abstractmethod
+    def taxes(self) -> None:
         pass
 
 

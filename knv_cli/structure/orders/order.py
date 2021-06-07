@@ -12,10 +12,10 @@ class Order(Molecule):
     # CORE methods
 
     def export(self) -> list:
-        return list(self.data.values())
+        return self.data
 
 
-    def get_contact(self) -> dict:
+    def contact(self) -> dict:
         return {
             'Anrede': self.form_of_address(),
             'Vorname': self.first_name(),
@@ -27,15 +27,19 @@ class Order(Molecule):
 
     # ACCOUNTING methods
 
-    def get_revenues(self) -> float:
+    def revenues(self) -> float:
         return float(self.data['Gesamtbetrag'])
 
 
-    def get_taxes(self) -> dict:
-        pass
+    def taxes(self) -> dict:
+        return self.data['Steuern']
 
 
     # HELPER methods
+
+    def identifier(self) -> str:
+        return self.data['ID']
+
 
     def first_name(self) -> str:
         return self.data['Vorname']
@@ -50,7 +54,3 @@ class Order(Molecule):
 
     def form_of_address(self) -> str:
         return self.data['Anrede']
-
-
-    def taxes(self) -> dict:
-        return self.data['Steuern']

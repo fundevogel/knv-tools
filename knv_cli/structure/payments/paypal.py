@@ -44,7 +44,7 @@ class PaypalPayments(Payments):
 
             if matching_order and isinstance(matching_order, dict):
                 # Add order number
-                data['ID'] = matching_order['ID']
+                data['Auftrag'] = matching_order['ID']
 
                 # (2) Add invoice numbers
                 # TODO: Check
@@ -71,23 +71,15 @@ class PaypalPayments(Payments):
 
             # Skip if no matching invoice numbers
             if matching_invoices:
+                # Add invoice number(s) to payment data
+                data['Rechnungen'] = matching_invoices
+
                 # Ensure validity & availability of each invoice
                 for invoice in [invoices[invoice] for invoice in matching_invoices if invoice in invoices]:
                     # Add invoices to payment
                     payment.add(Invoice(invoice))
 
             self.add(payment)
-
-
-    # CORE methods
-
-    def export(self) -> list:
-        data = []
-
-        for child in self._children:
-            data.append(child.export())
-
-        return data
 
 
     # MATCHING methods

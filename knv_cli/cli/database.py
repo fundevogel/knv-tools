@@ -124,7 +124,6 @@ class Database:
 
         # Extract information from import files
         handler.load_files(import_files).process()
-        print(handler.data)
 
         # Split orders per-month & export them
         for code, data in group_data(handler.data).items():

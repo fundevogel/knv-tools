@@ -52,14 +52,14 @@ class InvoiceProcessor(Processor):
 
             # (2) .. parse PDF invoices directly
             if extension == '.pdf':
-                invoices[basename(file)] = []
+                invoices[file] = []
 
                 # Fetch content from invoice file
                 with open(file, 'rb') as pdf_file:
                     pdf = PdfFileReader(pdf_file)
 
                     for page in pdf.pages:
-                        invoices[basename(file)] += [text.strip() for text in page.extractText().splitlines() if text]
+                        invoices[file] += [text.strip() for text in page.extractText().splitlines() if text]
 
         self.data = invoices
 
@@ -84,7 +84,8 @@ class InvoiceProcessor(Processor):
             invoice = {
                 'Datum': invoice_date,
                 'Vorgang': invoice_number,
-                'Versandkosten': '0.00',
+                'Datei': invoice,
+                'Versandkosten': self.number2string(0),
                 'Gesamtbetrag': 'keine Angabe',
                 'Steuern': 'keine Angabe',
                 'Gutscheine': 'keine Angabe',
@@ -111,7 +112,7 @@ class InvoiceProcessor(Processor):
                 # Determine tax rates where ..
                 # .. 'reduced' equals either 5% or 7%
                 # .. 'full' equals either 16% or 19%
-                for tax_rate in ['5', '7', '16', '19']:
+                for tax_rate in ['0', '5', '7', '16', '19']:
                     tax_string = 'MwSt. ' + tax_rate + ',00 %'
 
                     if tax_string in content:
