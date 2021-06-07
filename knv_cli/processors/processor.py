@@ -8,7 +8,7 @@ from os.path import splitext
 
 from pandas import concat, read_csv
 
-from ..utils import convert_number, dump_json, load_csv
+from ..utils import dump_json, load_csv, number2string
 
 
 class Processor(metaclass=ABCMeta):
@@ -78,9 +78,9 @@ class Processor(metaclass=ABCMeta):
             return string
 
 
-    def convert_number(self, string: str) -> str:
-        return convert_number(string)
+    def number2string(self, string: str) -> str:
+        return number2string(string)
 
 
-    def convert_nan(self, string: str) -> str:
-        return str(string) if str(string) != 'nan' else ''
+    def normalize(self, string: str) -> str:
+        return str(string).replace('.0', '') if str(string) != 'nan' else ''

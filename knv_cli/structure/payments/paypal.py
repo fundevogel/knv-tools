@@ -43,11 +43,14 @@ class PaypalPayments(Payments):
             matching_invoices = []
 
             if matching_order and isinstance(matching_order, dict):
-                # Apply order data
-                # (1) Add matching order number
+                # Add order number
                 data['ID'] = matching_order['ID']
 
                 # (2) Add invoice numbers
+                # TODO: Check
+                # - matching total costs for all invoices
+                # - individual costs
+                # that way we could increase accuracy to at least 'fast sicher'
                 if isinstance(matching_order['Rechnungen'], dict):
                     matching_invoices = list(matching_order['Rechnungen'].keys())
 
@@ -196,7 +199,7 @@ class PaypalPayments(Payments):
     #                 #     ratio = total_taxes / tax_amount
     #                 #     share = float(item['Gebühr'].replace('-', '')) / ratio
 
-    #                 #     item['Gebührenanteil ' + tax_rate] = self.convert_number(share)
+    #                 #     item['Gebührenanteil ' + tax_rate] = self.number2string(share)
 
     #             csv_data.append(item)
 

@@ -42,19 +42,19 @@ class OrderProcessor(Processor):
                 order['Anrede'] = item['rechnungaddresstitle']
                 order['Vorname'] = item['rechnungaddressfirstname']
                 order['Nachname'] = item['rechnungaddresslastname']
-                order['Straße'] = self.convert_nan(item['rechnungaddressstreet'])
-                order['Hausnummer'] = self.convert_nan(item['rechnungaddresshousenumber'])
-                order['PLZ'] = self.convert_nan(item['rechnungaddresszipcode']).replace('.0', '')
-                order['Ort'] = self.convert_nan(item['rechnungaddresscity'])
-                order['Land'] = self.convert_nan(item['rechnungaddresscountry'])
+                order['Straße'] = self.normalize(item['rechnungaddressstreet'])
+                order['Hausnummer'] = self.normalize(item['rechnungaddresshousenumber'])
+                order['PLZ'] = self.normalize(item['rechnungaddresszipcode']).replace('.0', '')
+                order['Ort'] = self.normalize(item['rechnungaddresscity'])
+                order['Land'] = self.normalize(item['rechnungaddresscountry'])
                 order['Telefon'] = str(item['rechnungaddressphonenumber'])
                 order['Email'] = item['rechnungaddressemail']
                 order['Bestellung'] = []
                 order['Rechnungen'] = 'nicht zugeordnet'
                 order['Gutscheine'] = 'keine Angabe'
-                order['Bestellsumme'] = self.convert_number(item['totalproductcost'])
-                order['Versand'] = self.convert_number(item['totalshipping'])
-                order['Gesamtbetrag'] = self.convert_number(item['totalordercost'])
+                order['Bestellsumme'] = self.number2string(item['totalproductcost'])
+                order['Versand'] = self.number2string(item['totalshipping'])
+                order['Gesamtbetrag'] = self.number2string(item['totalordercost'])
                 order['Währung'] = item['currency']
                 order['Steuern'] = 'keine Angabe'
                 order['Abwicklung'] = {
@@ -73,9 +73,9 @@ class OrderProcessor(Processor):
                 'ISBN': isbn,
                 'Titel': item['producttitle'],
                 'Anzahl': int(item['quantity']),
-                'Einzelpreis': self.convert_number(item['orderitemunitprice']),
+                'Einzelpreis': self.number2string(item['orderitemunitprice']),
                 'Steuersatz': self.convert_tax_rate(item['vatpercent']),
-                'Steueranteil': self.convert_number(item['vatprice']),
+                'Steueranteil': self.number2string(item['vatprice']),
             })
 
             # (2) .. method of payment

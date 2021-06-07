@@ -90,7 +90,8 @@ def dump_json(data: dict, json_file: str) -> None:
 
 
 # DATA HELPER functions
-def convert_number(string: str) -> str:
+
+def number2string(string: str) -> str:
     # Convert to string & clear whitespaces
     string = str(string).strip()
 

@@ -92,13 +92,11 @@ class VolksbankPayments(Payments):
 
             self.add(payment)
 
-        # for child in self._children:
-        #     print(child.data['Treffer'])
 
     # MATCHING HELPER methods
 
     def compare_invoice_total(self, payment: dict, invoices: dict) -> bool:
-        return payment['Betrag'] == self.convert_number(sum([float(invoices[invoice]['Gesamtbetrag']) for invoice in payment['Rechnungen']]))
+        return payment['Betrag'] == self.number2string(sum([float(invoices[invoice]['Gesamtbetrag']) for invoice in payment['Rechnungen']]))
 
 
     def extract_taxes(self, invoice_candidates: list, invoices: dict) -> dict:
@@ -110,21 +108,9 @@ class VolksbankPayments(Payments):
                     if tax_rate not in taxes:
                         taxes[tax_rate] = '0'
 
-                    taxes[tax_rate] = self.convert_number(float(taxes[tax_rate]) + float(tax_amount))
+                    taxes[tax_rate] = self.number2string(float(taxes[tax_rate]) + float(tax_amount))
 
         return taxes
-
-
-
-
-    # MATCHING methods
-
-    def match_payments(self, orders: dict, invoices: dict) -> None:
-        results = []
-
-
-
-
 
 
     # CORE methods

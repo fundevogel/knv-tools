@@ -47,7 +47,7 @@ class InfoProcessor(Processor):
             infos[code]['Bestellung'][invoice_number][item_number] = {
                 'Nummer': item_number,
                 'Anzahl': int(item['Quantity']),
-                'Einzelpreis': self.convert_number(item['Total Cost']),
+                'Einzelpreis': self.number2string(item['Total Cost']),
             }
 
         self.data = infos

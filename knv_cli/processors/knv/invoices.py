@@ -96,14 +96,14 @@ class InvoiceProcessor(Processor):
                 # (1) .. general information
                 for line in content:
                     if 'Rechnungsbetrag gesamt brutto' in line:
-                        invoice['Gesamtbetrag'] = self.convert_number(content[content.index(line) + 1])
+                        invoice['Gesamtbetrag'] = self.number2string(content[content.index(line) + 1])
 
                     if 'Versandpauschale' in line or 'Versandkosten' in line:
-                        invoice['Versandkosten'] = self.convert_number(content[content.index(line) + 2])
+                        invoice['Versandkosten'] = self.number2string(content[content.index(line) + 2])
 
                     # Edge case with two lines preceeding shipping cost
                     if 'versandt an' in line:
-                        invoice['Versandkosten'] = self.convert_number(content[content.index(line) + 2])
+                        invoice['Versandkosten'] = self.number2string(content[content.index(line) + 2])
 
                 # (2) .. taxes
                 taxes = {}
@@ -115,7 +115,7 @@ class InvoiceProcessor(Processor):
                     tax_string = 'MwSt. ' + tax_rate + ',00 %'
 
                     if tax_string in content:
-                        taxes[tax_rate + '%'] = self.convert_number(content[content.index(tax_string) + 2])
+                        taxes[tax_rate + '%'] = self.number2string(content[content.index(tax_string) + 2])
 
                 if taxes:
                     invoice['Steuern'] = taxes
@@ -140,7 +140,7 @@ class InvoiceProcessor(Processor):
 
                         coupons.append({
                             'Anzahl': int(content[index - 1]),
-                            'Wert': self.convert_number(content[index + 2]),
+                            'Wert': self.number2string(content[index + 2]),
                         })
 
                     invoice['Gutscheine'] = coupons
@@ -151,10 +151,10 @@ class InvoiceProcessor(Processor):
                 for index, line in enumerate(content):
                     # TODO: Get values via regexes
                     if 'Versandkosten:' in line:
-                        invoice['Versandkosten'] = self.convert_number(line.replace('Versandkosten:', ''))
+                        invoice['Versandkosten'] = self.number2string(line.replace('Versandkosten:', ''))
 
                     if 'Gesamtbetrag' in line:
-                        invoice['Gesamtbetrag'] = self.convert_number(line.replace('Gesamtbetrag', ''))
+                        invoice['Gesamtbetrag'] = self.number2string(line.replace('Gesamtbetrag', ''))
 
                 # Fetch first occurence of ..
                 # .. 'Nettobetrag' (= starting point)
@@ -222,8 +222,8 @@ class InvoiceProcessor(Processor):
                         reduced_tax = costs[5].split(':')[-1]
                         full_tax = costs[6]
 
-                invoice['Steuern'][tax_rates[0]] = self.convert_number(reduced_tax)
-                invoice['Steuern'][tax_rates[1]] = self.convert_number(full_tax)
+                invoice['Steuern'][tax_rates[0]] = self.number2string(reduced_tax)
+                invoice['Steuern'][tax_rates[1]] = self.number2string(full_tax)
 
             invoices[invoice_number] = invoice
 
@@ -265,9 +265,9 @@ class InvoiceProcessor(Processor):
         return string_list[-1].replace('.pdf', '')
 
 
-    def convert_number(self, string) -> str:
+    def number2string(self, string) -> str:
         # Strip 'EUR', apart from that as usual
-        return super().convert_number(str(string).replace('EUR', ''))
+        return super().number2string(str(string).replace('EUR', ''))
 
 
     def get_index(self, haystack: list, needle: str, last: bool = False) -> int:

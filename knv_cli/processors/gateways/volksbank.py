@@ -59,7 +59,7 @@ class Volksbank(Gateway):
             payment['Datum'] = self.convert_date(item['Valuta'])
             payment['Rechnungen'] = 'nicht zugeordnet'
             payment['Name'] = item['Empfänger/Zahlungspflichtiger']
-            payment['Betrag'] = self.convert_number(item['Umsatz'])
+            payment['Betrag'] = self.number2string(item['Umsatz'])
             payment['Steuern'] = 'keine Angabe'
             payment['Währung'] = item['Währung']
             payment['Treffer'] = 'unsicher'

@@ -46,16 +46,16 @@ class Paypal(Gateway):
             payment['Datum'] = self.convert_date(item['Datum'])
             payment['Rechnungen'] = 'nicht zugeordnet'
             payment['Name'] = item['Name']
-            payment['Brutto'] = self.convert_number(item['Brutto'])
-            payment['Gebühr'] = self.convert_number(item['Gebühr'])
-            payment['Netto'] = self.convert_number(item['Netto'])
+            payment['Brutto'] = self.number2string(item['Brutto'])
+            payment['Gebühr'] = self.number2string(item['Gebühr'])
+            payment['Netto'] = self.number2string(item['Netto'])
             payment['Währung'] = item['Währung']
             payment['Steuern'] = 'keine Angabe'
             payment['Anschrift'] = item['Adresszeile 1']
-            payment['PLZ'] = item['PLZ']
+            payment['PLZ'] = self.normalize(item['PLZ'])
             payment['Ort'] = item['Ort']
             payment['Land'] = item['Land']
-            payment['Telefon'] = self.convert_nan(item['Telefon'])
+            payment['Telefon'] = self.normalize(item['Telefon'])
             payment['Email'] = item['Absender E-Mail-Adresse']
             payment['Treffer'] = 'unsicher'
             payment['Dienstleister'] = 'PayPal'
@@ -63,7 +63,7 @@ class Paypal(Gateway):
             payment['Transaktion'] = code
 
             if payment['Telefon']:
-                payment['Telefon'] = '0' + payment['Telefon'].replace('.0', '')
+                payment['Telefon'] = '0' + self.normalize(payment['Telefon'])
 
             if item['Typ'] == 'Allgemeine Zahlung':
                 payment['Zahlungsart'] = 'Überweisung'

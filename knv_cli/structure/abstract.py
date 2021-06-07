@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from abc import ABCMeta, abstractmethod
 
-from ..utils import convert_number
+from ..utils import number2string
 
 
 class Component(metaclass=ABCMeta):
@@ -56,5 +56,5 @@ class Component(metaclass=ABCMeta):
 
     # HELPER methods
 
-    def convert_number(self, string: str) -> str:
-        return convert_number(string)
+    def number2string(self, string: str) -> str:
+        return number2string(string)
