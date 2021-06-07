@@ -1,32 +1,27 @@
+from abc import abstractmethod
+from datetime import datetime, timedelta
+from typing import List
+
 from ..components import Molecule
-from ..invoices.invoice import Invoice
 from .payment import Payment
 
 
 class Payments(Molecule):
-    def __init__(self, payments: dict, orders: dict, invoices: dict) -> None:
-        # Initialize 'Molecule' props
-        super().__init__()
+    # PROPS
 
-        # Build composite structure
-        # TODO: Move 'matching' logic here
-        for data in payments.values():
-            order = Payment(data)
-
-            if isinstance(data['Rechnungen'], dict):
-                # Ensure validity & availability of each invoice
-                for invoice in [invoices[invoice] for invoice in data['Rechnungen'].keys() if invoice in invoices]:
-                    order.add(Invoice(invoice))
-
-            self.add(order)
+    _blocked_payments: List[Payment] = []
 
 
     # CORE methods
 
-    def export(self) -> list:
-        data = []
+    @abstractmethod
+    def export(self) -> None:
+        pass
 
-        for child in self._children:
-            data.append(child.export())
 
-        return data
+    # HELPER methods
+
+    def match_dates(self, test_date, start_date, days=1, before: bool = False) -> bool:
+        end_date = (datetime.strptime(start_date, '%Y-%m-%d') + timedelta(days=days)).strftime('%Y-%m-%d')
+
+        return start_date >= test_date >= end_date if before else start_date <= test_date <= end_date

@@ -2,6 +2,8 @@ from os import remove
 from os.path import join
 from zipfile import ZipFile
 
+from ..structure.payments.paypal import PaypalPayments
+from ..structure.payments.volksbank import VolksbankPayments
 from ..processors.gateways.paypal import Paypal
 from ..processors.gateways.volksbank import Volksbank
 from ..processors.knv.infos import InfoProcessor
@@ -18,15 +20,14 @@ from ..utils import build_path, create_path, group_data, sort_data
 class Database:
     # PROPS
 
-    payments = None
-    orders = None
-    infos = None
-    invoices = None
-
-    # Available payment gateways
     gateways = {
         'paypal': Paypal,
         'volksbank': Volksbank,
+    }
+
+    structures = {
+        'paypal': PaypalPayments,
+        'volksbank': VolksbankPayments,
     }
 
 
@@ -123,6 +124,7 @@ class Database:
 
         # Extract information from import files
         handler.load_files(import_files).process()
+        print(handler.data)
 
         # Split orders per-month & export them
         for code, data in group_data(handler.data).items():
@@ -152,39 +154,24 @@ class Database:
     # GET methods
 
     def get_invoices(self, invoice_files: list = None) -> Invoices:
+        # Select appropriate source files
         invoice_files = invoice_files if invoice_files else self.invoice_files['data']
 
-        # Load respective database entries
-        invoices = load_json(invoice_files)
-
-        return Invoices(invoices)
+        return Invoices(load_json(invoice_files))
 
 
     def get_orders(self, order_files: list = None):
-        order_files = order_files if order_files else self.order_files
+        # Select appropriate source files
+        order_files = order_files if order_files else self.db_files
 
-        # Load respective database entries
-        orders = load_json(order_files)
-        invoices = load_json(self.invoice_files['data'])
-
-        return Orders(orders, invoices)
+        return Orders(load_json(order_files), load_json(self.invoice_files['data']))
 
 
-    def get_payments(self,
-        identifier: str,
-        year: int = None,
-        quarter: int = None,
-        months: list = None
-    ):
-        # Load respective database entries
-        payment_files = build_path(
-            join(self.config.payment_dir, identifier),
-            year=year,
-            quarter=quarter,
-            months=months
-        )
+    def get_payments(self, identifier: str, payment_files: list = None):
+        # Select appropriate source files
+        payment_files = payment_files if payment_files else self.payment_files[identifier]
 
-        return self.gateways[identifier]().load_files(payment_files)
+        return self.structures[identifier](load_json(payment_files), load_json(self.db_files), load_json(self.invoice_files['data']))
 
 
     def get_data(self, identifier: str) -> dict:

@@ -17,8 +17,8 @@ from .orders import OrderProcessor
 class ShopkonfiguratorProcessor(Processor):
     # PROPS
 
-    infos = None
-    orders = None
+    infos = {}
+    orders = {}
 
 
     # I/O methods
@@ -70,8 +70,6 @@ class ShopkonfiguratorProcessor(Processor):
     # CORE methods
 
     def process(self) -> ShopkonfiguratorProcessor:
-        main_data = {}
-
         for order_number, order in self.orders.items():
             # Check for matching info ..
             if order_number in self.infos:
@@ -100,11 +98,6 @@ class ShopkonfiguratorProcessor(Processor):
 
                 order['Rechnungen'] = purchase
 
-                # Extract taxes for each invoice from parsed invoice files
-                # order['Steuern'] = {invoice_number: invoices[invoice_number]['Steuern'] for invoice_number in purchase.keys() if invoice_number in invoices}
-
-            main_data[order_number] = order
-
-        self.data = main_data
+            self.data[order_number] = order
 
         return self
