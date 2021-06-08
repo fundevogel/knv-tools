@@ -13,6 +13,14 @@ class Payments(Molecule):
         pass
 
 
+    def paid(self) -> list:
+        return [child for child in self._children if child.is_paid()]
+
+
+    def unpaid(self) -> list:
+        return [child for child in self._children if not child.is_paid()]
+
+
     # HELPER methods
 
     def match_dates(self, test_date, start_date, days=1, before: bool = False) -> bool:

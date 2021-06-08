@@ -1,7 +1,8 @@
 from os import remove
-from os.path import join
+from os.path import basename, join
 from zipfile import ZipFile
 
+from ..structure.payments.payments import Payments
 from ..structure.payments.paypal import PaypalPayments
 from ..structure.payments.volksbank import VolksbankPayments
 from ..processors.gateways.paypal import Paypal
@@ -14,7 +15,8 @@ from ..structure.invoices.invoices import Invoices
 from ..structure.orders.orders import Orders
 from ..structure.payments.payments import Payments
 from ..utils import load_json, dump_json
-from ..utils import build_path, group_data, sort_data
+from ..utils import build_path, dedupe, group_data, sort_data
+from .session import Session
 
 
 class Database:
@@ -44,7 +46,10 @@ class Database:
             'volksbank': build_path(join(config.payment_dir, 'volksbank')),
         }
 
-        # Load merged data sources
+        # Define session files
+        self.session_files = build_path(join(config.payment_dir, 'session'))
+
+        # Define merged data files
         self.db_files = build_path(config.database_dir)
 
         # Import config
@@ -201,3 +206,34 @@ class Database:
         payments = load_json(self.payment_files['paypal'])
 
         return {} if identifier not in payments else payments[identifier]
+
+
+    # ACCOUNTING methods
+
+    def open_paid(self) -> dict:
+        data = {}
+
+        for text_file in build_path(self.config.payment_dir, '*-paid.txt'):
+            # Assign year
+            year = basename(text_file).split('-')[0]
+
+            with open(text_file, 'r') as file:
+                data[year] = file.read().splitlines()
+
+        return data
+
+
+    def save_paid(self, data: list) -> None:
+        for year, lines in data.items():
+            with open(join(self.config.payment_dir, year + '-paid.txt'), 'w') as file:
+                file.writelines("%s\n" % i for i in dedupe(lines))
+
+
+    # ACCOUNTING SESSION methods
+
+    def save_session(self, data: dict) -> None:
+        Session(data).save(self.config.session_dir)
+
+
+    def load_session(self) -> Session:
+        return Session(load_json(self.session_files))
