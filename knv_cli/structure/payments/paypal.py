@@ -13,23 +13,22 @@ class PaypalPayments(Payments):
 
         # Build composite structure
         for data in payments.values():
-            # Ground zero
-            payment = None
+            payment = Payment(data)
 
             # Search for matching order
-            matching_order = {}
+            matched_order = {}
 
             # (1) Distinguish between online shop payments ..
             if data['Zahlungsart'] == 'Shopbestellung':
                 # Find matching order for current payment
                 for order in orders.values():
                     # .. whose transaction codes will match ..
-                    if data['Transaktion'] == order['Abwicklung']['Transaktionscode']:
+                    if payment.identifier() == order['Abwicklung']['Transaktionscode']:
                         # .. which represents a one-to-one match
-                        data['Treffer'] = 'sicher'
+                        payment.mark('sicher')
 
                         # Save result
-                        matching_order = order
+                        matched_order = order
 
                         # Abort iterations
                         break
@@ -37,54 +36,48 @@ class PaypalPayments(Payments):
             # (2) .. and regular payments
             else:
                 # Find matching order, but this will almost always fail
-                matching_order = self.match_orders(data, orders)
+                matched_order = self.match_order(data, orders)
 
-            # Search for matching invoice(s)
-            matching_invoices = []
+            # Determine matching invoices & orders
+            # (1) Consider only valid (= currently available) orders
+            matched_order = matched_order if matched_order and matched_order['ID'] in orders else {}
 
-            if matching_order and isinstance(matching_order, dict):
-                # Add order number
-                data['Auftrag'] = matching_order['ID']
+            # (2) Search for matching invoice(s)
+            matched_invoices = []
 
-                # (2) Add invoice numbers
-                # TODO: Check
-                # - matching total costs for all invoices
-                # - individual costs
-                # that way we could increase accuracy to at least 'fast sicher'
-                if isinstance(matching_order['Rechnungen'], dict):
-                    matching_invoices = list(matching_order['Rechnungen'].keys())
+            if matched_order:
+                # Add matching order
+                payment.add(Order(matched_order))
+                payment.add_order_numbers(matched_order['ID'])
 
-                # Create payment & add matching order
-                payment = Payment(data)
-                payment.add(Order(matching_order))
+                if isinstance(matched_order['Rechnungen'], dict):
+                    matched_invoices = list(matched_order['Rechnungen'].keys())
 
-            # .. without matching order, this can only be achieved by going through invoices
+            # .. without matching order, this can only be achieved by going through invoices ..
             else:
-                matching_invoice = self.match_invoices(data, invoices)
+                matched_invoice = self.match_invoice(data, invoices)
 
-                if matching_invoice:
-                    matching_invoices = [matching_invoice['Vorgang']]
+                # .. but never say never
+                if matched_invoice: matched_invoices = [matched_invoice['Vorgang']]
 
-            # Initialize payment (if necessary)
-            if payment is None:
-                payment = Payment(data)
+            # Apply matching invoices, but ..
+            if matched_invoices:
+                # .. only considering valid (= currently available) invoices
+                matched_invoices = matched_invoices = [Invoice(invoices[invoice]) for invoice in matched_invoices if invoice in invoices]
 
-            # Skip if no matching invoice numbers
-            if matching_invoices:
                 # Add invoice number(s) to payment data
-                data['Rechnungen'] = matching_invoices
+                payment.add_invoice_numbers(invoice.identifier() for invoice in matched_invoices)
 
-                # Ensure validity & availability of each invoice
-                for invoice in [invoices[invoice] for invoice in matching_invoices if invoice in invoices]:
+                for invoice in matched_invoices:
                     # Add invoices to payment
-                    payment.add(Invoice(invoice))
+                    payment.add(invoice)
 
             self.add(payment)
 
 
     # MATCHING methods
 
-    def match_orders(self, payment: dict, orders: dict) -> dict:
+    def match_order(self, payment: dict, orders: dict) -> dict:
         for order in orders.values():
             candidates = []
 
@@ -143,7 +136,7 @@ class PaypalPayments(Payments):
         return {}
 
 
-    def match_invoices(self, payment: dict, invoices: dict) -> dict:
+    def match_invoice(self, payment: dict, invoices: dict) -> dict:
         for invoice in invoices.values():
             # Check if payment amount matches invoice costs, and only then ..
             if payment['Brutto'] == invoice['Gesamtbetrag']:

@@ -10,94 +10,48 @@ class VolksbankPayments(Payments):
         super().__init__()
 
         for data in payments.values():
-            payment = None
+            payment = Payment(data)
 
-            # Find matching invoices for each invoice candidate
+            # Determine matching invoices & orders
+            # (1) Find matching invoice(s) for payment, while ..
+            matched_invoices = []
+
+            # .. only considering valid (= currently available) invoices
             if isinstance(data['Rechnungen'], list):
-                # Consider only valid (= currently available) invoices
-                data['Rechnungen'] = [invoice for invoice in data['Rechnungen'] if invoice in invoices]
+                matched_invoices = [Invoice(invoices[invoice]) for invoice in data['Rechnungen'] if invoice in invoices]
 
-                if not data['Rechnungen']:
-                    # Use other criteria since all detected invoice numbers were invalid
-                    data['Rechnungen'] = 'nicht zugeordnet'
+            # (2) Find matching order(s) for payment, while ..
+            matched_orders = []
 
-                else:
-                    # Check if extracted invoices sum up to total order cost ..
-                    if self.compare_invoice_total(data, invoices):
-                        # .. which is a one-to-one hit
-                        data['Treffer'] = 'sicher'
-
-                        payment = Payment(data)
-
-                        # Add invoices to payment & payment to payments
-                        for invoice in [invoices[invoice] for invoice in data['Rechnungen']]:
-                            payment.add(Invoice(invoice))
-
-                        self.add(payment)
-
-                        # Move on to next payment
-                        continue
-
-                    # TODO: Yeah, what if not?
-                    else:
-                        pass
-
-            # Find matching order(s) for each order candidate
-            matching_orders = []
-
+            # .. only considering valid (= currently available) orders
             if isinstance(data['Auftrag'], list):
-                # Consider only valid (= currently available) orders
-                matching_orders = [orders[order_number] for order_number in data['Auftrag'] if order_number in orders]
+                matched_orders = [Order(orders[order_number]) for order_number in data['Auftrag'] if order_number in orders]
 
-            # Apply matching order number(s)
-            if matching_orders:
-                # Consider only valid (= currently available) orders
-                data['Auftrag'] = [order['ID'] for order in matching_orders if order['ID'] in orders]
+            # Apply matching invoices & orders
+            # (1) Add invoices
+            for invoice in matched_invoices:
+                payment.add(invoice)
 
-                data['Rechnungen'] = []
+            # (2) Add orders
+            for order in matched_orders:
+                payment.add(order)
 
-                # Fill up on potential invoices ..
-                for order_number in data['Auftrag']:
-                    data['Rechnungen'] += [invoice_number for invoice_number in orders[order_number]['Rechnungen'].keys() if isinstance(orders[order_number]['Rechnungen'], dict)]
+            # Determine level of accuracy
+            # (1) Check if payment sum equals sum of orders ..
+            if payment.revenues() == payment.order_revenues():
+                # .. which is a one-to-one hit
+                payment.mark('fast sicher')
 
-                if not data['Rechnungen']:
-                    # Use other criteria since all detected invoice numbers were invalid
-                    data['Rechnungen'] = 'nicht zugeordnet'
+            # (2) Check if payment sum equals sum of invoices ..
+            if payment.revenues() == payment.invoice_revenues():
+                # .. which is a one-to-one hit
+                payment.mark('sicher')
 
-                else:
-                    # .. and here we go again, checking if extracted invoices sum up to total order cost ..
-                    if self.compare_invoice_total(data, invoices):
-                        # .. which is (probably) a one-to-one hit
-                        data['Treffer'] = 'fast sicher'
-
-                        # Ensure validity & availability of each invoice
-                        payment = Payment(data)
-
-                        # Add invoices to payment & payment to payments
-                        for invoice in [invoices[invoice] for invoice in data['Rechnungen'] if invoice in invoices]:
-                            payment.add(Invoice(invoice))
-
-                        self.add(payment)
-
-                        # Move on to next payment
-                        continue
-
-                    # TODO: Yeah, what if not?
-                    else:
-                        pass
-
-            # Initialize payment (if necessary)
-            if payment is None:
-                payment = Payment(data)
-
+            # Add payment
             self.add(payment)
 
 
     # MATCHING HELPER methods
-
-    def compare_invoice_total(self, payment: dict, invoices: dict) -> bool:
-        return payment['Betrag'] == self.number2string(sum([float(invoices[invoice]['Gesamtbetrag']) for invoice in payment['Rechnungen']]))
-
 
     def extract_taxes(self, invoice_candidates: list, invoices: dict) -> dict:
         taxes = {}
