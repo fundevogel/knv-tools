@@ -7,12 +7,13 @@ from matplotlib import pyplot, rcParams
 from pandas import DataFrame
 from PyPDF2 import PdfFileReader, PdfFileMerger
 
-from .config import Config
-from .database import Database
 from ..api.exceptions import InvalidLoginException
 from ..api.webservice import Webservice
 from ..utils import load_json, dump_csv
-from ..utils import ask_credentials, build_path, create_path, group_data, pretty_print
+from ..utils import build_path, create_path, group_data
+from .config import Config
+from .database import Database
+from .helpers import ask_credentials, pretty_print, print_get_result
 
 
 clickpath = click.Path(exists=True)
@@ -351,7 +352,7 @@ def data(config, order_number):
     data = db.get_data(order_number)
 
     # Print result
-    pretty_print(data, order_number)
+    print_get_result(data, order_number)
 
 
 @get.command()
@@ -371,7 +372,7 @@ def info(config, order_number):
     info = db.get_info(order_number)
 
     # Print result
-    pretty_print(info, order_number)
+    print_get_result(info, order_number)
 
 
 @get.command()
@@ -391,7 +392,7 @@ def invoice(config, invoice_number):
     invoice = db.get_invoice(invoice_number)
 
     # Print result
-    pretty_print(invoice, invoice_number)
+    print_get_result(invoice, invoice_number)
 
 
 @get.command()
@@ -412,7 +413,7 @@ def order(config, order_number):
     order = db.get_order(order_number)
 
     # Print result
-    pretty_print(order, order_number)
+    print_get_result(order, order_number)
 
 
 @get.command()
@@ -432,7 +433,7 @@ def payment(config, transaction):
     payment = db.get_payment(transaction)
 
     # Print result
-    pretty_print(payment, transaction)
+    print_get_result(payment, transaction)
 
 
 # ACCOUNTING tasks

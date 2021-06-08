@@ -14,7 +14,7 @@ from ..structure.invoices.invoices import Invoices
 from ..structure.orders.orders import Orders
 from ..structure.payments.payments import Payments
 from ..utils import load_json, dump_json
-from ..utils import build_path, create_path, group_data, sort_data
+from ..utils import build_path, group_data, sort_data
 
 
 class Database:

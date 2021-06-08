@@ -1,31 +1,12 @@
 import json
 
-from getpass import getpass
 from glob import glob
 from hashlib import md5
 from operator import itemgetter
 from os import makedirs
 from os.path import exists, dirname, join
 
-import click
-
 from pandas import DataFrame, concat, read_csv
-
-
-# CLI HELPER functions
-
-def pretty_print(data: dict, number: str) -> None:
-    if data:
-        click.echo(' done.')
-
-        # Print result & exit ..
-        for key, value in data.items():
-            click.echo('{key}: "{value}"'.format(key=key, value=value))
-
-        click.Context.exit(0)
-
-    # .. otherwise, end with error message
-    click.echo(' failed: No entry found for "{}"'.format(number))
 
 
 # CSV functions
@@ -105,14 +86,6 @@ def number2string(string: str) -> str:
 
 
 # UTILITY functions
-
-def ask_credentials() -> dict:
-    return {
-        'VKN': getpass('VKN: '),
-        'Benutzer': getpass('Benutzer: '),
-        'Passwort': getpass('Passwort: '),
-    }
-
 
 def build_path(
     base_path: str,
