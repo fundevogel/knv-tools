@@ -29,7 +29,7 @@ class OrderProcessor(Processor):
                 isbn = item['isbn']
 
             # .. and - more often than not - formatted as floats with a trailing zero
-            isbn = str(isbn).replace('.0', '')
+            isbn = self.normalize(isbn)
 
             # Assign identifier
             code = item['ormorderid']
@@ -44,7 +44,7 @@ class OrderProcessor(Processor):
                 order['Nachname'] = item['rechnungaddresslastname']
                 order['Straße'] = self.normalize(item['rechnungaddressstreet'])
                 order['Hausnummer'] = self.normalize(item['rechnungaddresshousenumber'])
-                order['PLZ'] = self.normalize(item['rechnungaddresszipcode']).replace('.0', '')
+                order['PLZ'] = self.normalize(item['rechnungaddresszipcode'])
                 order['Ort'] = self.normalize(item['rechnungaddresscity'])
                 order['Land'] = self.normalize(item['rechnungaddresscountry'])
                 order['Telefon'] = str(item['rechnungaddressphonenumber'])
