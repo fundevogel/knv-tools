@@ -124,8 +124,8 @@ def create_path(file_path) -> None:
 
 
 def dedupe(duped_data, encoding='utf-8') -> list:
-    deduped_data = []
     codes = set()
+    deduped_data = []
 
     for item in duped_data:
         hash_digest = md5(str(item).encode(encoding)).hexdigest()

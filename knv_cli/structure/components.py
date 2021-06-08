@@ -76,7 +76,7 @@ class Molecule(Component):
             data[item.month()].append(item.revenues())
 
         # Assign data to respective month
-        data = {int(month): sum(revenue) for month, revenue in data.items()}
+        data = {int(month): sum(revenues) for month, revenues in data.items()}
 
         # Determine appropriate month range
         month_range = self.month_range(quarter)
