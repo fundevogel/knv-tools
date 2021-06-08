@@ -45,7 +45,10 @@ class Config(object):
         # (2) .. when merging data sources
         self.database_dir = join(self.data_dir, 'db')
 
-        # (3) .. when generating data
+        # (3) .. when in an accounting session
+        self.session_dir = join(self.payment_dir, 'session')
+
+        # (4) .. when generating data
         self.contacts_dir = join(self.export_dir, 'contacts')
         self.matches_dir = join(self.export_dir, 'matches')
         self.rankings_dir = join(self.export_dir, 'rankings')
