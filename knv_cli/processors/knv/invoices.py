@@ -1,64 +1,95 @@
-# This module contains a class for processing & working with
-# invoices (PDF), as exported from FitBis & Shopkonfigurator
-
+# Works with Python v3.10+
+# See https://stackoverflow.com/a/33533514
+from __future__ import annotations
 
 from datetime import datetime
-from operator import itemgetter
-from os.path import basename, isfile, splitext
+from io import BytesIO
+from os.path import basename, splitext
+from zipfile import ZipFile
 
-import PyPDF2
+from PyPDF2 import PdfFileReader
+from PyPDF2.utils import PdfReadError
 
-from ..command import Command
-from ..utils import load_json
+from ..processor import Processor
 
 
-class Invoices(Command):
+class InvoiceProcessor(Processor):
     # PROPS
 
     regex = '*_Invoices_TimeFrom*_TimeTo*.zip'
 
 
-    # DATA methods
+    # I/O methods
 
-    def load_data(self, invoice_files: list) -> list:
-        return self.process_data(invoice_files)
+    def load_files(self, files: list) -> InvoiceProcessor:
+        invoices = {}
+
+        for file in files:
+            # Check filetype, depending on this either ..
+            extension = splitext(file)[1].lower()
+
+            # (1) .. extract PDF invoices to memory
+            if extension == '.zip':
+                # See https://stackoverflow.com/a/10909016
+                archive = ZipFile(file)
+
+                for file in archive.namelist():
+                    invoices[file] = []
+
+                    byte_stream = BytesIO(BytesIO(archive.read(file)).read())
+                    byte_stream.seek(0)
+
+                    try:
+                        pdf = PdfFileReader(byte_stream)
+
+                        for page in pdf.pages:
+                            invoices[file] += [text.strip() for text in page.extractText().splitlines() if text]
+
+                        byte_stream.close()
+
+                    except PdfReadError:
+                        pass
+
+            # (2) .. parse PDF invoices directly
+            if extension == '.pdf':
+                invoices[file] = []
+
+                # Fetch content from invoice file
+                with open(file, 'rb') as pdf_file:
+                    pdf = PdfFileReader(pdf_file)
+
+                    for page in pdf.pages:
+                        invoices[file] += [text.strip() for text in page.extractText().splitlines() if text]
+
+        self.data = invoices
+
+        return self
 
 
-    def process_data(self, invoice_files: list) -> dict:
+    # CORE methods
+
+    def process(self) -> InvoiceProcessor:
         '''
         Processes '{VKN}-{Ymd}-*.pdf' & 'RE_{Ymd}_{VKN}_*.pdf' files
         '''
 
         invoices = {}
 
-        for invoice_file in invoice_files:
-            # Make sure given invoice is real file
-            if not isfile(invoice_file):
-                continue
-
+        for invoice, content in self.data.items():
             # Extract general information from file name
-            invoice_date = self.invoice2date(invoice_file)
-            invoice_number = self.invoice2number(invoice_file)
+            invoice_number = self.invoice2number(invoice)
+            invoice_date = self.invoice2date(invoice)
 
             # Prepare data storage
             invoice = {
                 'Datum': invoice_date,
                 'Vorgang': invoice_number,
-                'Datei': invoice_file,
-                'Versandkosten': '0.00',
+                'Datei': invoice,
+                'Versandkosten': self.number2string(0),
                 'Gesamtbetrag': 'keine Angabe',
                 'Steuern': 'keine Angabe',
                 'Gutscheine': 'keine Angabe',
             }
-
-            content = []
-
-            # Fetch content from invoice file
-            with open(invoice_file, 'rb') as file:
-                pdf = PyPDF2.PdfFileReader(file)
-
-                for page in pdf.pages:
-                    content += [text.strip() for text in page.extractText().splitlines() if text]
 
             # Determine invoice kind, as those starting with 'R' are formatted quite differently
             if invoice_number[:1] == 'R':
@@ -66,14 +97,14 @@ class Invoices(Command):
                 # (1) .. general information
                 for line in content:
                     if 'Rechnungsbetrag gesamt brutto' in line:
-                        invoice['Gesamtbetrag'] = self.convert_number(content[content.index(line) + 1])
+                        invoice['Gesamtbetrag'] = self.number2string(content[content.index(line) + 1])
 
                     if 'Versandpauschale' in line or 'Versandkosten' in line:
-                        invoice['Versandkosten'] = self.convert_number(content[content.index(line) + 2])
+                        invoice['Versandkosten'] = self.number2string(content[content.index(line) + 2])
 
                     # Edge case with two lines preceeding shipping cost
                     if 'versandt an' in line:
-                        invoice['Versandkosten'] = self.convert_number(content[content.index(line) + 2])
+                        invoice['Versandkosten'] = self.number2string(content[content.index(line) + 2])
 
                 # (2) .. taxes
                 taxes = {}
@@ -81,11 +112,11 @@ class Invoices(Command):
                 # Determine tax rates where ..
                 # .. 'reduced' equals either 5% or 7%
                 # .. 'full' equals either 16% or 19%
-                for tax_rate in ['5', '7', '16', '19']:
+                for tax_rate in ['0', '5', '7', '16', '19']:
                     tax_string = 'MwSt. ' + tax_rate + ',00 %'
 
                     if tax_string in content:
-                        taxes[tax_rate + '%'] = self.convert_number(content[content.index(tax_string) + 2])
+                        taxes[tax_rate + '%'] = self.number2string(content[content.index(tax_string) + 2])
 
                 if taxes:
                     invoice['Steuern'] = taxes
@@ -110,7 +141,7 @@ class Invoices(Command):
 
                         coupons.append({
                             'Anzahl': int(content[index - 1]),
-                            'Wert': self.convert_number(content[index + 2]),
+                            'Wert': self.number2string(content[index + 2]),
                         })
 
                     invoice['Gutscheine'] = coupons
@@ -121,10 +152,10 @@ class Invoices(Command):
                 for index, line in enumerate(content):
                     # TODO: Get values via regexes
                     if 'Versandkosten:' in line:
-                        invoice['Versandkosten'] = self.convert_number(line.replace('Versandkosten:', ''))
+                        invoice['Versandkosten'] = self.number2string(line.replace('Versandkosten:', ''))
 
                     if 'Gesamtbetrag' in line:
-                        invoice['Gesamtbetrag'] = self.convert_number(line.replace('Gesamtbetrag', ''))
+                        invoice['Gesamtbetrag'] = self.number2string(line.replace('Gesamtbetrag', ''))
 
                 # Fetch first occurence of ..
                 # .. 'Nettobetrag' (= starting point)
@@ -192,39 +223,32 @@ class Invoices(Command):
                         reduced_tax = costs[5].split(':')[-1]
                         full_tax = costs[6]
 
-                invoice['Steuern'][tax_rates[0]] = self.convert_number(reduced_tax)
-                invoice['Steuern'][tax_rates[1]] = self.convert_number(full_tax)
+                invoice['Steuern'][tax_rates[0]] = self.number2string(reduced_tax)
+                invoice['Steuern'][tax_rates[1]] = self.number2string(full_tax)
 
             invoices[invoice_number] = invoice
 
-        return invoices
+        self.data = invoices
 
-
-    # DATA HELPER methods
-
-    def format_tax_rate(self, string: str) -> str:
-        return (string[:-1].replace('Nettobetrag', '')).strip()
-
-
-    def get_index(self, haystack: list, needle: str, last: bool = False) -> int:
-        position = 0
-
-        if last:
-            position = -1
-
-        return [i for i, string in enumerate(haystack) if needle in string][position]
-
-
-    def build_indices(self, haystack: list, needle: str) -> list:
-        return [count for count, line in enumerate(haystack) if line == needle]
-
-
-    def convert_number(self, string) -> str:
-        # Strip 'EUR', apart from that as usual
-        return super().convert_number(str(string).replace('EUR', ''))
+        return self
 
 
     # HELPER methods
+
+    def split_string(self, string: str) -> str:
+        # Strip path information
+        string = basename(string)
+
+        # Distinguish between delimiters ..
+        # (1) .. hyphen ('Shopkonfigurator')
+        delimiter = '-'
+
+        # (2) .. underscore ('Barsortiment')
+        if delimiter not in string:
+            delimiter = '_'
+
+        return string.split(delimiter)
+
 
     def invoice2date(self, string: str) -> str:
         date_string = self.split_string(string)[1].replace('.pdf', '')
@@ -242,16 +266,20 @@ class Invoices(Command):
         return string_list[-1].replace('.pdf', '')
 
 
-    def split_string(self, string: str) -> str:
-        # Strip path information
-        string = basename(string)
+    def number2string(self, string) -> str:
+        # Strip 'EUR', apart from that as usual
+        return super().number2string(str(string).replace('EUR', ''))
 
-        # Distinguish between delimiters ..
-        # (1) .. hyphen ('Shopkonfigurator')
-        delimiter = '-'
 
-        # (2) .. underscore ('Barsortiment')
-        if delimiter not in string:
-            delimiter = '_'
+    def get_index(self, haystack: list, needle: str, last: bool = False) -> int:
+        position = -1 if last else 0
 
-        return string.split(delimiter)
+        return [i for i, string in enumerate(haystack) if needle in string][position]
+
+
+    def build_indices(self, haystack: list, needle: str) -> list:
+        return [count for count, line in enumerate(haystack) if line == needle]
+
+
+    def format_tax_rate(self, string: str) -> str:
+        return (string[:-1].replace('Nettobetrag', '')).strip()

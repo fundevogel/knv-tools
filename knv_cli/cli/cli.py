@@ -1,18 +1,19 @@
-import json
-
 from os.path import basename, join
 
 import click
 import pendulum
-from PyPDF2 import PdfFileReader, PdfFileMerger
 
-from .config import Config
-from .database import Database
+from matplotlib import pyplot, rcParams
+from pandas import DataFrame
+from PyPDF2 import PdfFileReader, PdfFileMerger
 
 from ..api.exceptions import InvalidLoginException
 from ..api.webservice import Webservice
-from ..utils import load_json, dump_json, dump_csv
-from ..utils import ask_credentials, build_path, create_path, group_data, pretty_print
+from ..utils import load_json, dump_csv
+from ..utils import build_path, create_path, group_data
+from .config import Config
+from .database import Database
+from .helpers import ask_credentials, pretty_print, print_get_result
 
 
 clickpath = click.Path(exists=True)
@@ -27,7 +28,9 @@ pass_config = click.make_pass_decorator(Config, ensure=True)
 @click.option('--import-dir', type=clickpath, help='Custom import directory.')
 @click.option('--export-dir', type=clickpath, help='Custom export directory.')
 def cli(config, verbose, vkn, data_dir, import_dir, export_dir):
-    """CLI utility for handling data exported from KNV & pcbis.de"""
+    '''
+    CLI utility for handling data exported from KNV & pcbis.de
+    '''
 
     # Apply CLI options
     if verbose is not None:
@@ -55,13 +58,12 @@ def cli(config, verbose, vkn, data_dir, import_dir, export_dir):
 @click.option('-c', '--enable-chart', is_flag=True, help='Create bar chart alongside results.')
 @click.option('-l', '--limit', default=1, help='Minimum limit to be included in bar chart.')
 def rank(config, year, quarter, enable_chart, limit):
-    """Rank sales"""
+    '''
+    Rank sales
+    '''
 
     # Initialize database
     db = Database(config)
-
-    # Initialize handler
-    handler = db.get_knv()
 
     # Exit if database is empty
     data_files = build_path(config.database_dir, year=year, quarter=quarter)
@@ -70,13 +72,13 @@ def rank(config, year, quarter, enable_chart, limit):
         click.echo('Error: No orders found in database.')
         click.Context.exit(1)
 
+    # Initialize handler
+    handler = db.get_orders(data_files)
+
     click.echo('Ranking data ..', nl=False)
 
-    # Initialize handler
-    handler = db.get_knv(data_files)
-
     # Extract & rank sales
-    ranking = handler.get_ranking(limit)
+    ranking = handler.ranking(limit)
 
     if config.verbose:
         # Write ranking to stdout
@@ -99,10 +101,15 @@ def rank(config, year, quarter, enable_chart, limit):
         click.echo('Creating graph from data ..', nl=False)
 
         # Plot graph into PNG file
-        chart_file = join(config.rankings_dir, file_name + '_' + str(limit) + '.png')
+        # (1) Load ranking into dataframe
+        # (2) Rotate & center x-axis labels
+        # (3) Make graph 'just fit' image dimensions
+        df = DataFrame([{'Anzahl': item[-1], 'Titel': item[0]} for item in ranking], index=[item[0] for item in ranking])
+        pyplot.xticks(rotation=45, horizontalalignment='center')
+        rcParams.update({'figure.autolayout': True})
 
-        bar_chart = handler.get_ranking_chart(ranking)
-        bar_chart.savefig(chart_file)
+        # (4) Output graph
+        df.plot(kind='barh').get_figure().savefig(join(config.rankings_dir, file_name + '_' + str(limit) + '.png'))
 
         click.echo(' done!')
 
@@ -112,18 +119,15 @@ def rank(config, year, quarter, enable_chart, limit):
 @click.option('-d', '--date', default=None, help='Cutoff date in ISO date format, eg \'YYYY-MM-DD\'. Default: today two years ago')
 @click.option('-b', '--blocklist', type=click.File('r'), help='Path to file containing mail addresses that should be ignored.')
 def contacts(config, date, blocklist):
-    """Generate customer contact list"""
+    '''
+    Generate customer contact list
+    '''
 
     # Initialize database
     db = Database(config)
 
     # Initialize handler
-    handler = db.get_knv()
-
-    # Exit if database is empty
-    if not handler.data:
-        click.echo('Error: No orders found in database.')
-        click.Context.exit(1)
+    handler = db.get_orders()
 
     click.echo('Generating contact list ..', nl=config.verbose)
 
@@ -139,7 +143,7 @@ def contacts(config, date, blocklist):
         config.blocklist = blocklist.read().splitlines()
 
     # (3) Extract & export contacts
-    contacts = handler.get_contacts(date, config.blocklist)
+    contacts = handler.contacts(date, config.blocklist)
 
     if config.verbose:
         # Write contacts to stdout
@@ -160,7 +164,10 @@ def contacts(config, date, blocklist):
 @cli.group()
 @pass_config
 def db(config):
-    """Database tasks"""
+    '''
+    Database tasks
+    '''
+
     pass
 
 
@@ -173,7 +180,9 @@ def stats():
 @db.command()
 @pass_config
 def flush(config):
-    """Flush database"""
+    '''
+    Flush database
+    '''
 
     # Initialize database
     db = Database(config)
@@ -189,20 +198,26 @@ def flush(config):
 @db.group()
 @pass_config
 def rebuild(config):
+    '''
+    Database "rebuild" subtasks
+    '''
+
     pass
 
 
 @rebuild.command()
 @pass_config
 def all(config):
-    """Rebuild database"""
+    '''
+    Rebuild database
+    '''
 
     # Initialize database
     db = Database(config)
 
-    # Import payment files
-    click.echo('Rebuilding payments ..', nl=False)
-    db.rebuild_payments()
+    # Import info files
+    click.echo('Rebuilding infos ..', nl=False)
+    db.rebuild_infos()
     click.echo(' done.')
 
     # Import invoice files
@@ -215,14 +230,14 @@ def all(config):
     db.rebuild_orders()
     click.echo(' done.')
 
-    # Import info files
-    click.echo('Rebuilding infos ..', nl=False)
-    db.rebuild_infos()
-    click.echo(' done.')
-
     # Merge data sources
     click.echo('Merging data sources ..', nl=False)
     db.rebuild_data()
+    click.echo(' done.')
+
+    # Import payment files
+    click.echo('Rebuilding payments ..', nl=False)
+    db.rebuild_payments()
     click.echo(' done.')
 
     click.echo('Update complete!')
@@ -231,7 +246,9 @@ def all(config):
 @rebuild.command()
 @pass_config
 def payments(config):
-    """Rebuild payments"""
+    '''
+    Rebuild payments
+    '''
 
     # Initialize database
     db = Database(config)
@@ -244,8 +261,26 @@ def payments(config):
 
 @rebuild.command()
 @pass_config
+def infos(config):
+    '''
+    Rebuild infos
+    '''
+
+    # Initialize database
+    db = Database(config)
+
+    # Import info files
+    click.echo('Rebuilding infos ..', nl=False)
+    db.rebuild_infos()
+    click.echo(' done.')
+
+
+@rebuild.command()
+@pass_config
 def invoices(config):
-    """Rebuild invoices"""
+    '''
+    Rebuild invoices
+    '''
 
     # Initialize database
     db = Database(config)
@@ -259,7 +294,9 @@ def invoices(config):
 @rebuild.command()
 @pass_config
 def orders(config):
-    """Rebuild orders"""
+    '''
+    Rebuild orders
+    '''
 
     # Initialize database
     db = Database(config)
@@ -272,22 +309,10 @@ def orders(config):
 
 @rebuild.command()
 @pass_config
-def infos(config):
-    """Rebuild infos"""
-
-    # Initialize database
-    db = Database(config)
-
-    # Import info files
-    click.echo('Rebuilding infos ..', nl=False)
-    db.rebuild_infos()
-    click.echo(' done.')
-
-
-@rebuild.command()
-@pass_config
 def merge(config):
-    """Rebuild merged data"""
+    '''
+    Rebuild merged data
+    '''
 
     # Initialize database
     db = Database(config)
@@ -303,52 +328,71 @@ def merge(config):
 @db.group()
 @pass_config
 def get(config):
+    '''
+    Database "get" subtasks
+    '''
+
     pass
 
 
 @get.command()
 @pass_config
-@click.argument('number')
-def payment(config, number):
+@click.argument('order_number')
+def data(config, order_number):
+    '''
+    Retrieve full order from database
+    '''
+
     click.echo('Searching database ..', nl=False)
 
     # Initialize database
     db = Database(config)
 
-    # Match payments for all available gateways
-    for identifier in db.gateways.keys():
-        # Initialize payment handler
-        handler = db.get_payments(identifier)
+    # Extract data record for given order number
+    data = db.get_data(order_number)
 
-        # Extract payment for given (transaction or order) number
-        payment = handler.get(number)
+    # Print result
+    print_get_result(data, order_number)
 
-        if payment:
-            click.echo(' done.')
-            pretty_print(payment)
-            click.Context.exit(0)
 
-    click.echo(' failed: No entry found for "{}"'.format(number))
+@get.command()
+@pass_config
+@click.argument('order_number')
+def info(config, order_number):
+    '''
+    Retrieve (raw) info from database
+    '''
+
+    click.echo('Searching database ..', nl=False)
+
+    # Initialize database
+    db = Database(config)
+
+    # Extract info for given order number
+    info = db.get_info(order_number)
+
+    # Print result
+    print_get_result(info, order_number)
 
 
 @get.command()
 @pass_config
 @click.argument('invoice_number')
 def invoice(config, invoice_number):
+    '''
+    Retrieve invoice from database
+    '''
+
     click.echo('Searching database ..', nl=False)
 
     # Initialize database
     db = Database(config)
 
-    # Initialize info handler
-    handler = db.get_invoices()
+    # Extract invoice for given invoice number
+    invoice = db.get_invoice(invoice_number)
 
-    if invoice_number in handler.data:
-        click.echo(' done.')
-        pretty_print(handler.get(invoice_number))
-        click.Context.exit(0)
-
-    click.echo(' failed: No entry found for "{}"'.format(invoice_number))
+    # Print result
+    print_get_result(invoice, invoice_number)
 
 
 @get.command()
@@ -356,68 +400,40 @@ def invoice(config, invoice_number):
 @click.argument('order_number')
 def order(config, order_number):
     click.echo('Searching database ..', nl=False)
+    '''
+    Retrieve (raw) order from database
+    '''
+
+    click.echo('Searching database ..', nl=False)
 
     # Initialize database
     db = Database(config)
-
-    # Initialize order handler
-    handler = db.get_orders()
 
     # Extract order for given order number
-    order = handler.get(order_number)
+    order = db.get_order(order_number)
 
-    if order:
-        click.echo(' done.')
-        pretty_print(order)
-        click.Context.exit(0)
-
-    click.echo(' failed: No entry found for "{}"'.format(order_number))
+    # Print result
+    print_get_result(order, order_number)
 
 
 @get.command()
 @pass_config
-@click.argument('order_number')
-def info(config, order_number):
+@click.argument('transaction')
+def payment(config, transaction):
+    '''
+    Retrieve payment from database
+    '''
+
     click.echo('Searching database ..', nl=False)
 
     # Initialize database
     db = Database(config)
 
-    # Initialize info handler
-    handler = db.get_infos()
+    # Extract payment for given transaction
+    payment = db.get_payment(transaction)
 
-    # Extract info for given order number
-    info = handler.get(order_number)
-
-    if info:
-        click.echo(' done.')
-        pretty_print(info)
-        click.Context.exit(0)
-
-    click.echo(' failed: No entry found for "{}"'.format(order_number))
-
-
-@get.command()
-@pass_config
-@click.argument('order_number')
-def data(config, order_number):
-    click.echo('Searching database ..', nl=False)
-
-    # Initialize database
-    db = Database(config)
-
-    # Initialize info handler
-    handler = db.get_knv()
-
-    # Extract combined data record for given order number
-    data = handler.get(order_number)
-
-    if data:
-        click.echo(' done.')
-        pretty_print(data)
-        click.Context.exit(0)
-
-    click.echo(' failed: No entry found for "{}"'.format(order_number))
+    # Print result
+    print_get_result(payment, transaction)
 
 
 # ACCOUNTING tasks
@@ -425,13 +441,10 @@ def data(config, order_number):
 @cli.group()
 @pass_config
 def acc(config):
-    pass
+    '''
+    Accounting tasks
+    '''
 
-
-@acc.command()
-@pass_config
-def run(config):
-    """Start accounting mode"""
     pass
 
 
@@ -439,44 +452,262 @@ def run(config):
 @pass_config
 @click.option('-y', '--year', default=None, help='Year.')
 @click.option('-q', '--quarter', default=None, help='Quarter.')
-def match(config, year, quarter):
-    """Match payments & invoices"""
+def run(config, year, quarter):
+    '''
+    Start accounting session
+    '''
+
+    click.echo('Accounting mode ON')
+
+    # Fallback to current year
+    if year is None:
+        year = pendulum.today().year
 
     # Initialize database
     db = Database(config)
 
     # Match payments for all available gateways
-    for identifier in db.gateways.keys():
-        # Initialize payment handler
-        handler = db.get_payments(identifier, year, quarter)
-
-        # Exit if database has no payments
-        if not handler.data:
-            click.echo('No "{}" payments found in database, skipping.'.format(identifier))
+    for identifier in db.structures.keys():
+        # Take a deep breath, relax ..
+        if not click.confirm('Ready to proceed with ' + identifier + ' data?', default=True):
             continue
+
+        # Exit if database is empty
+        data_files = build_path(join(config.payment_dir, identifier), year=year, quarter=quarter)
+
+        if not data_files:
+            click.echo('No payments found in database, skipping ..')
+            continue
+
+        click.echo('Initializing ' + identifier + ' data ..', nl=False)
+
+        # Load current session
+        last_session = db.load_session()
+        print(last_session.session)
+
+        # Initialize invoice handler
+        invoices = db.get_invoices()
+
+        # Initialize payment handler
+        handler = db.get_payments(identifier, data_files)
+
+        click.echo(' done.')
+
+        # Load invoice numbers marked as paid
+        already_paid = db.open_paid()
+
+        manual_payments = {}
+
+        # Go through all unmatched payments
+        for count, payment in enumerate(handler.unpaid()):
+            # Skip payments already marked in previous session
+            if last_session.has(payment):
+                # Add invoices to 'paid' invoices
+                if not payment.year() in already_paid:
+                    already_paid[payment.year()] = []
+
+                already_paid[payment.year()] += payment.invoice_numbers()
+
+                # Proceed to next payment
+                continue
+
+            # Wrap logic in case session gets cut short ..
+            try:
+                # Print current payment identifier
+                click.echo('Payment No. ' + str(count + 1) + ':')
+                pretty_print(payment.export())
+
+                if payment.invoice_numbers():
+                    for index, invoice in enumerate(payment.invoices()):
+                        click.echo('Invoice No. ' + str(index + 1) + ': ')
+                        pretty_print(invoice.export())
+
+                    if click.confirm('Does payment match the invoice(s)?', default=False):
+                        # Mark direct hit
+                        payment.mark('manuell')
+
+                        # Add payment data
+                        manual_payments[payment.identifier()] = payment.export()
+
+                        # Proceed to next payment
+                        continue
+
+                    if click.confirm('Skip payment?', default=False): continue
+
+                else:
+                    click.echo('No matching invoices found, entering manual mode ..')
+
+                manual_invoices = []
+
+                while not manual_invoices:
+                    while click.confirm('Enter invoice?', default=True):
+                        manual_invoices.append(click.prompt('Type invoice number', type=str))
+
+                    for manual_invoice in manual_invoices:
+                        if not invoices.has(manual_invoice):
+                            manual_invoices.remove(manual_invoice)
+                            click.echo('Invoice "' + manual_invoice + '" was not found!')
+
+                    if manual_invoices:
+                        click.echo('You have entered the following invoice numbers:')
+                        click.echo(manual_invoices)
+
+                        if not click.confirm('Confirm choice(s)?', default=True):
+                            # Start from scratch
+                            manual_invoices = []
+
+                    else:
+                        if click.confirm('Skip payment?', default=False): break
+
+                payment.add_invoice_numbers(manual_invoices)
+                manual_payments[payment.identifier()] = payment.export()
+
+                # Add invoices to 'paid' invoices
+                if not payment.year() in already_paid:
+                    already_paid[payment.year()] = []
+
+                already_paid[payment.year()] += manual_invoices
+
+            # Take care of aborted sessions
+            except click.Abort:
+                # Make some space
+                click.echo("\n")
+
+                if manual_payments and click.confirm('Save results before exiting?', default=True):
+                    # Save paid invoices
+                    db.save_paid(already_paid)
+
+                    # Save results
+                    click.echo('Saving ' + str(len(manual_payments)) + ' payment(s) ..', nl=False)
+                    db.save_session(manual_payments)
+                    click.echo(' done.')
+
+                    # Shut down
+                    click.echo('Accounting mode OFF')
+
+                click.Context.exit(0)
+
+        if not manual_payments:
+            click.echo('Nothing to do, moving on ..')
+
+            # Proceed to next payment
+            continue
+
+        # Save paid invoices
+        db.save_paid(already_paid)
+
+        # Save results
+        click.echo('Saving ' + str(len(manual_payments)) + ' payment(s) ..', nl=False)
+        db.save_session(manual_payments)
+        click.echo(' done.')
+
+        for payment in manual_payments:
+            pass
+
+    click.echo('Accounting mode OFF')
+
+
+@acc.command()
+@pass_config
+def save(config):
+    '''
+    Import session results
+    '''
+
+
+@acc.command()
+@pass_config
+@click.option('-y', '--year', default=None, help='Year.')
+@click.option('-q', '--quarter', default=None, help='Quarter.')
+@click.option('-b', '--years_back', default=2, help='Years back.')
+@click.option('-c', '--enable-chart', is_flag=True, help='Create bar chart alongside results.')
+def report(config, year, quarter, years_back, enable_chart):
+    '''
+    Generate revenue report
+    '''
+
+    # Fallback to current year
+    if year is None:
+        year = pendulum.today().year
+
+    # Initialize database
+    db = Database(config)
+
+    # Initialize handler
+    handler = db.get_orders()
+
+    click.echo('Generating revenue report ..', nl=config.verbose)
+
+    revenues = {}
+
+    for i in range(0, 1 + int(years_back)):
+        this_year = str(int(year) - i)
+        revenues[this_year] = handler.revenues(this_year, quarter)
+
+    df = DataFrame(revenues, index=list(revenues.values())[0].keys())
+
+    click.echo(' done!')
+
+    if config.verbose:
+        # Write revenues to stdout
+        click.echo(revenues)
+
+    else:
+        # Print well-formatted revenue report
+        click.echo(df)
+
+    # Create graph if enabled
+    if enable_chart and not config.verbose:
+        click.echo('Creating graph from data ..', nl=False)
+
+        # Build filename indicating year range
+        file_name = 'revenues-' + year + '-' + str(int(year) - int(years_back)) + '.png'
+        df.plot(kind='bar').get_figure().savefig(join(config.rankings_dir, file_name))
+
+    click.echo(' done!')
+
+
+@acc.command()
+@pass_config
+@click.option('-y', '--year', default=None, help='Year.')
+@click.option('-q', '--quarter', default=None, help='Quarter.')
+def match(config, year, quarter):
+    '''
+    Match payments & invoices
+    '''
+
+    # Initialize database
+    db = Database(config)
+
+    # Match payments for all available gateways
+    for identifier in db.structures.keys():
+        # Exit if database is empty
+        data_files = build_path(join(config.payment_dir, identifier), year=year, quarter=quarter)
+
+        if not data_files:
+            click.echo('Error: No payments found in database.')
+            click.Context.exit(1)
 
         click.echo('Matching ' + identifier + ' data ..', nl=False)
 
-        # Get combined order data
-        data = db.get_knv().data
-
-        # Load invoices from database
+        # Initialize invoice handler
         invoices = db.get_invoices()
 
-        # Match payments with orders & infos
-        handler.match_payments(data, invoices.data)
+        # Initialize payment handler
+        handler = db.get_payments(identifier, data_files)
+        payment_data = handler.export()
 
         if config.verbose:
             # Write matches to stdout
-            click.echo(handler.matched_payments())
+            click.echo(payment_data)
 
         else:
             # Filter & merge matched invoices
-            for code, data in group_data(handler.data).items():
+            for code, data in group_data(payment_data).items():
                 # Extract matching invoice numbers
                 invoice_numbers = set()
 
-                for item in data.values():
+                for item in data:
                     if isinstance(item['Rechnungen'], list):
                         for invoice_number in item['Rechnungen']:
                             invoice_numbers.add(invoice_number)
@@ -486,8 +717,8 @@ def match(config, year, quarter):
 
                 # Merge corresponding invoices
                 for invoice_number in sorted(invoice_numbers):
-                    if invoice_number in invoices.data:
-                        pdf_file = invoices.get(invoice_number)['Datei']
+                    if invoices.has(invoice_number):
+                        pdf_file = invoices.get(invoice_number).file()
 
                         with open(pdf_file, 'rb') as file:
                             merger.append(PdfFileReader(file))
@@ -501,7 +732,7 @@ def match(config, year, quarter):
                 merger.write(invoice_file)
 
             # Write results to CSV files
-            for code, data in group_data(handler.matched_payments(True)).items():
+            for code, data in group_data(payment_data).items():
                 csv_file = join(config.matches_dir, identifier, code, code + '.csv')
                 dump_csv(data, csv_file)
 
@@ -516,7 +747,9 @@ def match(config, year, quarter):
 @pass_config
 @click.option('--credentials', type=clickpath, help='Path to JSON file containing credentials.')
 def api(config, credentials):
-    """KNV Webservice API tasks"""
+    '''
+    KNV Webservice API tasks
+    '''
 
     if credentials is not None:
         config.credentials = credentials
@@ -525,7 +758,9 @@ def api(config, credentials):
 @api.command()
 @pass_config
 def version(config):
-    """Check current API version"""
+    '''
+    Check current API version
+    '''
 
     # Initialize webservice
     ws = Webservice()
@@ -540,11 +775,12 @@ def version(config):
 @api.command()
 @pass_config
 @click.argument('isbn')
-@click.option('-o', '--output-file', type=click.Path(), help='Path to output JSON file.')
 @click.option('-c', '--cache-only', is_flag=True, help='Only return cached database records.')
 @click.option('-f', '--force-refresh', is_flag=True, help='Force database record being updated.')
-def lookup(config, isbn, output_file, cache_only, force_refresh):
-    """Lookup information about ISBN"""
+def lookup(config, isbn, cache_only, force_refresh):
+    '''
+    Lookup information about ISBN
+    '''
 
     if cache_only is False:
         if config.credentials:
@@ -577,12 +813,9 @@ def lookup(config, isbn, output_file, cache_only, force_refresh):
         click.echo(data)
 
     else:
+        # TODO: Print complete dataset
         if 'AutorSachtitel' in data:
             click.echo('Match: ' + data['AutorSachtitel'])
-
-    if output_file:
-        dump_json(data, output_file)
-        click.echo('Data saved: ' + output_file)
 
 
 @api.command()
@@ -590,6 +823,10 @@ def lookup(config, isbn, output_file, cache_only, force_refresh):
 @click.argument('isbn')
 @click.option('-q', '--quantity', default=1, help='Number of items to be checked.')
 def ola(config, isbn, quantity):
+    '''
+    Check order availability (OLA)
+    '''
+
     if config.credentials:
         credentials = load_json(config.credentials)
 

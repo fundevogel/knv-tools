@@ -1,27 +1,38 @@
 import json
 
-from getpass import getpass
 from glob import glob
 from hashlib import md5
 from operator import itemgetter
 from os import makedirs
 from os.path import exists, dirname, join
 
-import click
-
-from pandas import DataFrame
-
-
-# CLI HELPER functions
-
-def pretty_print(dictionary: dict) -> None:
-    for key, value in dictionary.items():
-        click.echo('{key}: "{value}"'.format(key=key, value=value))
+from pandas import DataFrame, concat, read_csv
 
 
 # CSV functions
 
-def dump_csv(data, csv_file) -> None:
+def load_csv(
+    csv_files: list,
+    delimiter: str = None,
+    encoding: str = None,
+    skiprows: int = None
+) -> list:
+    try:
+        return concat(map(lambda file: read_csv(
+            file,
+            sep=delimiter,
+            encoding=encoding,
+            skiprows=skiprows,
+            low_memory=False,
+        ), csv_files)).to_dict('records')
+
+    except ValueError:
+        pass
+
+    return []
+
+
+def dump_csv(data: dict, csv_file: str) -> None:
     # Create directory if necessary
     create_path(csv_file)
 
@@ -31,7 +42,7 @@ def dump_csv(data, csv_file) -> None:
 
 # JSON functions
 
-def load_json(json_files) -> dict:
+def load_json(json_files: list) -> dict:
     # Normalize single files being passed as input
     if isinstance(json_files, str):
         json_files = glob(json_files)
@@ -52,22 +63,29 @@ def load_json(json_files) -> dict:
     return data
 
 
-def dump_json(data, json_file) -> None:
+def dump_json(data: dict, json_file: str) -> None:
     create_path(json_file)
 
     with open(json_file, 'w') as file:
         json.dump(data, file, ensure_ascii=False, indent=4)
 
 
+# DATA HELPER functions
+
+def number2string(string: str) -> str:
+    # Convert to string & clear whitespaces
+    string = str(string).strip()
+
+    # Take care of thousands separator, as in '1.234,56'
+    if '.' in string and ',' in string:
+        string = string.replace('.', '')
+
+    string = float(string.replace(',', '.'))
+
+    return str(f'{string:.2f}')
+
+
 # UTILITY functions
-
-def ask_credentials() -> dict:
-    return {
-        'VKN': getpass('VKN: '),
-        'Benutzer': getpass('Benutzer: '),
-        'Passwort': getpass('Passwort: '),
-    }
-
 
 def build_path(
     base_path: str,
@@ -106,8 +124,8 @@ def create_path(file_path) -> None:
 
 
 def dedupe(duped_data, encoding='utf-8') -> list:
-    deduped_data = []
     codes = set()
+    deduped_data = []
 
     for item in duped_data:
         hash_digest = md5(str(item).encode(encoding)).hexdigest()

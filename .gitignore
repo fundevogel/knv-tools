@@ -1,7 +1,7 @@
 # Project-related
-src/
 dist/
 imports/
+blocklist.txt
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
