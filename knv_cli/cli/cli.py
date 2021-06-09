@@ -196,6 +196,79 @@ def flush(config):
     click.echo(' done.')
 
 
+@db.command()
+@pass_config
+@click.argument('source')
+@click.argument('query')
+def search(config, source, query):
+    '''
+    Query database SOURCE for QUERY
+    '''
+
+    # Initialize database
+    db = Database(config)
+
+    # Set defaults
+    blocked_keys = []
+    data = []
+
+    # Store items already negated
+    negated = []
+
+    if source == 'data':
+        blocked_keys = ['Bestellung', 'Rechnungen', 'Gutscheine', 'Abwicklung']
+        data = db.get_orders().export()
+
+    elif source == 'invoices':
+        blocked_keys = ['Datei', 'Steuern', 'Gutscheine']
+        data = db.get_invoices().export()
+
+    elif source == 'payments':
+        blocked_keys = ['Gebühr', 'Netto', 'Steuern']
+
+        for identifier in db.structures.keys():
+            data += db.get_payments(identifier).export()
+
+    else:
+        click.echo('Unknown source "{}", exiting ..'.format(source))
+        click.Context.exit(0)
+
+    # Start search
+    for item in data:
+        # Skip blocked keys
+        for key in blocked_keys:
+            if key in item: del item[key]
+
+        for key, value in item.items():
+            # Skip key-value pairs negated before
+            if {key: value} in negated: continue
+
+            # Search everything
+            if query.lower() in str(value).lower():
+                click.echo('{key}: "{value}"'.format(key=key, value=str(value)))
+
+                # If obviously unsuccessful ..
+                if not click.confirm('Show complete record?', default=False):
+                    # .. ask to blocklist results like this, in any case ..
+                    if click.confirm('Add key-value pair to blocklist?', default=False):
+                        negated.append({key: value})
+
+                    # .. proceed to next key-value pair
+                    continue
+
+                pretty_print(item)
+
+                # Terminate if search was sufficient, otherwise ..
+                if click.confirm('Quit search?', default=False):
+                    click.echo('Exiting ..')
+                    click.Context.exit(0)
+
+                # .. move on
+                break
+
+    click.echo('No further results for search term "{}", exiting ..'.format(query))
+
+
 # DATABASE REBUILD subtasks
 
 @db.group()
