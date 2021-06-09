@@ -1,7 +1,5 @@
 from os.path import join
 
-import pendulum
-
 from ..utils import dump_json
 
 
@@ -14,7 +12,3 @@ class Session:
 
     def has(self, data) -> bool:
         return data.identifier() in self.session
-
-
-    def save(self, path: str) -> None:
-        dump_json(self.session, join(path, pendulum.now().strftime('%Y-%m-%d_%I-%M-%S') + '.json'))

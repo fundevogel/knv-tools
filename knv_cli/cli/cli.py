@@ -70,6 +70,7 @@ def rank(config, year, quarter, enable_chart, limit):
 
     if not data_files:
         click.echo('Error: No orders found in database.')
+        click.echo('Exiting ..')
         click.Context.exit(1)
 
     # Initialize handler
@@ -173,8 +174,10 @@ def db(config):
 
 @db.command()
 @pass_config
-def stats():
-    pass
+def stats(config):
+
+    db = Database(config)
+    db.import_session('paypal')
 
 
 @db.command()
@@ -187,7 +190,7 @@ def flush(config):
     # Initialize database
     db = Database(config)
 
-    # Import payment files
+    # Delete database files
     click.echo('Flushing database ..', nl=False)
     db.flush()
     click.echo(' done.')
@@ -450,6 +453,22 @@ def acc(config):
 
 @acc.command()
 @pass_config
+def reset(config):
+    '''
+    Clear current session data
+    '''
+
+    # Initialize database
+    db = Database(config)
+
+    # Delete session files
+    click.echo('Clearing session ..', nl=False)
+    db.reset_session()
+    click.echo(' done.')
+
+
+@acc.command()
+@pass_config
 @click.option('-y', '--year', default=None, help='Year.')
 @click.option('-q', '--quarter', default=None, help='Quarter.')
 def prepare(config, year, quarter):
@@ -467,6 +486,7 @@ def prepare(config, year, quarter):
 
         if not data_files:
             click.echo('Error: No payments found in database.')
+            click.echo('Exiting ..')
             click.Context.exit(1)
 
         click.echo('Matching ' + identifier + ' data:')
@@ -591,9 +611,9 @@ def run(config, year, quarter):
         manual_payments = {}
 
         # Go through all unmatched payments
-        for count, payment in enumerate(handler.unpaid()):
+        for count, payment in enumerate(handler.payments()):
             # Skip payments already marked in previous session
-            if last_session.has(payment):
+            if last_session.has(payment) or payment.is_paid():
                 # Add invoices to 'paid' invoices
                 if not payment.year() in already_paid:
                     already_paid[payment.year()] = []
@@ -651,7 +671,10 @@ def run(config, year, quarter):
                     else:
                         if click.confirm('Skip payment?', default=False): break
 
+                # Add matched invoice numbers to payment
                 payment.add_invoice_numbers(manual_invoices)
+
+                # Make payment 'manually assigned'
                 manual_payments[payment.identifier()] = payment.export()
 
                 # Add invoices to 'paid' invoices
@@ -665,19 +688,21 @@ def run(config, year, quarter):
                 # Make some space
                 click.echo("\n")
 
-                if manual_payments and click.confirm('Save results before exiting?', default=True):
+                if click.confirm('Save results before exiting?', default=True):
                     # Save paid invoices
                     db.save_paid(already_paid)
 
-                    # Save results
-                    click.echo('Saving ' + str(len(manual_payments)) + ' payment(s) ..', nl=False)
-                    db.save_session(manual_payments)
-                    click.echo(' done.')
+                    if manual_payments:
+                        # Save manually assigned payments
+                        click.echo('Saving ' + str(len(manual_payments)) + ' payment(s) ..', nl=False)
+                        db.save_session(manual_payments, identifier)
+                        click.echo(' done.')
 
                     # Shut down
                     click.echo('Accounting mode OFF')
 
                 click.Context.exit(0)
+
 
         if not manual_payments:
             click.echo('Nothing to do, moving on ..')
@@ -690,11 +715,8 @@ def run(config, year, quarter):
 
         # Save results
         click.echo('Saving ' + str(len(manual_payments)) + ' payment(s) ..', nl=False)
-        db.save_session(manual_payments)
+        db.save_session(manual_payments, identifier)
         click.echo(' done.')
-
-        for payment in manual_payments:
-            pass
 
     click.echo('Accounting mode OFF')
 
@@ -706,7 +728,19 @@ def save(config):
     Apply session results
     '''
 
-    pass
+    # Initialize database
+    db = Database(config)
+
+    # Prompt about really saving session data
+    if not click.confirm('Save current session?', default=True):
+        click.echo('Exiting ..')
+        click.Context.exit(0)
+
+    # Import session files
+    for identifier in db.structures.keys():
+        click.echo('Importing ' + identifier + ' session ..', nl=False)
+        db.import_session(identifier)
+        click.echo(' done.')
 
 
 @acc.command()
@@ -822,6 +856,7 @@ def lookup(config, isbn, cache_only, force_refresh):
         click.echo(' failed!')
 
         click.echo('Authentication error: ' + str(error))
+        click.echo('Exiting ..')
         click.Context.exit(1)
 
     # Retrieve data (either from cache or via API call)
@@ -864,6 +899,7 @@ def ola(config, isbn, quantity):
         click.echo(' failed!')
 
         click.echo('Authentication error: ' + str(error))
+        click.echo('Exiting ..')
         click.Context.exit(1)
 
     # Retrieve data (either from cache or via API call)

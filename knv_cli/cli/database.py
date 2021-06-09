@@ -2,6 +2,8 @@ from os import remove
 from os.path import basename, join
 from zipfile import ZipFile
 
+import pendulum
+
 from ..structure.payments.payments import Payments
 from ..structure.payments.paypal import PaypalPayments
 from ..structure.payments.volksbank import VolksbankPayments
@@ -47,7 +49,14 @@ class Database:
         }
 
         # Define session files
-        self.session_files = build_path(join(config.payment_dir, 'session'))
+        self.session_files = {
+            'session': build_path(join(config.payment_dir, 'sessions')),
+            'paypal': build_path(join(config.payment_dir, 'sessions', 'paypal')),
+            'volksbank': build_path(join(config.payment_dir, 'sessions', 'volksbank')),
+        }
+
+        # Define path to session files
+        self.sessions_dir = join(config.payment_dir, 'sessions')
 
         # Define merged data files
         self.db_files = build_path(config.database_dir)
@@ -226,14 +235,29 @@ class Database:
     def save_paid(self, data: list) -> None:
         for year, lines in data.items():
             with open(join(self.config.payment_dir, year + '-paid.txt'), 'w') as file:
-                file.writelines("%s\n" % i for i in dedupe(lines))
+                file.writelines("%s\n" % line for line in dedupe(lines))
 
 
     # ACCOUNTING SESSION methods
 
-    def save_session(self, data: dict) -> None:
-        Session(data).save(self.config.session_dir)
+    def reset_session(self) -> None:
+        for file in self.session_files['session']:
+            remove(file)
+
+
+    def save_session(self, data: dict, identifier: str) -> None:
+        dump_json(data, join(self.sessions_dir, identifier + '_' + pendulum.now().strftime('%Y-%m-%d_%I-%M-%S') + '.json'))
 
 
     def load_session(self) -> Session:
-        return Session(load_json(self.session_files))
+        return Session(load_json(build_path(self.sessions_dir)))
+
+
+    def import_session(self, identifier: str) -> None:
+        if not identifier in self.structures:
+            raise Exception
+
+        session_data = load_json(build_path(self.sessions_dir, identifier + '_*.json'))
+
+        for code, data in group_data(session_data).items():
+            dump_json(sort_data(data), join(self.sessions_dir, identifier, code + '.json'))
