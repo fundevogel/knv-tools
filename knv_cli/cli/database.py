@@ -181,10 +181,14 @@ class Database:
 
 
     def get_payments(self, identifier: str, payment_files: list = None):
-        # Select appropriate source files
+        # Select & load appropriate source files
         payment_files = payment_files if payment_files else self.payment_files[identifier]
+        payments = load_json(payment_files)
 
-        return self.structures[identifier](load_json(payment_files), load_json(self.db_files), load_json(self.invoice_files['data']))
+        # Merge with manually assigned payment files
+        payments.update(load_json(self.session_files['paypal']))
+
+        return self.structures[identifier](payments, load_json(self.db_files), load_json(self.invoice_files['data']))
 
 
     def get_data(self, identifier: str) -> dict:
@@ -213,6 +217,7 @@ class Database:
 
     def get_payment(self, identifier: str) -> dict:
         payments = load_json(self.payment_files['paypal'])
+        payments.update(load_json(self.session_files['paypal']))
 
         return {} if identifier not in payments else payments[identifier]
 
