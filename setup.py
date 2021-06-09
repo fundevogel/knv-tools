@@ -37,6 +37,7 @@ setup(
         'pandas',
         'pendulum',
         'PyPDF2',
+        'reportlab',
         'xdg',
         'zeep',
     ],

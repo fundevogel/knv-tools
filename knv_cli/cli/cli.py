@@ -5,7 +5,7 @@ import pendulum
 
 from matplotlib import pyplot, rcParams
 from pandas import DataFrame
-from PyPDF2 import PdfFileReader, PdfFileMerger
+from PyPDF2 import PdfFileMerger
 
 from ..api.exceptions import InvalidLoginException
 from ..api.webservice import Webservice
@@ -13,7 +13,7 @@ from ..utils import load_json, dump_csv
 from ..utils import build_path, create_path, group_data
 from .config import Config
 from .database import Database
-from .helpers import ask_credentials, pretty_print, print_get_result
+from .helpers import add_watermark, ask_credentials, pretty_print, print_get_result
 
 
 clickpath = click.Path(exists=True)
@@ -452,6 +452,101 @@ def acc(config):
 @pass_config
 @click.option('-y', '--year', default=None, help='Year.')
 @click.option('-q', '--quarter', default=None, help='Quarter.')
+def prepare(config, year, quarter):
+    '''
+    Match payments & invoices
+    '''
+
+    # Initialize database
+    db = Database(config)
+
+    # Match payments for all available gateways
+    for identifier in db.structures.keys():
+        # Exit if database is empty
+        data_files = build_path(join(config.payment_dir, identifier), year=year, quarter=quarter)
+
+        if not data_files:
+            click.echo('Error: No payments found in database.')
+            click.Context.exit(1)
+
+        click.echo('Matching ' + identifier + ' data ..', nl=False)
+
+        # Initialize invoice handler
+        invoices = db.get_invoices()
+
+        # Initialize payment handler
+        handler = db.get_payments(identifier, data_files)
+        payment_data = handler.export()
+
+        if config.verbose:
+            # Write matches to stdout
+            click.echo(payment_data)
+
+        else:
+            # Filter & merge matched invoices
+            for code, data in group_data(payment_data).items():
+                # Extract matching invoice numbers
+                invoice_numbers = set()
+
+                # Initialize merger object
+                merger = PdfFileMerger()
+
+                for item in data:
+                    # If no invoices assigned to payment ..
+                    if not isinstance(item['Rechnungen'], list):
+                        click.echo('No invoices for ' + str(item))
+
+                        # .. proceed to next payment
+                        continue
+
+                    for invoice_number in item['Rechnungen']:
+                        # If invoice ..
+                        # (1) .. not present in database ..
+                        if not invoices.has(invoice_number):
+                            click.echo("\n" + 'Missing invoice: ' + str(invoice_number))
+
+                            # .. proceed to next invoice
+                            continue
+
+                        # (2) .. already processed
+                        if invoice_number in invoice_numbers:
+                            click.echo("\n" + 'Duplicate invoice: ' + str(invoice_number))
+
+                            # .. proceed to next invoice
+                            continue
+
+                        # Merge invoice files
+                        # (1) Load original PDF file
+                        pdf_file = invoices.get(invoice_number).file()
+
+                        # (2) Add watermark (= payment date & banking service)
+                        pdf_file = add_watermark(pdf_file, 'Bezahlt am ' + item['Datum'] + ' per ' + item['Dienstleister'])
+
+                        # (3) Merge result with processed PDF invoices
+                        merger.append(pdf_file)
+
+                        # Mark invoice number as processed
+                        invoice_numbers.add(invoice_number)
+
+                # Write merged PDF invoices to disk
+                invoice_file = join(config.matches_dir, identifier, code, code + '.pdf')
+                create_path(invoice_file)
+                merger.write(invoice_file)
+
+            # Write results to CSV files
+            for code, data in group_data(payment_data).items():
+                csv_file = join(config.matches_dir, identifier, code, code + '.csv')
+                dump_csv(data, csv_file)
+
+        click.echo(' done!')
+
+    click.echo('Process complete!')
+
+
+@acc.command()
+@pass_config
+@click.option('-y', '--year', default=None, help='Year.')
+@click.option('-q', '--quarter', default=None, help='Quarter.')
 def run(config, year, quarter):
     '''
     Start accounting session
@@ -483,7 +578,6 @@ def run(config, year, quarter):
 
         # Load current session
         last_session = db.load_session()
-        print(last_session.session)
 
         # Initialize invoice handler
         invoices = db.get_invoices()
@@ -614,6 +708,8 @@ def save(config):
     Import session results
     '''
 
+    pass
+
 
 @acc.command()
 @pass_config
@@ -665,80 +761,6 @@ def report(config, year, quarter, years_back, enable_chart):
         df.plot(kind='bar').get_figure().savefig(join(config.rankings_dir, file_name))
 
     click.echo(' done!')
-
-
-@acc.command()
-@pass_config
-@click.option('-y', '--year', default=None, help='Year.')
-@click.option('-q', '--quarter', default=None, help='Quarter.')
-def match(config, year, quarter):
-    '''
-    Match payments & invoices
-    '''
-
-    # Initialize database
-    db = Database(config)
-
-    # Match payments for all available gateways
-    for identifier in db.structures.keys():
-        # Exit if database is empty
-        data_files = build_path(join(config.payment_dir, identifier), year=year, quarter=quarter)
-
-        if not data_files:
-            click.echo('Error: No payments found in database.')
-            click.Context.exit(1)
-
-        click.echo('Matching ' + identifier + ' data ..', nl=False)
-
-        # Initialize invoice handler
-        invoices = db.get_invoices()
-
-        # Initialize payment handler
-        handler = db.get_payments(identifier, data_files)
-        payment_data = handler.export()
-
-        if config.verbose:
-            # Write matches to stdout
-            click.echo(payment_data)
-
-        else:
-            # Filter & merge matched invoices
-            for code, data in group_data(payment_data).items():
-                # Extract matching invoice numbers
-                invoice_numbers = set()
-
-                for item in data:
-                    if isinstance(item['Rechnungen'], list):
-                        for invoice_number in item['Rechnungen']:
-                            invoice_numbers.add(invoice_number)
-
-                # Init merger object
-                merger = PdfFileMerger()
-
-                # Merge corresponding invoices
-                for invoice_number in sorted(invoice_numbers):
-                    if invoices.has(invoice_number):
-                        pdf_file = invoices.get(invoice_number).file()
-
-                        with open(pdf_file, 'rb') as file:
-                            merger.append(PdfFileReader(file))
-
-                    else:
-                        click.echo("\n" + 'Missing invoice: ' + str(invoice_number))
-
-                # Write merged PDF to disk
-                invoice_file = join(config.matches_dir, identifier, code, code + '.pdf')
-                create_path(invoice_file)
-                merger.write(invoice_file)
-
-            # Write results to CSV files
-            for code, data in group_data(payment_data).items():
-                csv_file = join(config.matches_dir, identifier, code, code + '.csv')
-                dump_csv(data, csv_file)
-
-        click.echo(' done!')
-
-    click.echo('Process complete!')
 
 
 # API tasks
