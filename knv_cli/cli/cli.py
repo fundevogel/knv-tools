@@ -10,7 +10,7 @@ from PyPDF2 import PdfFileMerger
 from ..api.exceptions import InvalidLoginException
 from ..api.webservice import Webservice
 from ..utils import load_json, dump_csv
-from ..utils import build_path, create_path, group_data
+from ..utils import build_path, create_path, date2string, group_data
 from .config import Config
 from .database import Database
 from .helpers import add_watermark, ask_credentials, pretty_print, print_get_result
@@ -469,7 +469,7 @@ def prepare(config, year, quarter):
             click.echo('Error: No payments found in database.')
             click.Context.exit(1)
 
-        click.echo('Matching ' + identifier + ' data ..', nl=False)
+        click.echo('Matching ' + identifier + ' data:')
 
         # Initialize invoice handler
         invoices = db.get_invoices()
@@ -503,14 +503,14 @@ def prepare(config, year, quarter):
                         # If invoice ..
                         # (1) .. not present in database ..
                         if not invoices.has(invoice_number):
-                            click.echo("\n" + 'Missing invoice: ' + str(invoice_number))
+                            click.echo('Missing invoice: ' + str(invoice_number))
 
                             # .. proceed to next invoice
                             continue
 
                         # (2) .. already processed
                         if invoice_number in invoice_numbers:
-                            click.echo("\n" + 'Duplicate invoice: ' + str(invoice_number))
+                            click.echo('Duplicate invoice: ' + str(invoice_number))
 
                             # .. proceed to next invoice
                             continue
@@ -520,7 +520,7 @@ def prepare(config, year, quarter):
                         pdf_file = invoices.get(invoice_number).file()
 
                         # (2) Add watermark (= payment date & banking service)
-                        pdf_file = add_watermark(pdf_file, 'Bezahlt am ' + item['Datum'] + ' per ' + item['Dienstleister'])
+                        pdf_file = add_watermark(pdf_file, 'Bezahlt am ' + date2string(item['Datum'], True) + ' per ' + item['Dienstleister'])
 
                         # (3) Merge result with processed PDF invoices
                         merger.append(pdf_file)
@@ -537,8 +537,6 @@ def prepare(config, year, quarter):
             for code, data in group_data(payment_data).items():
                 csv_file = join(config.matches_dir, identifier, code, code + '.csv')
                 dump_csv(data, csv_file)
-
-        click.echo(' done!')
 
     click.echo('Process complete!')
 
@@ -705,7 +703,7 @@ def run(config, year, quarter):
 @pass_config
 def save(config):
     '''
-    Import session results
+    Apply session results
     '''
 
     pass
