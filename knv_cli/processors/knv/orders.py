@@ -47,7 +47,7 @@ class OrderProcessor(Processor):
                 order['PLZ'] = self.normalize(item['rechnungaddresszipcode'])
                 order['Ort'] = self.normalize(item['rechnungaddresscity'])
                 order['Land'] = self.normalize(item['rechnungaddresscountry'])
-                order['Telefon'] = str(item['rechnungaddressphonenumber'])
+                order['Telefon'] = self.normalize(item['rechnungaddressphonenumber'])
                 order['Email'] = item['rechnungaddressemail']
                 order['Bestellung'] = []
                 order['Rechnungen'] = 'nicht zugeordnet'
@@ -63,6 +63,9 @@ class OrderProcessor(Processor):
                 }
 
                 orders[code] = order
+
+                if order['Telefon'] != '':
+                    order['Telefon'] = '0' + order['Telefon'].replace('+49', '')
 
             # Add information about ..
             # (1) .. each purchased article
