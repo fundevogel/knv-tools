@@ -90,8 +90,8 @@ def rank(config, year, quarter, enable_chart, limit):
         count = sum([item[-1] for item in ranking])
 
         # Write ranking to CSV file
-        file_name = basename(data_files[0])[:-5] + '_' + basename(data_files[-1])[:-5]
-        ranking_file = join(config.rankings_dir, file_name + '_' + str(count) + '.csv')
+        file_name = ''.format(first_year=basename(data_files[0])[:-5], last_year=basename(data_files[-1])[:-5])
+        ranking_file = join(config.rankings_dir, '{year_range}_{count}.csv'.format(year_range=file_name, count=str(count)))
 
         dump_csv(ranking, ranking_file)
 
@@ -110,7 +110,8 @@ def rank(config, year, quarter, enable_chart, limit):
         rcParams.update({'figure.autolayout': True})
 
         # (4) Output graph
-        df.plot(kind='barh').get_figure().savefig(join(config.rankings_dir, file_name + '_' + str(limit) + '.png'))
+        file_name = '{year_range}_{limit}.png'.format(year_range=file_name, limit=str(limit))
+        df.plot(kind='barh').get_figure().savefig(join(config.rankings_dir, file_name))
 
         click.echo(' done!')
 
@@ -152,10 +153,7 @@ def contacts(config, date, blocklist):
 
     else:
         # Write contacts to CSV file
-        file_name = date + '_' + today.to_datetime_string()[:10]
-        contacts_file = join(config.contacts_dir, file_name + '.csv')
-
-        dump_csv(contacts, contacts_file)
+        dump_csv(contacts, join(config.contacts_dir, '{date}_{today}.csv'.format(date=date, today=today.to_datetime_string()[:10])))
 
     click.echo(' done!')
 
@@ -175,9 +173,7 @@ def db(config):
 @db.command()
 @pass_config
 def stats(config):
-
-    db = Database(config)
-    db.import_session('paypal')
+    pass
 
 
 @db.command()
@@ -424,7 +420,7 @@ def prepare(config, year, quarter):
             click.echo('Exiting ..')
             click.Context.exit(1)
 
-        click.echo('Matching ' + identifier + ' data:')
+        click.echo('Matching "{}" data:'.format(identifier))
 
         # Initialize invoice handler
         invoices = db.get_invoices()
@@ -449,7 +445,7 @@ def prepare(config, year, quarter):
                 for item in data:
                     # If no invoices assigned to payment ..
                     if not isinstance(item['Rechnungen'], list):
-                        click.echo('No invoices for ' + str(item))
+                        click.echo('No invoices for {}'.format(str(item)))
 
                         # .. proceed to next payment
                         continue
@@ -458,14 +454,14 @@ def prepare(config, year, quarter):
                         # If invoice ..
                         # (1) .. not present in database ..
                         if not invoices.has(invoice_number):
-                            click.echo('Missing invoice: ' + str(invoice_number))
+                            click.echo('Missing invoice: "{}"'.format(str(invoice_number)))
 
                             # .. proceed to next invoice
                             continue
 
                         # (2) .. already processed
                         if invoice_number in invoice_numbers:
-                            click.echo('Duplicate invoice: ' + str(invoice_number))
+                            click.echo('Duplicate invoice: "{}"'.format(str(invoice_number)))
 
                             # .. proceed to next invoice
                             continue
@@ -475,7 +471,7 @@ def prepare(config, year, quarter):
                         pdf_file = invoices.get(invoice_number).file()
 
                         # (2) Add watermark (= payment date & banking service)
-                        pdf_file = add_watermark(pdf_file, 'Bezahlt am ' + date2string(item['Datum'], True) + ' per ' + item['Dienstleister'])
+                        pdf_file = add_watermark(pdf_file, 'Bezahlt am {date} per {service}'.format(date=date2string(item['Datum'], True), service=item['Dienstleister']))
 
                         # (3) Merge result with processed PDF invoices
                         merger.append(pdf_file)
@@ -517,7 +513,7 @@ def run(config, year, quarter):
     # Match payments for all available gateways
     for identifier in db.structures.keys():
         # Take a deep breath, relax ..
-        if not click.confirm('Ready to proceed with ' + identifier + ' data?', default=True):
+        if not click.confirm('Ready to proceed with {} data?'.format(identifier), default=True):
             continue
 
         # Exit if database is empty
@@ -527,7 +523,7 @@ def run(config, year, quarter):
             click.echo('No payments found in database, skipping ..')
             continue
 
-        click.echo('Initializing ' + identifier + ' data ..', nl=False)
+        click.echo('Initializing {} data ..'.format(identifier), nl=False)
 
         # Load current session
         last_session = db.load_session()
@@ -561,12 +557,12 @@ def run(config, year, quarter):
             # Wrap logic in case session gets cut short ..
             try:
                 # Print current payment identifier
-                click.echo('Payment No. ' + str(count + 1) + ':')
+                click.echo('Payment No. {}:'.format(str(count + 1)))
                 pretty_print(payment.export())
 
                 if payment.invoice_numbers():
                     for index, invoice in enumerate(payment.invoices()):
-                        click.echo('Invoice No. ' + str(index + 1) + ': ')
+                        click.echo('Invoice No. {}: '.format(str(index + 1)))
                         pretty_print(invoice.export())
 
                     if click.confirm('Does payment match the invoice(s)?', default=False):
@@ -593,7 +589,7 @@ def run(config, year, quarter):
                     for manual_invoice in manual_invoices:
                         if not invoices.has(manual_invoice):
                             manual_invoices.remove(manual_invoice)
-                            click.echo('Invoice "' + manual_invoice + '" was not found!')
+                            click.echo('Invoice "{}" was not found!'.format(manual_invoice))
 
                     if manual_invoices:
                         click.echo('You have entered the following invoice numbers:')
@@ -629,7 +625,7 @@ def run(config, year, quarter):
 
                     if manual_payments:
                         # Save manually assigned payments
-                        click.echo('Saving ' + str(len(manual_payments)) + ' payment(s) ..', nl=False)
+                        click.echo('Saving {} payment(s) ..'.format(str(len(manual_payments))), nl=False)
                         db.save_session(manual_payments, identifier)
                         click.echo(' done.')
 
@@ -649,7 +645,7 @@ def run(config, year, quarter):
         db.save_paid(already_paid)
 
         # Save results
-        click.echo('Saving ' + str(len(manual_payments)) + ' payment(s) ..', nl=False)
+        click.echo('Saving {} payment(s) ..'.format(str(len(manual_payments))), nl=False)
         db.save_session(manual_payments, identifier)
         click.echo(' done.')
 
@@ -673,7 +669,7 @@ def save(config):
 
     # Import session files
     for identifier in db.structures.keys():
-        click.echo('Importing ' + identifier + ' session ..', nl=False)
+        click.echo('Importing {} session ..'.format(identifier), nl=False)
         db.import_session(identifier)
         click.echo(' done.')
 
@@ -724,7 +720,7 @@ def report(config, year, quarter, years_back, enable_chart):
         click.echo('Creating graph from data ..', nl=False)
 
         # Build filename indicating year range
-        file_name = 'revenues-' + year + '-' + str(int(year) - int(years_back)) + '.png'
+        file_name = 'revenues-{first_year}-{last_year}.png'.format(first_year=year, last_year=str(int(year) - int(years_back)))
         df.plot(kind='bar').get_figure().savefig(join(config.rankings_dir, file_name))
 
     click.echo(' done!')
@@ -755,10 +751,10 @@ def version(config):
     ws = Webservice()
 
     try:
-        click.echo('Current API version: ' + ws.version())
+        click.echo('Current API version: {}'.format(ws.version()))
 
     except Exception as error:
-        click.echo('Error: ' + str(error))
+        click.echo('Error: {}'.format(str(error)))
 
 
 @api.command()
@@ -790,7 +786,7 @@ def lookup(config, isbn, cache_only, force_refresh):
     except InvalidLoginException as error:
         click.echo(' failed!')
 
-        click.echo('Authentication error: ' + str(error))
+        click.echo('Authentication error: {}'.format(str(error)))
         click.echo('Exiting ..')
         click.Context.exit(1)
 
@@ -805,7 +801,7 @@ def lookup(config, isbn, cache_only, force_refresh):
     else:
         # TODO: Print complete dataset
         if 'AutorSachtitel' in data:
-            click.echo('Match: ' + data['AutorSachtitel'])
+            click.echo('Match: {}'.format(data['AutorSachtitel']))
 
 
 @api.command()
@@ -833,7 +829,7 @@ def ola(config, isbn, quantity):
     except InvalidLoginException as error:
         click.echo(' failed!')
 
-        click.echo('Authentication error: ' + str(error))
+        click.echo('Authentication error: {}'.format(str(error)))
         click.echo('Exiting ..')
         click.Context.exit(1)
 
