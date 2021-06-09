@@ -202,8 +202,15 @@ def flush(config):
 @click.argument('query')
 def search(config, source, query):
     '''
-    Query database SOURCE for QUERY
+    Query SOURCE for QUERY
     '''
+
+    # Normalize input
+    source = source.lower()
+
+    if source not in ['invoices', 'orders', 'payments']:
+        click.echo('Unknown source "{}", exiting ..'.format(source))
+        click.Context.exit(0)
 
     # Initialize database
     db = Database(config)
@@ -215,23 +222,19 @@ def search(config, source, query):
     # Store items already negated
     negated = []
 
-    if source == 'data':
-        blocked_keys = ['Bestellung', 'Rechnungen', 'Gutscheine', 'Abwicklung']
-        data = db.get_orders().export()
-
-    elif source == 'invoices':
+    if source == 'invoices':
         blocked_keys = ['Datei', 'Steuern', 'Gutscheine']
         data = db.get_invoices().export()
 
-    elif source == 'payments':
+    if source == 'orders':
+        blocked_keys = ['Bestellung', 'Rechnungen', 'Gutscheine', 'Abwicklung']
+        data = db.get_orders().export()
+
+    if source == 'payments':
         blocked_keys = ['Gebühr', 'Netto', 'Steuern']
 
         for identifier in db.structures.keys():
             data += db.get_payments(identifier).export()
-
-    else:
-        click.echo('Unknown source "{}", exiting ..'.format(source))
-        click.Context.exit(0)
 
     # Start search
     for item in data:
@@ -249,11 +252,10 @@ def search(config, source, query):
 
                 # If obviously unsuccessful ..
                 if not click.confirm('Show complete record?', default=False):
-                    # .. ask to blocklist results like this, in any case ..
-                    if click.confirm('Add key-value pair to blocklist?', default=False):
-                        negated.append({key: value})
+                    # .. add result to blocklist
+                    negated.append({key: value})
 
-                    # .. proceed to next key-value pair
+                    # Proceed to next key-value pair
                     continue
 
                 pretty_print(item)
@@ -269,247 +271,107 @@ def search(config, source, query):
     click.echo('No further results for search term "{}", exiting ..'.format(query))
 
 
-# DATABASE REBUILD subtasks
-
-@db.group()
+@db.command()
 @pass_config
-def rebuild(config):
-    '''
-    Database "rebuild" subtasks
-    '''
-
-    pass
-
-
-@rebuild.command()
-@pass_config
-def all(config):
+@click.argument('source')
+def rebuild(config, source):
     '''
     Rebuild database
     '''
 
+    # Normalize input
+    source = source.lower()
+
+    if source not in [
+        'all',
+        'info', 'infos',
+        'invoice', 'invoices',
+        'order', 'orders',
+        'payment', 'payments'
+    ]:
+        click.echo('Unknown source "{}", exiting ..'.format(source))
+        click.Context.exit(0)
+
     # Initialize database
     db = Database(config)
 
-    # Import info files
-    click.echo('Rebuilding infos ..', nl=False)
-    db.rebuild_infos()
-    click.echo(' done.')
 
-    # Import invoice files
-    click.echo('Rebuilding invoices ..', nl=False)
-    db.rebuild_invoices()
-    click.echo(' done.')
+    if source in ['all', 'info', 'infos']:
+        # Import info files
+        click.echo('Rebuilding infos ..', nl=False)
+        db.rebuild_infos()
+        click.echo(' done.')
 
-    # Import order files
-    click.echo('Rebuilding orders ..', nl=False)
-    db.rebuild_orders()
-    click.echo(' done.')
+    if source in ['all', 'invoice', 'invoices']:
+        # Import invoice files
+        click.echo('Rebuilding invoices ..', nl=False)
+        db.rebuild_invoices()
+        click.echo(' done.')
+
+    if source in ['all', 'order', 'orders']:
+        # Import order files
+        click.echo('Rebuilding orders ..', nl=False)
+        db.rebuild_orders()
+        click.echo(' done.')
 
     # Merge data sources
-    click.echo('Merging data sources ..', nl=False)
-    db.rebuild_data()
-    click.echo(' done.')
+    if source in ['all', 'info', 'infos', 'order', 'orders']:
+        click.echo('Merging data sources ..', nl=False)
+        db.rebuild_data()
+        click.echo(' done.')
 
-    # Import payment files
-    click.echo('Rebuilding payments ..', nl=False)
-    db.rebuild_payments()
-    click.echo(' done.')
+    if source in ['all', 'payment', 'payments']:
+        # Import payment files
+        click.echo('Rebuilding payments ..', nl=False)
+        db.rebuild_payments()
+        click.echo(' done.')
 
     click.echo('Update complete!')
 
 
-@rebuild.command()
+@db.command()
 @pass_config
-def payments(config):
+@click.argument('source')
+@click.argument('identifier')
+def get(config, source, identifier):
     '''
-    Rebuild payments
-    '''
-
-    # Initialize database
-    db = Database(config)
-
-    # Import payment files
-    click.echo('Rebuilding payments ..', nl=False)
-    db.rebuild_payments()
-    click.echo(' done.')
-
-
-@rebuild.command()
-@pass_config
-def infos(config):
-    '''
-    Rebuild infos
+    Retrieve IDENTIFIER from database
     '''
 
-    # Initialize database
-    db = Database(config)
+    # Normalize input
+    source = source.lower()
 
-    # Import info files
-    click.echo('Rebuilding infos ..', nl=False)
-    db.rebuild_infos()
-    click.echo(' done.')
-
-
-@rebuild.command()
-@pass_config
-def invoices(config):
-    '''
-    Rebuild invoices
-    '''
-
-    # Initialize database
-    db = Database(config)
-
-    # Import invoice files
-    click.echo('Rebuilding invoices ..', nl=False)
-    db.rebuild_invoices()
-    click.echo(' done.')
-
-
-@rebuild.command()
-@pass_config
-def orders(config):
-    '''
-    Rebuild orders
-    '''
-
-    # Initialize database
-    db = Database(config)
-
-    # Import order files
-    click.echo('Rebuilding orders ..', nl=False)
-    db.rebuild_orders()
-    click.echo(' done.')
-
-
-@rebuild.command()
-@pass_config
-def merge(config):
-    '''
-    Rebuild merged data
-    '''
-
-    # Initialize database
-    db = Database(config)
-
-    # Merge data sources
-    click.echo('Merging data sources ..', nl=False)
-    db.rebuild_data()
-    click.echo(' done.')
-
-
-# DATABASE GET subtasks
-
-@db.group()
-@pass_config
-def get(config):
-    '''
-    Database "get" subtasks
-    '''
-
-    pass
-
-
-@get.command()
-@pass_config
-@click.argument('order_number')
-def data(config, order_number):
-    '''
-    Retrieve full order from database
-    '''
+    if source not in ['data', 'info', 'invoice', 'order', 'payment']:
+        click.echo('Unknown source "{}", exiting ..'.format(source))
+        click.Context.exit(0)
 
     click.echo('Searching database ..', nl=False)
 
     # Initialize database
     db = Database(config)
 
-    # Extract data record for given order number
-    data = db.get_data(order_number)
+    if source == 'data':
+        # Extract data record for given order number
+        data = db.get_data(identifier)
+
+    if source == 'info':
+        # Extract info for given order number
+        data = db.get_info(identifier)
+
+    if source == 'invoice':
+        # Extract invoice for given invoice number
+        data = db.get_invoice(identifier)
+
+    if source == 'order':
+        # Extract order for given order number
+        data = db.get_order(identifier)
+
+    if source == 'payment':
+        # Extract payment for given transaction
+        data = db.get_payment(identifier)
 
     # Print result
-    print_get_result(data, order_number)
-
-
-@get.command()
-@pass_config
-@click.argument('order_number')
-def info(config, order_number):
-    '''
-    Retrieve (raw) info from database
-    '''
-
-    click.echo('Searching database ..', nl=False)
-
-    # Initialize database
-    db = Database(config)
-
-    # Extract info for given order number
-    info = db.get_info(order_number)
-
-    # Print result
-    print_get_result(info, order_number)
-
-
-@get.command()
-@pass_config
-@click.argument('invoice_number')
-def invoice(config, invoice_number):
-    '''
-    Retrieve invoice from database
-    '''
-
-    click.echo('Searching database ..', nl=False)
-
-    # Initialize database
-    db = Database(config)
-
-    # Extract invoice for given invoice number
-    invoice = db.get_invoice(invoice_number)
-
-    # Print result
-    print_get_result(invoice, invoice_number)
-
-
-@get.command()
-@pass_config
-@click.argument('order_number')
-def order(config, order_number):
-    click.echo('Searching database ..', nl=False)
-    '''
-    Retrieve (raw) order from database
-    '''
-
-    click.echo('Searching database ..', nl=False)
-
-    # Initialize database
-    db = Database(config)
-
-    # Extract order for given order number
-    order = db.get_order(order_number)
-
-    # Print result
-    print_get_result(order, order_number)
-
-
-@get.command()
-@pass_config
-@click.argument('transaction')
-def payment(config, transaction):
-    '''
-    Retrieve payment from database
-    '''
-
-    click.echo('Searching database ..', nl=False)
-
-    # Initialize database
-    db = Database(config)
-
-    # Extract payment for given transaction
-    payment = db.get_payment(transaction)
-
-    # Print result
-    print_get_result(payment, transaction)
+    print_get_result(data, identifier)
 
 
 # ACCOUNTING tasks
