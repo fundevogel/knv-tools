@@ -55,7 +55,7 @@ class Volksbank(Gateway):
 
             payment = {}
 
-            payment['Datum'] = self.convert_date(item['Valuta'])
+            payment['Datum'] = self.date2string(item['Valuta'])
             payment['Treffer'] = 'unsicher'
             payment['Auftrag'] = 'nicht zugeordnet'
             payment['Rechnungen'] = 'nicht zugeordnet'
@@ -64,7 +64,7 @@ class Volksbank(Gateway):
             payment['Steuern'] = 'keine Angabe'
             payment['Währung'] = item['Währung']
             payment['Dienstleister'] = 'Volksbank'
-            payment['Rohdaten'] = item['Vorgang/Verwendungszweck']
+            payment['Verwendungszweck'] = reference
 
             # Skip blocked payers by ..
             is_blocklisted = False
