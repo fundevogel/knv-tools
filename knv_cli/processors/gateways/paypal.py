@@ -42,7 +42,7 @@ class Paypal(Gateway):
 
             payment = {}
 
-            payment['Datum'] = self.convert_date(item['Datum'])
+            payment['Datum'] = self.date2string(item['Datum'])
             payment['Treffer'] = 'unsicher'
             payment['Auftrag'] = 'nicht zugeordnet'
             payment['Rechnungen'] = 'nicht zugeordnet'

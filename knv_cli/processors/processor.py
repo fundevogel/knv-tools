@@ -3,12 +3,12 @@
 from __future__ import annotations
 
 from abc import ABCMeta, abstractmethod
-from datetime import datetime
 from os.path import splitext
 
 from pandas import concat, read_csv
 
-from ..utils import dump_json, load_csv, number2string
+from ..utils import dump_json, load_csv
+from ..utils import date2string, number2string
 
 
 class Processor(metaclass=ABCMeta):
@@ -63,19 +63,8 @@ class Processor(metaclass=ABCMeta):
 
     # HELPER methods
 
-    def convert_date(self, string: str, reverse: bool = False) -> str:
-        # Convert little-endian + dot separator to big-endian + hyphen separator
-        formats = ['%d.%m.%Y', '%Y-%m-%d']
-
-        # .. unless told otherwise
-        if reverse: formats.reverse()
-
-        try:
-            return datetime.strptime(string, formats[0]).strftime(formats[-1])
-
-        except ValueError:
-            # Give back unprocessed string if things go south
-            return string
+    def date2string(self, string: str, reverse: bool = False) -> str:
+        return date2string(string, reverse)
 
 
     def number2string(self, string: str) -> str:

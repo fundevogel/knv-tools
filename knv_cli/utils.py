@@ -1,5 +1,6 @@
 import json
 
+from datetime import datetime
 from glob import glob
 from hashlib import md5
 from operator import itemgetter
@@ -71,6 +72,21 @@ def dump_json(data: dict, json_file: str) -> None:
 
 
 # DATA HELPER functions
+
+def date2string(string: str, reverse: bool = False) -> str:
+    # Convert little-endian + dot separator to big-endian + hyphen separator
+    formats = ['%d.%m.%Y', '%Y-%m-%d']
+
+    # .. unless told otherwise
+    if reverse: formats.reverse()
+
+    try:
+        return datetime.strptime(string, formats[0]).strftime(formats[-1])
+
+    except ValueError:
+        # Give back unprocessed string if things go south
+        return string
+
 
 def number2string(string: str) -> str:
     # Convert to string & clear whitespaces
