@@ -13,12 +13,8 @@ class Payments(Molecule):
         pass
 
 
-    def paid(self) -> list:
-        return [child for child in self._children if child.is_paid()]
-
-
-    def unpaid(self) -> list:
-        return [child for child in self._children if not child.is_paid()]
+    def payments(self) -> list:
+        return self._children
 
 
     # HELPER methods

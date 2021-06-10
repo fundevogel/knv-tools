@@ -55,22 +55,32 @@ def cli(config, verbose, vkn, data_dir, import_dir, export_dir):
 @pass_config
 @click.option('-y', '--year', default=None, help='Year.')
 @click.option('-q', '--quarter', default=None, help='Quarter.')
+@click.option('-m', '--months', default=None, multiple=True, help='Month(s)')
 @click.option('-c', '--enable-chart', is_flag=True, help='Create bar chart alongside results.')
 @click.option('-l', '--limit', default=1, help='Minimum limit to be included in bar chart.')
-def rank(config, year, quarter, enable_chart, limit):
+def rank(config, year, quarter, months, enable_chart, limit):
     '''
     Rank sales
     '''
 
-    # Initialize database
-    db = Database(config)
+    # Fallback to current year
+    if year is None:
+        year = pendulum.today().year
+
+    # Make months into list if provided
+    if months is not None:
+        months = list(months)
 
     # Exit if database is empty
-    data_files = build_path(config.database_dir, year=year, quarter=quarter)
+    data_files = build_path(config.database_dir, year=year, quarter=quarter, months=months)
 
     if not data_files:
         click.echo('Error: No orders found in database.')
+        click.echo('Exiting ..')
         click.Context.exit(1)
+
+    # Initialize database
+    db = Database(config)
 
     # Initialize handler
     handler = db.get_orders(data_files)
@@ -89,8 +99,8 @@ def rank(config, year, quarter, enable_chart, limit):
         count = sum([item[-1] for item in ranking])
 
         # Write ranking to CSV file
-        file_name = basename(data_files[0])[:-5] + '_' + basename(data_files[-1])[:-5]
-        ranking_file = join(config.rankings_dir, file_name + '_' + str(count) + '.csv')
+        file_name = '{first_year}_{last_year}'.format(first_year=basename(data_files[0])[:-5], last_year=basename(data_files[-1])[:-5])
+        ranking_file = join(config.rankings_dir, '{year_range}_{count}.csv'.format(year_range=file_name, count=str(count)))
 
         dump_csv(ranking, ranking_file)
 
@@ -109,7 +119,8 @@ def rank(config, year, quarter, enable_chart, limit):
         rcParams.update({'figure.autolayout': True})
 
         # (4) Output graph
-        df.plot(kind='barh').get_figure().savefig(join(config.rankings_dir, file_name + '_' + str(limit) + '.png'))
+        file_name = '{year_range}_{limit}.png'.format(year_range=file_name, limit=str(limit))
+        df.plot(kind='barh').get_figure().savefig(join(config.rankings_dir, file_name))
 
         click.echo(' done!')
 
@@ -151,10 +162,7 @@ def contacts(config, date, blocklist):
 
     else:
         # Write contacts to CSV file
-        file_name = date + '_' + today.to_datetime_string()[:10]
-        contacts_file = join(config.contacts_dir, file_name + '.csv')
-
-        dump_csv(contacts, contacts_file)
+        dump_csv(contacts, join(config.contacts_dir, '{date}_{today}.csv'.format(date=date, today=today.to_datetime_string()[:10])))
 
     click.echo(' done!')
 
@@ -173,7 +181,7 @@ def db(config):
 
 @db.command()
 @pass_config
-def stats():
+def stats(config):
     pass
 
 
@@ -187,253 +195,188 @@ def flush(config):
     # Initialize database
     db = Database(config)
 
-    # Import payment files
+    # Delete database files
     click.echo('Flushing database ..', nl=False)
     db.flush()
     click.echo(' done.')
 
 
-# DATABASE REBUILD subtasks
-
-@db.group()
+@db.command()
 @pass_config
-def rebuild(config):
+@click.argument('source')
+@click.argument('query')
+def search(config, source, query):
     '''
-    Database "rebuild" subtasks
+    Query SOURCE for QUERY
     '''
 
-    pass
+    # Normalize input
+    source = source.lower()
+
+    if source not in ['invoices', 'orders', 'payments']:
+        click.echo('Unknown source "{}", exiting ..'.format(source))
+        click.Context.exit(0)
+
+    # Initialize database
+    db = Database(config)
+
+    # Set defaults
+    blocked_keys = []
+    data = []
+
+    # Store items already negated
+    negated = []
+
+    if source == 'invoices':
+        blocked_keys = ['Datei', 'Steuern', 'Gutscheine']
+        data = db.get_invoices().export()
+
+    if source == 'orders':
+        blocked_keys = ['Bestellung', 'Rechnungen', 'Gutscheine', 'Abwicklung']
+        data = db.get_orders().export()
+
+    if source == 'payments':
+        blocked_keys = ['Gebühr', 'Netto', 'Steuern']
+
+        for identifier in db.structures.keys():
+            data += db.get_payments(identifier).export()
+
+    # Start search
+    for item in data:
+        # Skip blocked keys
+        for key in blocked_keys:
+            if key in item: del item[key]
+
+        for key, value in item.items():
+            # Skip key-value pairs negated before
+            if {key: value} in negated: continue
+
+            # Search everything
+            if query.lower() in str(value).lower():
+                click.echo('{key}: "{value}"'.format(key=key, value=str(value)))
+
+                # If obviously unsuccessful ..
+                if not click.confirm('Show complete record?', default=False):
+                    # .. add result to blocklist
+                    negated.append({key: value})
+
+                    # Proceed to next key-value pair
+                    continue
+
+                pretty_print(item)
+
+                # Terminate if search was sufficient, otherwise ..
+                if click.confirm('Quit search?', default=False):
+                    click.echo('Exiting ..')
+                    click.Context.exit(0)
+
+                # .. move on
+                break
+
+    click.echo('No further results for search term "{}", exiting ..'.format(query))
 
 
-@rebuild.command()
+@db.command()
 @pass_config
-def all(config):
+@click.argument('source')
+def rebuild(config, source):
     '''
     Rebuild database
     '''
 
+    # Normalize input
+    source = source.lower()
+
+    if source not in [
+        'all',
+        'info', 'infos',
+        'invoice', 'invoices',
+        'order', 'orders',
+        'payment', 'payments'
+    ]:
+        click.echo('Unknown source "{}", exiting ..'.format(source))
+        click.Context.exit(0)
+
     # Initialize database
     db = Database(config)
 
-    # Import info files
-    click.echo('Rebuilding infos ..', nl=False)
-    db.rebuild_infos()
-    click.echo(' done.')
 
-    # Import invoice files
-    click.echo('Rebuilding invoices ..', nl=False)
-    db.rebuild_invoices()
-    click.echo(' done.')
+    if source in ['all', 'info', 'infos']:
+        # Import info files
+        click.echo('Rebuilding infos ..', nl=False)
+        db.rebuild_infos()
+        click.echo(' done.')
 
-    # Import order files
-    click.echo('Rebuilding orders ..', nl=False)
-    db.rebuild_orders()
-    click.echo(' done.')
+    if source in ['all', 'invoice', 'invoices']:
+        # Import invoice files
+        click.echo('Rebuilding invoices ..', nl=False)
+        db.rebuild_invoices()
+        click.echo(' done.')
+
+    if source in ['all', 'order', 'orders']:
+        # Import order files
+        click.echo('Rebuilding orders ..', nl=False)
+        db.rebuild_orders()
+        click.echo(' done.')
 
     # Merge data sources
-    click.echo('Merging data sources ..', nl=False)
-    db.rebuild_data()
-    click.echo(' done.')
+    if source in ['all', 'info', 'infos', 'order', 'orders']:
+        click.echo('Merging data sources ..', nl=False)
+        db.rebuild_data()
+        click.echo(' done.')
 
-    # Import payment files
-    click.echo('Rebuilding payments ..', nl=False)
-    db.rebuild_payments()
-    click.echo(' done.')
+    if source in ['all', 'payment', 'payments']:
+        # Import payment files
+        click.echo('Rebuilding payments ..', nl=False)
+        db.rebuild_payments()
+        click.echo(' done.')
 
     click.echo('Update complete!')
 
 
-@rebuild.command()
+@db.command()
 @pass_config
-def payments(config):
+@click.argument('source')
+@click.argument('identifier')
+def get(config, source, identifier):
     '''
-    Rebuild payments
-    '''
-
-    # Initialize database
-    db = Database(config)
-
-    # Import payment files
-    click.echo('Rebuilding payments ..', nl=False)
-    db.rebuild_payments()
-    click.echo(' done.')
-
-
-@rebuild.command()
-@pass_config
-def infos(config):
-    '''
-    Rebuild infos
+    Retrieve IDENTIFIER from database
     '''
 
-    # Initialize database
-    db = Database(config)
+    # Normalize input
+    source = source.lower()
 
-    # Import info files
-    click.echo('Rebuilding infos ..', nl=False)
-    db.rebuild_infos()
-    click.echo(' done.')
-
-
-@rebuild.command()
-@pass_config
-def invoices(config):
-    '''
-    Rebuild invoices
-    '''
-
-    # Initialize database
-    db = Database(config)
-
-    # Import invoice files
-    click.echo('Rebuilding invoices ..', nl=False)
-    db.rebuild_invoices()
-    click.echo(' done.')
-
-
-@rebuild.command()
-@pass_config
-def orders(config):
-    '''
-    Rebuild orders
-    '''
-
-    # Initialize database
-    db = Database(config)
-
-    # Import order files
-    click.echo('Rebuilding orders ..', nl=False)
-    db.rebuild_orders()
-    click.echo(' done.')
-
-
-@rebuild.command()
-@pass_config
-def merge(config):
-    '''
-    Rebuild merged data
-    '''
-
-    # Initialize database
-    db = Database(config)
-
-    # Merge data sources
-    click.echo('Merging data sources ..', nl=False)
-    db.rebuild_data()
-    click.echo(' done.')
-
-
-# DATABASE GET subtasks
-
-@db.group()
-@pass_config
-def get(config):
-    '''
-    Database "get" subtasks
-    '''
-
-    pass
-
-
-@get.command()
-@pass_config
-@click.argument('order_number')
-def data(config, order_number):
-    '''
-    Retrieve full order from database
-    '''
+    if source not in ['data', 'info', 'invoice', 'order', 'payment']:
+        click.echo('Unknown source "{}", exiting ..'.format(source))
+        click.Context.exit(0)
 
     click.echo('Searching database ..', nl=False)
 
     # Initialize database
     db = Database(config)
 
-    # Extract data record for given order number
-    data = db.get_data(order_number)
+    if source == 'data':
+        # Extract data record for given order number
+        data = db.get_data(identifier)
+
+    if source == 'info':
+        # Extract info for given order number
+        data = db.get_info(identifier)
+
+    if source == 'invoice':
+        # Extract invoice for given invoice number
+        data = db.get_invoice(identifier)
+
+    if source == 'order':
+        # Extract order for given order number
+        data = db.get_order(identifier)
+
+    if source == 'payment':
+        # Extract payment for given transaction
+        data = db.get_payment(identifier)
 
     # Print result
-    print_get_result(data, order_number)
-
-
-@get.command()
-@pass_config
-@click.argument('order_number')
-def info(config, order_number):
-    '''
-    Retrieve (raw) info from database
-    '''
-
-    click.echo('Searching database ..', nl=False)
-
-    # Initialize database
-    db = Database(config)
-
-    # Extract info for given order number
-    info = db.get_info(order_number)
-
-    # Print result
-    print_get_result(info, order_number)
-
-
-@get.command()
-@pass_config
-@click.argument('invoice_number')
-def invoice(config, invoice_number):
-    '''
-    Retrieve invoice from database
-    '''
-
-    click.echo('Searching database ..', nl=False)
-
-    # Initialize database
-    db = Database(config)
-
-    # Extract invoice for given invoice number
-    invoice = db.get_invoice(invoice_number)
-
-    # Print result
-    print_get_result(invoice, invoice_number)
-
-
-@get.command()
-@pass_config
-@click.argument('order_number')
-def order(config, order_number):
-    click.echo('Searching database ..', nl=False)
-    '''
-    Retrieve (raw) order from database
-    '''
-
-    click.echo('Searching database ..', nl=False)
-
-    # Initialize database
-    db = Database(config)
-
-    # Extract order for given order number
-    order = db.get_order(order_number)
-
-    # Print result
-    print_get_result(order, order_number)
-
-
-@get.command()
-@pass_config
-@click.argument('transaction')
-def payment(config, transaction):
-    '''
-    Retrieve payment from database
-    '''
-
-    click.echo('Searching database ..', nl=False)
-
-    # Initialize database
-    db = Database(config)
-
-    # Extract payment for given transaction
-    payment = db.get_payment(transaction)
-
-    # Print result
-    print_get_result(payment, transaction)
+    print_get_result(data, identifier)
 
 
 # ACCOUNTING tasks
@@ -450,12 +393,37 @@ def acc(config):
 
 @acc.command()
 @pass_config
+def reset(config):
+    '''
+    Clear current session data
+    '''
+
+    # Initialize database
+    db = Database(config)
+
+    # Delete session files
+    click.echo('Clearing session ..', nl=False)
+    db.reset_session()
+    click.echo(' done.')
+
+
+@acc.command()
+@pass_config
 @click.option('-y', '--year', default=None, help='Year.')
 @click.option('-q', '--quarter', default=None, help='Quarter.')
-def prepare(config, year, quarter):
+@click.option('-m', '--months', default=None, multiple=True, help='Month(s)')
+def prepare(config, year, quarter, months):
     '''
     Match payments & invoices
     '''
+
+    # Fallback to current year
+    if year is None:
+        year = pendulum.today().year
+
+    # Make months into list if provided
+    if months is not None:
+        months = list(months)
 
     # Initialize database
     db = Database(config)
@@ -463,16 +431,14 @@ def prepare(config, year, quarter):
     # Match payments for all available gateways
     for identifier in db.structures.keys():
         # Exit if database is empty
-        data_files = build_path(join(config.payment_dir, identifier), year=year, quarter=quarter)
+        data_files = build_path(join(config.payment_dir, identifier), year=year, quarter=quarter, months=months)
 
         if not data_files:
             click.echo('Error: No payments found in database.')
+            click.echo('Exiting ..')
             click.Context.exit(1)
 
-        click.echo('Matching ' + identifier + ' data:')
-
-        # Initialize invoice handler
-        invoices = db.get_invoices()
+        click.echo('Matching "{}" data:'.format(identifier))
 
         # Initialize payment handler
         handler = db.get_payments(identifier, data_files)
@@ -483,56 +449,6 @@ def prepare(config, year, quarter):
             click.echo(payment_data)
 
         else:
-            # Filter & merge matched invoices
-            for code, data in group_data(payment_data).items():
-                # Extract matching invoice numbers
-                invoice_numbers = set()
-
-                # Initialize merger object
-                merger = PdfFileMerger()
-
-                for item in data:
-                    # If no invoices assigned to payment ..
-                    if not isinstance(item['Rechnungen'], list):
-                        click.echo('No invoices for ' + str(item))
-
-                        # .. proceed to next payment
-                        continue
-
-                    for invoice_number in item['Rechnungen']:
-                        # If invoice ..
-                        # (1) .. not present in database ..
-                        if not invoices.has(invoice_number):
-                            click.echo('Missing invoice: ' + str(invoice_number))
-
-                            # .. proceed to next invoice
-                            continue
-
-                        # (2) .. already processed
-                        if invoice_number in invoice_numbers:
-                            click.echo('Duplicate invoice: ' + str(invoice_number))
-
-                            # .. proceed to next invoice
-                            continue
-
-                        # Merge invoice files
-                        # (1) Load original PDF file
-                        pdf_file = invoices.get(invoice_number).file()
-
-                        # (2) Add watermark (= payment date & banking service)
-                        pdf_file = add_watermark(pdf_file, 'Bezahlt am ' + date2string(item['Datum'], True) + ' per ' + item['Dienstleister'])
-
-                        # (3) Merge result with processed PDF invoices
-                        merger.append(pdf_file)
-
-                        # Mark invoice number as processed
-                        invoice_numbers.add(invoice_number)
-
-                # Write merged PDF invoices to disk
-                invoice_file = join(config.matches_dir, identifier, code, code + '.pdf')
-                create_path(invoice_file)
-                merger.write(invoice_file)
-
             # Write results to CSV files
             for code, data in group_data(payment_data).items():
                 csv_file = join(config.matches_dir, identifier, code, code + '.csv')
@@ -545,7 +461,8 @@ def prepare(config, year, quarter):
 @pass_config
 @click.option('-y', '--year', default=None, help='Year.')
 @click.option('-q', '--quarter', default=None, help='Quarter.')
-def run(config, year, quarter):
+@click.option('-m', '--months', default=None, multiple=True, help='Month(s)')
+def run(config, year, quarter, months):
     '''
     Start accounting session
     '''
@@ -556,23 +473,27 @@ def run(config, year, quarter):
     if year is None:
         year = pendulum.today().year
 
+    # Make months into list if provided
+    if months is not None:
+        months = list(months)
+
     # Initialize database
     db = Database(config)
 
     # Match payments for all available gateways
     for identifier in db.structures.keys():
         # Take a deep breath, relax ..
-        if not click.confirm('Ready to proceed with ' + identifier + ' data?', default=True):
+        if not click.confirm('Ready to proceed with {} data?'.format(identifier), default=True):
             continue
 
         # Exit if database is empty
-        data_files = build_path(join(config.payment_dir, identifier), year=year, quarter=quarter)
+        data_files = build_path(join(config.payment_dir, identifier), year=year, quarter=quarter, months=months)
 
         if not data_files:
             click.echo('No payments found in database, skipping ..')
             continue
 
-        click.echo('Initializing ' + identifier + ' data ..', nl=False)
+        click.echo('Initializing {} data ..'.format(identifier), nl=False)
 
         # Load current session
         last_session = db.load_session()
@@ -591,9 +512,9 @@ def run(config, year, quarter):
         manual_payments = {}
 
         # Go through all unmatched payments
-        for count, payment in enumerate(handler.unpaid()):
+        for count, payment in enumerate(handler.payments()):
             # Skip payments already marked in previous session
-            if last_session.has(payment):
+            if last_session.has(payment) or payment.is_paid():
                 # Add invoices to 'paid' invoices
                 if not payment.year() in already_paid:
                     already_paid[payment.year()] = []
@@ -606,12 +527,12 @@ def run(config, year, quarter):
             # Wrap logic in case session gets cut short ..
             try:
                 # Print current payment identifier
-                click.echo('Payment No. ' + str(count + 1) + ':')
+                click.echo('Payment No. {}:'.format(str(count + 1)))
                 pretty_print(payment.export())
 
                 if payment.invoice_numbers():
                     for index, invoice in enumerate(payment.invoices()):
-                        click.echo('Invoice No. ' + str(index + 1) + ': ')
+                        click.echo('Invoice No. {}: '.format(str(index + 1)))
                         pretty_print(invoice.export())
 
                     if click.confirm('Does payment match the invoice(s)?', default=False):
@@ -638,7 +559,7 @@ def run(config, year, quarter):
                     for manual_invoice in manual_invoices:
                         if not invoices.has(manual_invoice):
                             manual_invoices.remove(manual_invoice)
-                            click.echo('Invoice "' + manual_invoice + '" was not found!')
+                            click.echo('Invoice "{}" was not found!'.format(manual_invoice))
 
                     if manual_invoices:
                         click.echo('You have entered the following invoice numbers:')
@@ -651,7 +572,10 @@ def run(config, year, quarter):
                     else:
                         if click.confirm('Skip payment?', default=False): break
 
+                # Add matched invoice numbers to payment
                 payment.add_invoice_numbers(manual_invoices)
+
+                # Make payment 'manually assigned'
                 manual_payments[payment.identifier()] = payment.export()
 
                 # Add invoices to 'paid' invoices
@@ -665,19 +589,21 @@ def run(config, year, quarter):
                 # Make some space
                 click.echo("\n")
 
-                if manual_payments and click.confirm('Save results before exiting?', default=True):
+                if click.confirm('Save results before exiting?', default=True):
                     # Save paid invoices
                     db.save_paid(already_paid)
 
-                    # Save results
-                    click.echo('Saving ' + str(len(manual_payments)) + ' payment(s) ..', nl=False)
-                    db.save_session(manual_payments)
-                    click.echo(' done.')
+                    if manual_payments:
+                        # Save manually assigned payments
+                        click.echo('Saving {} payment(s) ..'.format(str(len(manual_payments))), nl=False)
+                        db.save_session(manual_payments, identifier)
+                        click.echo(' done.')
 
                     # Shut down
                     click.echo('Accounting mode OFF')
 
                 click.Context.exit(0)
+
 
         if not manual_payments:
             click.echo('Nothing to do, moving on ..')
@@ -689,12 +615,9 @@ def run(config, year, quarter):
         db.save_paid(already_paid)
 
         # Save results
-        click.echo('Saving ' + str(len(manual_payments)) + ' payment(s) ..', nl=False)
-        db.save_session(manual_payments)
+        click.echo('Saving {} payment(s) ..'.format(str(len(manual_payments))), nl=False)
+        db.save_session(manual_payments, identifier)
         click.echo(' done.')
-
-        for payment in manual_payments:
-            pass
 
     click.echo('Accounting mode OFF')
 
@@ -706,7 +629,114 @@ def save(config):
     Apply session results
     '''
 
-    pass
+    # Initialize database
+    db = Database(config)
+
+    # Prompt about really saving session data
+    if not click.confirm('Save current session?', default=True):
+        click.echo('Exiting ..')
+        click.Context.exit(0)
+
+    # Import session files
+    for identifier in db.structures.keys():
+        click.echo('Importing {} session ..'.format(identifier), nl=False)
+        db.import_session(identifier)
+        click.echo(' done.')
+
+
+@acc.command()
+@pass_config
+@click.option('-y', '--year', default=None, help='Year.')
+@click.option('-q', '--quarter', default=None, help='Quarter.')
+@click.option('-m', '--months', default=None, multiple=True, help='Month(s)')
+def pdf(config, year, quarter, months):
+    '''
+    Create merged PDF invoices
+    '''
+
+    # Fallback to current year
+    if year is None:
+        year = pendulum.today().year
+
+    # Make months into list if provided
+    if months is not None:
+        months = list(months)
+
+    # Initialize database
+    db = Database(config)
+
+    # Initialize invoice handler
+    invoices = db.get_invoices()
+
+    # Merge PDF invoices
+    for identifier in db.structures.keys():
+        # Exit if database is empty
+        data_files = build_path(join(config.payment_dir, identifier), year=year, quarter=quarter, months=months)
+
+        if not data_files:
+            click.echo('Error: No payments found in database.')
+            click.echo('Exiting ..')
+            click.Context.exit(1)
+
+        click.echo('Creating merged {} invoices ..'.format(identifier))
+
+        # Initialize payment handler
+        handler = db.get_payments(identifier, data_files)
+        payment_data = handler.export()
+
+        # Filter & merge matched invoices
+        for code, data in group_data(payment_data).items():
+            click.echo('Writing {identifier} invoices for {month} to disk ..'.format(identifier=identifier, month=code), nl=False)
+
+            # Extract matching invoice numbers
+            invoice_numbers = set()
+
+            # Initialize merger object
+            merger = PdfFileMerger()
+
+            for item in data:
+                # If no invoices assigned to payment ..
+                if not isinstance(item['Rechnungen'], list):
+                    click.echo('No invoices for {}'.format(str(item)))
+
+                    # .. proceed to next payment
+                    continue
+
+                for invoice_number in item['Rechnungen']:
+                    # If invoice ..
+                    # (1) .. not present in database ..
+                    if not invoices.has(invoice_number):
+                        click.echo('Missing invoice: "{}"'.format(str(invoice_number)))
+
+                        # .. proceed to next invoice
+                        continue
+
+                    # (2) .. already processed
+                    if invoice_number in invoice_numbers:
+                        click.echo('Duplicate invoice: "{}"'.format(str(invoice_number)))
+
+                        # .. proceed to next invoice
+                        continue
+
+                    # Merge invoice files
+                    # (1) Load original PDF file
+                    pdf_file = invoices.get(invoice_number).file()
+
+                    # (2) Add watermark (= payment date & banking service)
+                    pdf_file = add_watermark(pdf_file, 'Bezahlt am {date} per {service}'.format(date=date2string(item['Datum'], True), service=item['Dienstleister']))
+
+                    # (3) Merge result with processed PDF invoices
+                    merger.append(pdf_file)
+
+                    # Mark invoice number as processed
+                    invoice_numbers.add(invoice_number)
+
+                # Write merged PDF invoices to disk
+                invoice_file = join(config.matches_dir, identifier, code, code + '.pdf')
+                create_path(invoice_file)
+                merger.write(invoice_file)
+
+            click.echo(' done.')
 
 
 @acc.command()
@@ -755,7 +785,7 @@ def report(config, year, quarter, years_back, enable_chart):
         click.echo('Creating graph from data ..', nl=False)
 
         # Build filename indicating year range
-        file_name = 'revenues-' + year + '-' + str(int(year) - int(years_back)) + '.png'
+        file_name = 'revenues-{first_year}-{last_year}.png'.format(first_year=year, last_year=str(int(year) - int(years_back)))
         df.plot(kind='bar').get_figure().savefig(join(config.rankings_dir, file_name))
 
     click.echo(' done!')
@@ -786,10 +816,10 @@ def version(config):
     ws = Webservice()
 
     try:
-        click.echo('Current API version: ' + ws.version())
+        click.echo('Current API version: {}'.format(ws.version()))
 
     except Exception as error:
-        click.echo('Error: ' + str(error))
+        click.echo('Error: {}'.format(str(error)))
 
 
 @api.command()
@@ -821,7 +851,8 @@ def lookup(config, isbn, cache_only, force_refresh):
     except InvalidLoginException as error:
         click.echo(' failed!')
 
-        click.echo('Authentication error: ' + str(error))
+        click.echo('Authentication error: {}'.format(str(error)))
+        click.echo('Exiting ..')
         click.Context.exit(1)
 
     # Retrieve data (either from cache or via API call)
@@ -835,7 +866,7 @@ def lookup(config, isbn, cache_only, force_refresh):
     else:
         # TODO: Print complete dataset
         if 'AutorSachtitel' in data:
-            click.echo('Match: ' + data['AutorSachtitel'])
+            click.echo('Match: {}'.format(data['AutorSachtitel']))
 
 
 @api.command()
@@ -863,7 +894,8 @@ def ola(config, isbn, quantity):
     except InvalidLoginException as error:
         click.echo(' failed!')
 
-        click.echo('Authentication error: ' + str(error))
+        click.echo('Authentication error: {}'.format(str(error)))
+        click.echo('Exiting ..')
         click.Context.exit(1)
 
     # Retrieve data (either from cache or via API call)

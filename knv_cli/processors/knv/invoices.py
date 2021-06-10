@@ -91,6 +91,11 @@ class InvoiceProcessor(Processor):
                 'Gutscheine': 'keine Angabe',
             }
 
+            taxes = {
+                'Brutto': {},
+                'Anteil': {},
+            }
+
             # Determine invoice kind, as those starting with 'R' are formatted quite differently
             if invoice_number[:1] == 'R':
                 # Parse content, looking for ..
@@ -107,8 +112,6 @@ class InvoiceProcessor(Processor):
                         invoice['Versandkosten'] = self.number2string(content[content.index(line) + 2])
 
                 # (2) .. taxes
-                taxes = {}
-
                 # Determine tax rates where ..
                 # .. 'reduced' equals either 5% or 7%
                 # .. 'full' equals either 16% or 19%
@@ -116,10 +119,20 @@ class InvoiceProcessor(Processor):
                     tax_string = 'MwSt. ' + tax_rate + ',00 %'
 
                     if tax_string in content:
-                        taxes[tax_rate + '%'] = self.number2string(content[content.index(tax_string) + 2])
+                        taxes['Anteil'][tax_rate + '%'] = self.number2string(content[content.index(tax_string) + 2])
 
-                if taxes:
-                    invoice['Steuern'] = taxes
+                    # Calculate gross values from net values
+                    tax_string = 'Rechnungsbetrag netto ' + tax_string
+
+                    if tax_string in content:
+                        # Use only net costs when invoices are paid with coupons
+                        if tax_rate + '%' not in taxes['Anteil']:
+                            taxes['Brutto'][tax_rate + '%'] = self.number2string(content[content.index(tax_string) + 2])
+
+                            # Proceed to next tax rate
+                            continue
+
+                        taxes['Brutto'][tax_rate + '%'] = self.number2string(float(self.number2string(content[content.index(tax_string) + 2])) + float(taxes['Anteil'][tax_rate + '%']))
 
                 # (3) .. coupons
                 if 'Gutschein' in content:
@@ -174,8 +187,6 @@ class InvoiceProcessor(Processor):
                 costs = content[starting_point:terminal_point + 1]
 
                 # (2) .. taxes
-                invoice['Steuern'] = {}
-
                 # Determine tax rates where ..
                 tax_rates = [self.format_tax_rate(tax_rate) for tax_rate in costs[:2]]
 
@@ -192,6 +203,8 @@ class InvoiceProcessor(Processor):
                     full_tax = costs_list[1]
 
                     if len(costs_list) < 3:
+                        # TODO: NEEDS TESTING
+                        # print(reduced_net, full_net)
                         full_tax = costs[5]
 
                 elif len(costs) == 9:
@@ -210,7 +223,13 @@ class InvoiceProcessor(Processor):
 
 
                 elif len(costs) in [10, 11]:
-                    index = 6 if 'MwSt.' in costs[6] else 5
+                    index = 5
+
+                    if 'MwSt.' in costs[6]:
+                        index = 6
+
+                        reduced_net = costs[index - 4].split(':')[-1]
+                        full_net = costs[index - 3]
 
                     reduced_tax = costs[index].split(':')[-1].split()[0]
                     full_tax = costs[index + 1].split()[0]
@@ -223,8 +242,35 @@ class InvoiceProcessor(Processor):
                         reduced_tax = costs[5].split(':')[-1]
                         full_tax = costs[6]
 
-                invoice['Steuern'][tax_rates[0]] = self.number2string(reduced_tax)
-                invoice['Steuern'][tax_rates[1]] = self.number2string(full_tax)
+                # Extract gross values
+                costs_list = costs[2].split(':')[1].split('EUR')
+                reduced_net = costs_list[0]
+                full_net = costs_list[1]
+
+                if costs[2].count('EUR') == 1:
+                    reduced_net = costs[2].split(':')[-1]
+                    full_net = costs[3]
+
+                    if 'MwSt.' in costs[3]:
+                        full_net = costs[3].split()[0]
+
+                # TODO: TESTING
+                # if invoice_number == '934330186090':
+                #     for i, line in enumerate(costs):
+                #         print(i, line)
+
+                # Add taxes
+                reduced_tax, full_tax = self.number2string(reduced_tax), self.number2string(full_tax)
+                reduced_net, full_net = self.number2string(reduced_net), self.number2string(full_net)
+
+                taxes['Anteil'][tax_rates[0]] = reduced_tax
+                taxes['Anteil'][tax_rates[1]] = full_tax
+
+                taxes['Brutto'][tax_rates[0]] = self.number2string(float(reduced_net) + float(reduced_tax))
+                taxes['Brutto'][tax_rates[1]] = self.number2string(float(full_net) + float(full_tax))
+
+            # Apply (only successfully) extracted taxes
+            if {k: v for k, v in taxes.items() if v}: invoice['Steuern'] = taxes
 
             invoices[invoice_number] = invoice
 

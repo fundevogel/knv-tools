@@ -62,8 +62,8 @@ class Paypal(Gateway):
             payment['Zahlungsart'] = 'Shopbestellung'
             payment['Transaktion'] = code
 
-            if payment['Telefon']:
-                payment['Telefon'] = '0' + self.normalize(payment['Telefon'])
+            if payment['Telefon'] != '':
+                payment['Telefon'] = '0' + payment['Telefon'].replace('+49', '')
 
             if item['Typ'] == 'Allgemeine Zahlung':
                 payment['Zahlungsart'] = 'Überweisung'
