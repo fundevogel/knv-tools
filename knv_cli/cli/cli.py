@@ -55,23 +55,32 @@ def cli(config, verbose, vkn, data_dir, import_dir, export_dir):
 @pass_config
 @click.option('-y', '--year', default=None, help='Year.')
 @click.option('-q', '--quarter', default=None, help='Quarter.')
+@click.option('-m', '--months', default=None, multiple=True, help='Month(s)')
 @click.option('-c', '--enable-chart', is_flag=True, help='Create bar chart alongside results.')
 @click.option('-l', '--limit', default=1, help='Minimum limit to be included in bar chart.')
-def rank(config, year, quarter, enable_chart, limit):
+def rank(config, year, quarter, months, enable_chart, limit):
     '''
     Rank sales
     '''
 
-    # Initialize database
-    db = Database(config)
+    # Fallback to current year
+    if year is None:
+        year = pendulum.today().year
+
+    # Make months into list if provided
+    if months is not None:
+        months = list(months)
 
     # Exit if database is empty
-    data_files = build_path(config.database_dir, year=year, quarter=quarter)
+    data_files = build_path(config.database_dir, year=year, quarter=quarter, months=months)
 
     if not data_files:
         click.echo('Error: No orders found in database.')
         click.echo('Exiting ..')
         click.Context.exit(1)
+
+    # Initialize database
+    db = Database(config)
 
     # Initialize handler
     handler = db.get_orders(data_files)
@@ -90,7 +99,7 @@ def rank(config, year, quarter, enable_chart, limit):
         count = sum([item[-1] for item in ranking])
 
         # Write ranking to CSV file
-        file_name = ''.format(first_year=basename(data_files[0])[:-5], last_year=basename(data_files[-1])[:-5])
+        file_name = '{first_year}_{last_year}'.format(first_year=basename(data_files[0])[:-5], last_year=basename(data_files[-1])[:-5])
         ranking_file = join(config.rankings_dir, '{year_range}_{count}.csv'.format(year_range=file_name, count=str(count)))
 
         dump_csv(ranking, ranking_file)
@@ -402,10 +411,19 @@ def reset(config):
 @pass_config
 @click.option('-y', '--year', default=None, help='Year.')
 @click.option('-q', '--quarter', default=None, help='Quarter.')
-def prepare(config, year, quarter):
+@click.option('-m', '--months', default=None, multiple=True, help='Month(s)')
+def prepare(config, year, quarter, months):
     '''
     Match payments & invoices
     '''
+
+    # Fallback to current year
+    if year is None:
+        year = pendulum.today().year
+
+    # Make months into list if provided
+    if months is not None:
+        months = list(months)
 
     # Initialize database
     db = Database(config)
@@ -413,7 +431,7 @@ def prepare(config, year, quarter):
     # Match payments for all available gateways
     for identifier in db.structures.keys():
         # Exit if database is empty
-        data_files = build_path(join(config.payment_dir, identifier), year=year, quarter=quarter)
+        data_files = build_path(join(config.payment_dir, identifier), year=year, quarter=quarter, months=months)
 
         if not data_files:
             click.echo('Error: No payments found in database.')
@@ -640,6 +658,7 @@ def pdf(config, year, quarter, months):
     if year is None:
         year = pendulum.today().year
 
+    # Make months into list if provided
     if months is not None:
         months = list(months)
 
