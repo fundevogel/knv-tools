@@ -686,6 +686,8 @@ def pdf(config, year, quarter, months):
 
         # Filter & merge matched invoices
         for code, data in group_data(payment_data).items():
+            click.echo('Writing {identifier} invoices for {month} to disk ..'.format(identifier=identifier, month=code), nl=False)
+
             # Extract matching invoice numbers
             invoice_numbers = set()
 
@@ -730,11 +732,11 @@ def pdf(config, year, quarter, months):
                     invoice_numbers.add(invoice_number)
 
                 # Write merged PDF invoices to disk
-                click.echo('Writing {} to disk ..'.format(invoice_file), nl=False)
                 invoice_file = join(config.matches_dir, identifier, code, code + '.pdf')
                 create_path(invoice_file)
                 merger.write(invoice_file)
-                click.echo(' done.')
+
+            click.echo(' done.')
 
 
 @acc.command()

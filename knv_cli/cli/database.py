@@ -122,7 +122,7 @@ class Database:
                     archive.extract(zipped_invoice, invoice_dir)
 
         # .. and extract information from them
-        handler.load_files(build_path(invoice_dir, '*.pdf')).process()
+        handler.load_files(self.invoice_files['pdf']).process()
 
         # Split invoice data per-month & export it
         for code, data in group_data(handler.data).items():
@@ -216,7 +216,7 @@ class Database:
 
 
     def get_payment(self, identifier: str) -> dict:
-        payments = load_json(self.payment_files['paypal'])
+        payments = load_json(self.payment_files['paypal'] + self.payment_files['volksbank'])
         payments.update(load_json(self.session_files['paypal']))
 
         return {} if identifier not in payments else payments[identifier]
