@@ -422,9 +422,6 @@ def prepare(config, year, quarter):
 
         click.echo('Matching "{}" data:'.format(identifier))
 
-        # Initialize invoice handler
-        invoices = db.get_invoices()
-
         # Initialize payment handler
         handler = db.get_payments(identifier, data_files)
         payment_data = handler.export()
@@ -434,56 +431,6 @@ def prepare(config, year, quarter):
             click.echo(payment_data)
 
         else:
-            # Filter & merge matched invoices
-            for code, data in group_data(payment_data).items():
-                # Extract matching invoice numbers
-                invoice_numbers = set()
-
-                # Initialize merger object
-                merger = PdfFileMerger()
-
-                for item in data:
-                    # If no invoices assigned to payment ..
-                    if not isinstance(item['Rechnungen'], list):
-                        click.echo('No invoices for {}'.format(str(item)))
-
-                        # .. proceed to next payment
-                        continue
-
-                    for invoice_number in item['Rechnungen']:
-                        # If invoice ..
-                        # (1) .. not present in database ..
-                        if not invoices.has(invoice_number):
-                            click.echo('Missing invoice: "{}"'.format(str(invoice_number)))
-
-                            # .. proceed to next invoice
-                            continue
-
-                        # (2) .. already processed
-                        if invoice_number in invoice_numbers:
-                            click.echo('Duplicate invoice: "{}"'.format(str(invoice_number)))
-
-                            # .. proceed to next invoice
-                            continue
-
-                        # Merge invoice files
-                        # (1) Load original PDF file
-                        pdf_file = invoices.get(invoice_number).file()
-
-                        # (2) Add watermark (= payment date & banking service)
-                        pdf_file = add_watermark(pdf_file, 'Bezahlt am {date} per {service}'.format(date=date2string(item['Datum'], True), service=item['Dienstleister']))
-
-                        # (3) Merge result with processed PDF invoices
-                        merger.append(pdf_file)
-
-                        # Mark invoice number as processed
-                        invoice_numbers.add(invoice_number)
-
-                # Write merged PDF invoices to disk
-                invoice_file = join(config.matches_dir, identifier, code, code + '.pdf')
-                create_path(invoice_file)
-                merger.write(invoice_file)
-
             # Write results to CSV files
             for code, data in group_data(payment_data).items():
                 csv_file = join(config.matches_dir, identifier, code, code + '.csv')
@@ -496,7 +443,8 @@ def prepare(config, year, quarter):
 @pass_config
 @click.option('-y', '--year', default=None, help='Year.')
 @click.option('-q', '--quarter', default=None, help='Quarter.')
-def run(config, year, quarter):
+@click.option('-m', '--months', default=None, multiple=True, help='Month(s)')
+def run(config, year, quarter, months):
     '''
     Start accounting session
     '''
@@ -506,6 +454,10 @@ def run(config, year, quarter):
     # Fallback to current year
     if year is None:
         year = pendulum.today().year
+
+    # Make months into list if provided
+    if months is not None:
+        months = list(months)
 
     # Initialize database
     db = Database(config)
@@ -517,7 +469,7 @@ def run(config, year, quarter):
             continue
 
         # Exit if database is empty
-        data_files = build_path(join(config.payment_dir, identifier), year=year, quarter=quarter)
+        data_files = build_path(join(config.payment_dir, identifier), year=year, quarter=quarter, months=months)
 
         if not data_files:
             click.echo('No payments found in database, skipping ..')
@@ -672,6 +624,98 @@ def save(config):
         click.echo('Importing {} session ..'.format(identifier), nl=False)
         db.import_session(identifier)
         click.echo(' done.')
+
+
+@acc.command()
+@pass_config
+@click.option('-y', '--year', default=None, help='Year.')
+@click.option('-q', '--quarter', default=None, help='Quarter.')
+@click.option('-m', '--months', default=None, multiple=True, help='Month(s)')
+def pdf(config, year, quarter, months):
+    '''
+    Create merged PDF invoices
+    '''
+
+    # Fallback to current year
+    if year is None:
+        year = pendulum.today().year
+
+    if months is not None:
+        months = list(months)
+
+    # Initialize database
+    db = Database(config)
+
+    # Initialize invoice handler
+    invoices = db.get_invoices()
+
+    # Merge PDF invoices
+    for identifier in db.structures.keys():
+        # Exit if database is empty
+        data_files = build_path(join(config.payment_dir, identifier), year=year, quarter=quarter, months=months)
+
+        if not data_files:
+            click.echo('Error: No payments found in database.')
+            click.echo('Exiting ..')
+            click.Context.exit(1)
+
+        click.echo('Creating merged {} invoices ..'.format(identifier))
+
+        # Initialize payment handler
+        handler = db.get_payments(identifier, data_files)
+        payment_data = handler.export()
+
+        # Filter & merge matched invoices
+        for code, data in group_data(payment_data).items():
+            # Extract matching invoice numbers
+            invoice_numbers = set()
+
+            # Initialize merger object
+            merger = PdfFileMerger()
+
+            for item in data:
+                # If no invoices assigned to payment ..
+                if not isinstance(item['Rechnungen'], list):
+                    click.echo('No invoices for {}'.format(str(item)))
+
+                    # .. proceed to next payment
+                    continue
+
+                for invoice_number in item['Rechnungen']:
+                    # If invoice ..
+                    # (1) .. not present in database ..
+                    if not invoices.has(invoice_number):
+                        click.echo('Missing invoice: "{}"'.format(str(invoice_number)))
+
+                        # .. proceed to next invoice
+                        continue
+
+                    # (2) .. already processed
+                    if invoice_number in invoice_numbers:
+                        click.echo('Duplicate invoice: "{}"'.format(str(invoice_number)))
+
+                        # .. proceed to next invoice
+                        continue
+
+                    # Merge invoice files
+                    # (1) Load original PDF file
+                    pdf_file = invoices.get(invoice_number).file()
+
+                    # (2) Add watermark (= payment date & banking service)
+                    pdf_file = add_watermark(pdf_file, 'Bezahlt am {date} per {service}'.format(date=date2string(item['Datum'], True), service=item['Dienstleister']))
+
+                    # (3) Merge result with processed PDF invoices
+                    merger.append(pdf_file)
+
+                    # Mark invoice number as processed
+                    invoice_numbers.add(invoice_number)
+
+                # Write merged PDF invoices to disk
+                click.echo('Writing {} to disk ..'.format(invoice_file), nl=False)
+                invoice_file = join(config.matches_dir, identifier, code, code + '.pdf')
+                create_path(invoice_file)
+                merger.write(invoice_file)
+                click.echo(' done.')
 
 
 @acc.command()
