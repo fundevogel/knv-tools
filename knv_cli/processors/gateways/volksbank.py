@@ -65,6 +65,7 @@ class Volksbank(Gateway):
             payment['Währung'] = item['Währung']
             payment['Dienstleister'] = 'Volksbank'
             payment['Verwendungszweck'] = reference
+            payment['Rohdaten'] = item['Vorgang/Verwendungszweck']
 
             # Skip blocked payers by ..
             is_blocklisted = False
