@@ -289,10 +289,14 @@ def rebuild(config, source):
 
     if source not in [
         'all',
+        # FitBis
+        'fitbis',
+        # Shopkonfigurator
         'info', 'infos',
         'invoice', 'invoices',
         'order', 'orders',
-        'payment', 'payments'
+        # Payment gateways
+        'payment', 'payments',
     ]:
         click.echo('Unknown source "{}", exiting ..'.format(source))
         click.Context.exit(0)
@@ -329,6 +333,12 @@ def rebuild(config, source):
         # Import payment files
         click.echo('Rebuilding payments ..', nl=False)
         db.rebuild_payments()
+        click.echo(' done.')
+
+    if source in ['all', 'fitbis']:
+        # Import fitbis files (such as BWD, EDV invoices & collective invoices)
+        click.echo('Rebuilding fitbis data ..', nl=False)
+        db.rebuild_fitbis()
         click.echo(' done.')
 
     click.echo('Update complete!')

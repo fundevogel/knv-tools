@@ -11,6 +11,9 @@ from ..processors.gateways.paypal import Paypal
 from ..processors.gateways.volksbank import Volksbank
 from ..processors.knv.infos import InfoProcessor
 from ..processors.knv.invoices import InvoiceProcessor
+from ..processors.knv.fitbis.bwd import BwdProcessor
+from ..processors.knv.fitbis.edv import EdvProcessor
+from ..processors.knv.fitbis.sammel import SammelrechnungProcessor
 from ..processors.knv.orders import OrderProcessor
 from ..processors.knv.shopkonfigurator import ShopkonfiguratorProcessor
 from ..structure.invoices.invoices import Invoices
@@ -103,6 +106,28 @@ class Database:
         # Split infos per-month & export them
         for code, data in group_data(handler.data).items():
             dump_json(sort_data(data), join(self.config.info_dir, code + '.json'))
+
+
+    def rebuild_fitbis(self) -> None:
+        # Rebuild all fitbis files
+        # (1) Initialize handlers
+        # (2) Select files to be imported
+        # (3) Extract information
+
+        # EDV invoices
+        bwd = BwdProcessor()
+        import_files = build_path(self.config.import_dir, 'BWD_*.zip')
+        bwd.load_files(import_files).process()
+
+        # BWD invoices
+        edv = EdvProcessor()
+        import_files = build_path(self.config.import_dir, 'EDV_*.zip')
+        edv.load_files(import_files).process()
+
+        # Collective invoices
+        sammel = SammelrechnungProcessor()
+        import_files = build_path(self.config.import_dir, 'Sammelrechnungen_*.zip')
+        sammel.load_files(import_files).process()
 
 
     def rebuild_invoices(self) -> None:
