@@ -283,7 +283,7 @@ class InvoiceProcessor(Processor):
 
     def split_string(self, string: str) -> str:
         # Strip path information
-        string = basename(string)
+        string = splitext(basename(string))[0]
 
         # Distinguish between delimiters ..
         # (1) .. hyphen ('Shopkonfigurator')
@@ -297,7 +297,7 @@ class InvoiceProcessor(Processor):
 
 
     def invoice2date(self, string: str) -> str:
-        date_string = self.split_string(string)[1].replace('.pdf', '')
+        date_string = self.split_string(string)[1]
 
         return datetime.strptime(date_string, '%Y%m%d').strftime('%Y-%m-%d')
 
@@ -309,7 +309,7 @@ class InvoiceProcessor(Processor):
         if len(string_list) == 1:
             return string
 
-        return string_list[-1].replace('.pdf', '')
+        return string_list[-1]
 
 
     def number2string(self, string) -> str:
