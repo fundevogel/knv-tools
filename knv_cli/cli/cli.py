@@ -238,7 +238,7 @@ def search(config, source, query):
     if source == 'payments':
         blocked_keys = ['Gebühr', 'Netto', 'Steuern']
 
-        for identifier in db.structures.keys():
+        for identifier in db.data_structures.keys():
             data += db.get_payments(identifier).export()
 
     # Start search
@@ -424,7 +424,7 @@ def prepare(config, year, quarter, months):
     db = Database(config)
 
     # Match payments for all available gateways
-    for identifier in db.structures.keys():
+    for identifier in db.data_structures.keys():
         # Exit if database is empty
         data_files = build_path(join(config.payment_dir, identifier), year=year, quarter=quarter, months=months)
 
@@ -476,7 +476,7 @@ def run(config, year, quarter, months):
     db = Database(config)
 
     # Match payments for all available gateways
-    for identifier in db.structures.keys():
+    for identifier in db.data_structures.keys():
         # Take a deep breath, relax ..
         if not click.confirm('Ready to proceed with {} data?'.format(identifier), default=True):
             continue
@@ -633,7 +633,7 @@ def save(config):
         click.Context.exit(0)
 
     # Import session files
-    for identifier in db.structures.keys():
+    for identifier in db.data_structures.keys():
         click.echo('Importing {} session ..'.format(identifier), nl=False)
         db.import_session(identifier)
         click.echo(' done.')
@@ -664,7 +664,7 @@ def pdf(config, year, quarter, months):
     invoices = db.get_invoices()
 
     # Merge PDF invoices
-    for identifier in db.structures.keys():
+    for identifier in db.data_structures.keys():
         # Exit if database is empty
         data_files = build_path(join(config.payment_dir, identifier), year=year, quarter=quarter, months=months)
 

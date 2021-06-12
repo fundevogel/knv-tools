@@ -7,7 +7,7 @@ from re import findall
 from .fitbis import FitBisInvoiceProcessor
 
 
-class EdvProcessor(FitBisInvoiceProcessor):
+class EdvInvoiceProcessor(FitBisInvoiceProcessor):
     # PROPS
 
     regex = 'BWD_*.zip'
@@ -15,7 +15,7 @@ class EdvProcessor(FitBisInvoiceProcessor):
 
     # CORE methods
 
-    def process(self) -> EdvProcessor:
+    def process(self) -> EdvInvoiceProcessor:
         '''
         Processes 'RE_{Ymd}_{VKN}_*.PDF' files
         '''
@@ -48,12 +48,11 @@ class EdvProcessor(FitBisInvoiceProcessor):
                     'bis': dates[1],
                 }
 
-
             # Extract essential information from ..
             # (1) .. last page
             content = content[len(content) - 1].split()
             # (2) .. last three costs, indicated by 'EUR'
-            invoice['Netto'], invoice['MwSt'], invoice['Brutto'] = [self.number2string(content[index + 1]) for index in self.build_indices(content, 'EUR')]
+            invoice['Netto'], invoice['MwSt'], invoice['Brutto'] = [self.number2string(content[index + 1]) for index in self.build_indices(content, 'EUR')[-3:]]
 
             invoices[invoice_number] = invoice
 

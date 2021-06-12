@@ -10,10 +10,11 @@ from ..structure.payments.volksbank import VolksbankPayments
 from ..processors.gateways.paypal import Paypal
 from ..processors.gateways.volksbank import Volksbank
 from ..processors.knv.infos import InfoProcessor
-from ..processors.knv.invoices import InvoiceProcessor
-from ..processors.knv.fitbis.bwd import BwdProcessor
-from ..processors.knv.fitbis.edv import EdvProcessor
-from ..processors.knv.fitbis.sammel import SammelrechnungProcessor
+from ..processors.knv.invoices.pcbis import PcBisInvoiceProcessor
+from ..processors.knv.invoices.shopkonfigurator import ShopkonfiguratorInvoiceProcessor
+from ..processors.knv.invoices.fitbis.bwd import BwdInvoiceProcessor
+from ..processors.knv.invoices.fitbis.edv import EdvInvoiceProcessor
+from ..processors.knv.invoices.fitbis.sammel import SammelInvoiceProcessor
 from ..processors.knv.orders import OrderProcessor
 from ..processors.knv.shopkonfigurator import ShopkonfiguratorProcessor
 from ..structure.invoices.invoices import Invoices
@@ -27,12 +28,20 @@ from .session import Session
 class Database:
     # PROPS
 
-    gateways = {
+    invoice_processors = {
+        # 'shopkonfigurator': ShopkonfiguratorInvoiceProcessor,
+        # 'pcbis': PcBisInvoiceProcessor,
+        'bwd': BwdInvoiceProcessor,
+        'edv': EdvInvoiceProcessor,
+        'sammel': SammelInvoiceProcessor,
+    }
+
+    payment_processors = {
         'paypal': Paypal,
         'volksbank': Volksbank,
     }
 
-    structures = {
+    data_structures = {
         'paypal': PaypalPayments,
         'volksbank': VolksbankPayments,
     }
@@ -42,21 +51,25 @@ class Database:
         # Define database files
         self.order_files = build_path(config.order_dir)
         self.info_files = build_path(config.info_dir)
-        self.invoice_files = {
-            'pdf': build_path(join(config.invoice_dir, 'pdf'), '*.pdf'),
-            'data': build_path(join(config.invoice_dir, 'data')),
-        }
-        self.payment_files = {
-            'paypal': build_path(join(config.payment_dir, 'paypal')),
-            'volksbank': build_path(join(config.payment_dir, 'volksbank')),
-        }
+
+        # Invoice files
+        self.invoice_files = {}
+        for processor in self.invoice_processors.keys():
+            self.invoice_files[processor] = {
+                'pdf': build_path(join(config.invoice_dir, processor, 'pdf'), '*.pdf'),
+                'data': build_path(join(config.invoice_dir, processor, 'data')),
+            }
+
+        # Payment files
+        self.payment_files = {}
+        for identifier in self.payment_processors.keys():
+            self.payment_files[identifier] = build_path(join(config.payment_dir, identifier))
 
         # Define session files
-        self.session_files = {
-            'session': build_path(join(config.payment_dir, 'sessions')),
-            'paypal': build_path(join(config.payment_dir, 'sessions', 'paypal')),
-            'volksbank': build_path(join(config.payment_dir, 'sessions', 'volksbank')),
-        }
+        self.session_files = {'session': build_path(join(config.payment_dir, 'sessions'))}
+        for identifier in self.payment_processors.keys():
+            self.session_files[identifier] = build_path(join(config.payment_dir, 'sessions', identifier))
+
 
         # Define path to session files
         self.sessions_dir = join(config.payment_dir, 'sessions')
@@ -72,8 +85,12 @@ class Database:
 
     def flush(self) -> None:
         files = self.order_files + self.info_files
-        files += self.invoice_files['pdf'] + self.invoice_files['data']
-        files += self.payment_files['paypal'] + self.payment_files['volksbank']
+
+        for processor in self.invoice_processors.keys():
+            files += self.invoice_files[processor]['data']
+
+        for processor in self.payment_processors.keys():
+            files += self.payment_files[processor]
 
         for file in files:
             remove(file)
@@ -108,50 +125,29 @@ class Database:
             dump_json(sort_data(data), join(self.config.info_dir, code + '.json'))
 
 
-    def rebuild_fitbis(self) -> None:
-        # Rebuild all fitbis files
-        # (1) Initialize handlers
-        # (2) Select files to be imported
-        # (3) Extract information
-
-        # EDV invoices
-        bwd = BwdProcessor()
-        import_files = build_path(self.config.import_dir, 'BWD_*.zip')
-        bwd.load_files(import_files).process()
-
-        # BWD invoices
-        edv = EdvProcessor()
-        import_files = build_path(self.config.import_dir, 'EDV_*.zip')
-        edv.load_files(import_files).process()
-
-        # Collective invoices
-        sammel = SammelrechnungProcessor()
-        import_files = build_path(self.config.import_dir, 'Sammelrechnungen_*.zip')
-        sammel.load_files(import_files).process()
-
-
     def rebuild_invoices(self) -> None:
-        # Initialize handler
-        handler = InvoiceProcessor()
+        for identifier, invoice_processor in self.invoice_processors.items():
+            # Initialize handler
+            handler = invoice_processor()
 
-        # Select invoice files to be imported
-        import_files = build_path(self.config.import_dir, handler.regex)
+            # Select invoice files to be imported
+            import_files = build_path(self.config.import_dir, handler.regex)
 
-        # Set directory for extracted invoice files
-        invoice_dir = join(self.config.invoice_dir, 'pdf')
+            # Set directory for extracted invoice files
+            invoice_dir = join(self.config.invoice_dir, identifier)
 
-        # Extract invoices from archives
-        for file in import_files:
-            with ZipFile(file) as archive:
-                for zipped_invoice in archive.namelist():
-                    archive.extract(zipped_invoice, invoice_dir)
+            # Extract invoices from archives
+            for file in import_files:
+                with ZipFile(file) as archive:
+                    for zipped_invoice in archive.namelist():
+                        archive.extract(zipped_invoice, join(invoice_dir, 'pdf'))
 
-        # .. and extract information from them
-        handler.load_files(self.invoice_files['pdf']).process()
+            # .. and extract information from them
+            handler.load_files(self.invoice_files[identifier]['pdf']).process()
 
-        # Split invoice data per-month & export it
-        for code, data in group_data(handler.data).items():
-            dump_json(sort_data(data), join(self.config.invoice_dir, 'data', code + '.json'))
+            # Split invoice data per-month & export it
+            for code, data in group_data(handler.data).items():
+                dump_json(sort_data(data), join(invoice_dir, 'data', code + '.json'))
 
 
     def rebuild_orders(self) -> None:
@@ -170,7 +166,7 @@ class Database:
 
 
     def rebuild_payments(self) -> None:
-        for identifier, gateway in self.gateways.items():
+        for identifier, gateway in self.payment_processors.items():
             # Initialize payment gateway handler
             handler = gateway()
 
@@ -193,7 +189,7 @@ class Database:
 
     def get_invoices(self, invoice_files: list = None) -> Invoices:
         # Select appropriate source files
-        invoice_files = invoice_files if invoice_files else self.invoice_files['data']
+        invoice_files = invoice_files if invoice_files else self.invoice_files['shopkonfigurator']['data'] + self.invoice_files['pcbis']['data']
 
         return Invoices(load_json(invoice_files))
 
@@ -201,8 +197,9 @@ class Database:
     def get_orders(self, order_files: list = None):
         # Select appropriate source files
         order_files = order_files if order_files else self.db_files
+        invoice_files = self.invoice_files['shopkonfigurator']['data'] + self.invoice_files['pcbis']['data']
 
-        return Orders(load_json(order_files), load_json(self.invoice_files['data']))
+        return Orders(load_json(order_files), load_json(invoice_files))
 
 
     def get_payments(self, identifier: str, payment_files: list = None):
@@ -211,9 +208,13 @@ class Database:
         payments = load_json(payment_files)
 
         # Merge with manually assigned payment files
-        payments.update(load_json(self.session_files['paypal']))
+        for identifier in self.payment_processors.keys():
+            payments.update(load_json(self.session_files[identifier]))
 
-        return self.structures[identifier](payments, load_json(self.db_files), load_json(self.invoice_files['data']))
+        # Select appropriate invoice files
+        invoice_files = self.invoice_files['shopkonfigurator']['data'] + self.invoice_files['pcbis']['data']
+
+        return self.data_structures[identifier](payments, load_json(self.db_files), load_json(invoice_files))
 
 
     def get_data(self, identifier: str) -> dict:
@@ -229,7 +230,10 @@ class Database:
 
 
     def get_invoice(self, identifier: str) -> dict:
-        invoices = load_json(self.invoice_files['data'])
+        invoices = {}
+
+        for processor in self.invoice_processors.keys():
+            invoices.update(load_json(self.invoice_files[processor]['data']))
 
         return {} if identifier not in invoices else invoices[identifier]
 
@@ -284,7 +288,7 @@ class Database:
 
 
     def import_session(self, identifier: str) -> None:
-        if not identifier in self.structures:
+        if not identifier in self.data_structures:
             raise Exception
 
         session_data = load_json(build_path(self.sessions_dir, identifier + '_*.json'))

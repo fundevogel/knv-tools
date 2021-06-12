@@ -7,7 +7,7 @@ from re import findall
 from .fitbis import FitBisInvoiceProcessor
 
 
-class BwdProcessor(FitBisInvoiceProcessor):
+class BwdInvoiceProcessor(FitBisInvoiceProcessor):
     # PROPS
 
     regex = 'BWD_*.zip'
@@ -15,7 +15,7 @@ class BwdProcessor(FitBisInvoiceProcessor):
 
     # CORE methods
 
-    def process(self) -> BwdProcessor:
+    def process(self) -> BwdInvoiceProcessor:
         '''
         Processes 'RE_{Ymd}_{VKN}_*.PDF' files
         '''

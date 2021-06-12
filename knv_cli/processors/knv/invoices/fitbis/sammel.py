@@ -7,7 +7,7 @@ from re import findall
 from .fitbis import FitBisInvoiceProcessor
 
 
-class SammelrechnungProcessor(FitBisInvoiceProcessor):
+class SammelInvoiceProcessor(FitBisInvoiceProcessor):
     # PROPS
 
     regex = 'Sammelrechnungen_*.zip'
@@ -15,7 +15,7 @@ class SammelrechnungProcessor(FitBisInvoiceProcessor):
 
     # CORE methods
 
-    def process(self) -> SammelrechnungProcessor:
+    def process(self) -> SammelInvoiceProcessor:
         '''
         Processes 'RE_{Ymd}_{VKN}_*.PDF' files
         '''
