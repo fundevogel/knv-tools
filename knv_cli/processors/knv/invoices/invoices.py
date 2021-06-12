@@ -6,6 +6,7 @@ from abc import abstractmethod
 from datetime import datetime
 from io import BytesIO
 from os.path import basename, splitext
+from re import match
 from zipfile import ZipFile
 
 from PyPDF2 import PdfFileReader
@@ -103,8 +104,14 @@ class InvoiceProcessor(Processor):
 
 
     def number2string(self, string) -> str:
-        # Strip 'EUR', apart from that as usual
-        return super().number2string(str(string).replace('EUR', ''))
+        # Strip all letters ..
+        hit = match(r'^(.*?)[a-zA-Z]', str(string))
+
+        # .. if there are any
+        if hit is not None:
+            string = hit[1]
+
+        return super().number2string(string)
 
 
     def get_index(self, haystack: list, needle: str, last: bool = False) -> int:

@@ -4,10 +4,10 @@ from __future__ import annotations
 
 from re import findall
 
-from .fitbis import FitBisInvoiceProcessor
+from .invoices import InvoiceProcessor
 
 
-class EdvInvoiceProcessor(FitBisInvoiceProcessor):
+class BwdInvoiceProcessor(InvoiceProcessor):
     # PROPS
 
     regex = 'BWD_*.zip'
@@ -15,7 +15,7 @@ class EdvInvoiceProcessor(FitBisInvoiceProcessor):
 
     # CORE methods
 
-    def process(self) -> EdvInvoiceProcessor:
+    def process(self) -> BwdInvoiceProcessor:
         '''
         Processes 'RE_{Ymd}_{VKN}_*.PDF' files
         '''
@@ -52,7 +52,8 @@ class EdvInvoiceProcessor(FitBisInvoiceProcessor):
             # (1) .. last page
             content = content[len(content) - 1].split()
             # (2) .. last three costs, indicated by 'EUR'
-            invoice['Netto'], invoice['MwSt'], invoice['Brutto'] = [self.number2string(content[index + 1]) for index in self.build_indices(content, 'EUR')[-3:]]
+            # TODO: Act on hyphens (= credit notes)
+            invoice['Netto'], invoice['MwSt'], invoice['Brutto'] = [self.number2string(content[index + 1].replace('-', '')) for index in self.build_indices(content, 'EUR')[-3:]]
 
             invoices[invoice_number] = invoice
 

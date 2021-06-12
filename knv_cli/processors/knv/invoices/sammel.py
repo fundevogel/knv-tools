@@ -4,10 +4,10 @@ from __future__ import annotations
 
 from re import findall
 
-from .fitbis import FitBisInvoiceProcessor
+from .invoices import InvoiceProcessor
 
 
-class SammelInvoiceProcessor(FitBisInvoiceProcessor):
+class SammelInvoiceProcessor(InvoiceProcessor):
     # PROPS
 
     regex = 'Sammelrechnungen_*.zip'
@@ -55,7 +55,8 @@ class SammelInvoiceProcessor(FitBisInvoiceProcessor):
             last_page = content[len(content) - 1].split()
 
             # (1) Determine invoice total
-            invoice['Brutto'] = self.number2string(last_page[self.get_index(last_page, 'EUR') + 1])
+            # TODO: Act on hyphens (= credit notes)
+            invoice['Brutto'] = self.number2string(last_page[self.get_index(last_page, 'EUR') + 1].replace('-', ''))
 
             # (2) Determine tax rates
             reduced_tax, full_tax = [tax_rate for tax_rate in ['5%', '7%', '16%', '19%'] if tax_rate in ''.join(last_page)]
@@ -76,24 +77,31 @@ class SammelInvoiceProcessor(FitBisInvoiceProcessor):
                 invoice['Skonto'] = {}
                 invoice['MwSt'] = {}
 
-                try:
-                    reduced_amount, _, reduced_share, full_amount, _, full_share = last_page[starting_point:terminal_point]
+                tax_list = last_page[starting_point:terminal_point]
 
-                    invoice['Skonto'][full_tax] = self.number2string(float(self.number2string(full_amount)) / 100 * 2)
-                    invoice['MwSt'][full_tax] = {
-                        'Brutto': self.number2string(full_amount),
-                        'Anteil': self.number2string(full_share.split('Zahlbar')[0]),
-                    }
-
-                except ValueError:
+                if len(tax_list) == 3:
                     # Only reduced items (= books) present, opposite case practically never happens ..
                     # TODO: .. or does it?
-                    reduced_amount, _, reduced_share = last_page[starting_point:terminal_point]
+                    reduced_amount, _, reduced_share = tax_list
 
-                invoice['Skonto'][reduced_tax] = self.number2string(float(self.number2string(reduced_amount)) / 100 * 2)
+                elif len(tax_list) == 6:
+                    reduced_amount, _, reduced_share, full_amount, _, full_share = tax_list
+
+                    # TODO: Act on hyphens (= credit notes)
+                    invoice['Skonto'][full_tax] = self.number2string(float(self.number2string(full_amount.replace('-', ''))) / 100 * 2)
+                    invoice['MwSt'][full_tax] = {
+                        'Brutto': self.number2string(full_amount.replace('-', '')),
+                        'Anteil': self.number2string(full_share.replace('-', '')),
+                    }
+
+                # TODO: Never happened so far, gotta investigate
+                else: raise Exception
+
+                # TODO: Act on hyphens (= credit notes)
+                invoice['Skonto'][reduced_tax] = self.number2string(float(self.number2string(reduced_amount.replace('-', ''))) / 100 * 2)
                 invoice['MwSt'][reduced_tax] = {
-                    'Brutto': self.number2string(reduced_amount),
-                    'Anteil': self.number2string(reduced_share.split('Zahlbar')[0]),
+                    'Brutto': self.number2string(reduced_amount.replace('-', '')),
+                    'Anteil': self.number2string(reduced_share.replace('-', '')),
                 }
 
             invoices[invoice_number] = invoice

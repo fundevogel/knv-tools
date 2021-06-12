@@ -12,9 +12,9 @@ from ..processors.gateways.volksbank import Volksbank
 from ..processors.knv.infos import InfoProcessor
 from ..processors.knv.invoices.pcbis import PcBisInvoiceProcessor
 from ..processors.knv.invoices.shopkonfigurator import ShopkonfiguratorInvoiceProcessor
-from ..processors.knv.invoices.fitbis.bwd import BwdInvoiceProcessor
-from ..processors.knv.invoices.fitbis.edv import EdvInvoiceProcessor
-from ..processors.knv.invoices.fitbis.sammel import SammelInvoiceProcessor
+from ..processors.knv.invoices.bwd import BwdInvoiceProcessor
+from ..processors.knv.invoices.edv import EdvInvoiceProcessor
+from ..processors.knv.invoices.sammel import SammelInvoiceProcessor
 from ..processors.knv.orders import OrderProcessor
 from ..processors.knv.shopkonfigurator import ShopkonfiguratorProcessor
 from ..structure.invoices.invoices import Invoices
@@ -143,7 +143,7 @@ class Database:
                         archive.extract(zipped_invoice, join(invoice_dir, 'pdf'))
 
             # .. and extract information from them
-            handler.load_files(self.invoice_files[identifier]['pdf']).process()
+            handler.load_files(build_path(join(self.config.invoice_dir, identifier, 'pdf'), '*.pdf')).process()
 
             # Split invoice data per-month & export it
             for code, data in group_data(handler.data).items():

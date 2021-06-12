@@ -5,9 +5,9 @@ from .processors.gateways.volksbank import Volksbank
 from .processors.knv.infos import InfoProcessor
 from .processors.knv.invoices.pcbis import PcBisInvoiceProcessor
 from .processors.knv.invoices.shopkonfigurator import ShopkonfiguratorInvoiceProcessor
-from .processors.knv.invoices.fitbis.bwd import BwdInvoiceProcessor
-from .processors.knv.invoices.fitbis.edv import EdvInvoiceProcessor
-from .processors.knv.invoices.fitbis.sammel import SammelInvoiceProcessor
+from .processors.knv.invoices.bwd import BwdInvoiceProcessor
+from .processors.knv.invoices.edv import EdvInvoiceProcessor
+from .processors.knv.invoices.sammel import SammelInvoiceProcessor
 from .processors.knv.orders import OrderProcessor
 from .processors.knv.shopkonfigurator import ShopkonfiguratorProcessor
 from .structure.abstract import Component
