@@ -326,7 +326,7 @@ def rebuild(config, source):
         db.rebuild_payments()
         click.echo(' done.')
 
-    click.echo('Update complete!')
+    if source == 'all': click.echo('Update complete!')
 
 
 @db.command()
@@ -433,7 +433,7 @@ def prepare(config, year, quarter, months):
             click.echo('Exiting ..')
             click.Context.exit(1)
 
-        click.echo('Matching "{}" data:'.format(identifier))
+        click.echo('Matching {} data ..'.format(identifier))
 
         # Initialize payment handler
         handler = db.get_payments(identifier, data_files)
@@ -855,13 +855,7 @@ def lookup(config, isbn, cache_only, force_refresh):
 
     click.echo(' done!')
 
-    if config.verbose:
-        click.echo(data)
-
-    else:
-        # TODO: Print complete dataset
-        if 'AutorSachtitel' in data:
-            click.echo('Match: {}'.format(data['AutorSachtitel']))
+    pretty_print(data)
 
 
 @api.command()
