@@ -1,12 +1,13 @@
 import json
 
 from datetime import datetime
+from fnmatch import translate
 from glob import glob
 from hashlib import md5
 from operator import itemgetter
-from os import makedirs
-from os.path import exists, dirname, join
-
+from os import listdir, makedirs
+from os.path import exists, dirname, join, splitext
+from re import compile, match, IGNORECASE
 from pandas import DataFrame, concat, read_csv
 
 
@@ -103,6 +104,10 @@ def number2string(string: str) -> str:
 
 # UTILITY functions
 
+def file_glob(path: str, regex: list) -> list:
+    return [join(path, file) for file in listdir(path) if compile(translate(regex), IGNORECASE).match(file)]
+
+
 def build_path(
     base_path: str,
     regex: str = '*.json',
@@ -115,7 +120,7 @@ def build_path(
 
     # No year => all files
     if year is None:
-        return sorted(glob(join(base_path, regex)))
+        return sorted(file_glob(base_path, regex))
 
     # Generate months if quarter was given
     if quarter is not None and 1 <= int(quarter) <= 4:
@@ -123,16 +128,20 @@ def build_path(
 
     # Year, but no months => given year
     if months is None:
-        return sorted(glob(join(base_path, str(year) + '-' + regex)))
+        return sorted(file_glob(base_path, str(year) + '-' + regex))
 
     # Year & months => given months for given year
     return sorted([join(base_path, '-'.join([str(year), str(month).zfill(2) + '.json'])) for month in months])
 
 
-def create_path(file_path) -> None:
-    if not exists(dirname(file_path)):
+def create_path(path) -> None:
+    # Determine if (future) target is appropriate data file
+    if splitext(path)[1].lower() in ['.csv', '.json', '.pdf']:
+        path = dirname(path)
+
+    if not exists(path):
         try:
-            makedirs(dirname(file_path))
+            makedirs(path)
 
         # Guard against race condition
         except OSError:

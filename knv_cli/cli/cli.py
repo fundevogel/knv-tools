@@ -238,7 +238,7 @@ def search(config, source, query):
     if source == 'payments':
         blocked_keys = ['Gebühr', 'Netto', 'Steuern']
 
-        for identifier in db.structures.keys():
+        for identifier in db.data_structures.keys():
             data += db.get_payments(identifier).export()
 
     # Start search
@@ -287,51 +287,46 @@ def rebuild(config, source):
     # Normalize input
     source = source.lower()
 
-    if source not in [
-        'all',
-        'info', 'infos',
-        'invoice', 'invoices',
-        'order', 'orders',
-        'payment', 'payments'
-    ]:
+    if source not in ['all', 'data', 'invoice', 'invoices', 'payment', 'payments']:
         click.echo('Unknown source "{}", exiting ..'.format(source))
         click.Context.exit(0)
 
     # Initialize database
     db = Database(config)
 
-
-    if source in ['all', 'info', 'infos']:
+    # Rebuild data from ..
+    # (1) .. exported KNV data files
+    if source in ['all', 'data']:
         # Import info files
         click.echo('Rebuilding infos ..', nl=False)
         db.rebuild_infos()
         click.echo(' done.')
 
+        # Import order files
+        click.echo('Rebuilding orders ..', nl=False)
+        db.rebuild_orders()
+        click.echo(' done.')
+
+        # Merge data sources
+        click.echo('Merging data sources ..', nl=False)
+        db.rebuild_data()
+        click.echo(' done.')
+
+    # (2) .. exported KNV invoice PDF files
     if source in ['all', 'invoice', 'invoices']:
         # Import invoice files
         click.echo('Rebuilding invoices ..', nl=False)
         db.rebuild_invoices()
         click.echo(' done.')
 
-    if source in ['all', 'order', 'orders']:
-        # Import order files
-        click.echo('Rebuilding orders ..', nl=False)
-        db.rebuild_orders()
-        click.echo(' done.')
-
-    # Merge data sources
-    if source in ['all', 'info', 'infos', 'order', 'orders']:
-        click.echo('Merging data sources ..', nl=False)
-        db.rebuild_data()
-        click.echo(' done.')
-
+    # (3) .. exported third-party payment data files
     if source in ['all', 'payment', 'payments']:
         # Import payment files
         click.echo('Rebuilding payments ..', nl=False)
         db.rebuild_payments()
         click.echo(' done.')
 
-    click.echo('Update complete!')
+    if source == 'all': click.echo('Update complete!')
 
 
 @db.command()
@@ -429,7 +424,7 @@ def prepare(config, year, quarter, months):
     db = Database(config)
 
     # Match payments for all available gateways
-    for identifier in db.structures.keys():
+    for identifier in db.data_structures.keys():
         # Exit if database is empty
         data_files = build_path(join(config.payment_dir, identifier), year=year, quarter=quarter, months=months)
 
@@ -438,7 +433,7 @@ def prepare(config, year, quarter, months):
             click.echo('Exiting ..')
             click.Context.exit(1)
 
-        click.echo('Matching "{}" data:'.format(identifier))
+        click.echo('Matching {} data ..'.format(identifier))
 
         # Initialize payment handler
         handler = db.get_payments(identifier, data_files)
@@ -481,7 +476,7 @@ def run(config, year, quarter, months):
     db = Database(config)
 
     # Match payments for all available gateways
-    for identifier in db.structures.keys():
+    for identifier in db.data_structures.keys():
         # Take a deep breath, relax ..
         if not click.confirm('Ready to proceed with {} data?'.format(identifier), default=True):
             continue
@@ -638,7 +633,7 @@ def save(config):
         click.Context.exit(0)
 
     # Import session files
-    for identifier in db.structures.keys():
+    for identifier in db.data_structures.keys():
         click.echo('Importing {} session ..'.format(identifier), nl=False)
         db.import_session(identifier)
         click.echo(' done.')
@@ -669,7 +664,7 @@ def pdf(config, year, quarter, months):
     invoices = db.get_invoices()
 
     # Merge PDF invoices
-    for identifier in db.structures.keys():
+    for identifier in db.data_structures.keys():
         # Exit if database is empty
         data_files = build_path(join(config.payment_dir, identifier), year=year, quarter=quarter, months=months)
 
@@ -860,13 +855,7 @@ def lookup(config, isbn, cache_only, force_refresh):
 
     click.echo(' done!')
 
-    if config.verbose:
-        click.echo(data)
-
-    else:
-        # TODO: Print complete dataset
-        if 'AutorSachtitel' in data:
-            click.echo('Match: {}'.format(data['AutorSachtitel']))
+    pretty_print(data)
 
 
 @api.command()
