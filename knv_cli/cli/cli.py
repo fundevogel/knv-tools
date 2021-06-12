@@ -287,58 +287,43 @@ def rebuild(config, source):
     # Normalize input
     source = source.lower()
 
-    if source not in [
-        'all',
-        # FitBis
-        'fitbis',
-        # Shopkonfigurator
-        'info', 'infos',
-        'invoice', 'invoices',
-        'order', 'orders',
-        # Payment gateways
-        'payment', 'payments',
-    ]:
+    if source not in ['all', 'data', 'invoice', 'invoices', 'payment', 'payments']:
         click.echo('Unknown source "{}", exiting ..'.format(source))
         click.Context.exit(0)
 
     # Initialize database
     db = Database(config)
 
-
-    if source in ['all', 'info', 'infos']:
+    # Rebuild data from ..
+    # (1) .. exported KNV data files
+    if source in ['all', 'data']:
         # Import info files
         click.echo('Rebuilding infos ..', nl=False)
         db.rebuild_infos()
         click.echo(' done.')
 
+        # Import order files
+        click.echo('Rebuilding orders ..', nl=False)
+        db.rebuild_orders()
+        click.echo(' done.')
+
+        # Merge data sources
+        click.echo('Merging data sources ..', nl=False)
+        db.rebuild_data()
+        click.echo(' done.')
+
+    # (2) .. exported KNV invoice PDF files
     if source in ['all', 'invoice', 'invoices']:
         # Import invoice files
         click.echo('Rebuilding invoices ..', nl=False)
         db.rebuild_invoices()
         click.echo(' done.')
 
-    if source in ['all', 'order', 'orders']:
-        # Import order files
-        click.echo('Rebuilding orders ..', nl=False)
-        db.rebuild_orders()
-        click.echo(' done.')
-
-    # Merge data sources
-    if source in ['all', 'info', 'infos', 'order', 'orders']:
-        click.echo('Merging data sources ..', nl=False)
-        db.rebuild_data()
-        click.echo(' done.')
-
+    # (3) .. exported third-party payment data files
     if source in ['all', 'payment', 'payments']:
         # Import payment files
         click.echo('Rebuilding payments ..', nl=False)
         db.rebuild_payments()
-        click.echo(' done.')
-
-    if source in ['all', 'fitbis']:
-        # Import fitbis files (such as BWD, EDV invoices & collective invoices)
-        click.echo('Rebuilding fitbis data ..', nl=False)
-        db.rebuild_fitbis()
         click.echo(' done.')
 
     click.echo('Update complete!')
