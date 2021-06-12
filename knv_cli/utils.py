@@ -5,8 +5,7 @@ from glob import glob
 from hashlib import md5
 from operator import itemgetter
 from os import makedirs
-from os.path import exists, dirname, join
-
+from os.path import exists, dirname, join, splitext
 from pandas import DataFrame, concat, read_csv
 
 
@@ -129,10 +128,14 @@ def build_path(
     return sorted([join(base_path, '-'.join([str(year), str(month).zfill(2) + '.json'])) for month in months])
 
 
-def create_path(file_path) -> None:
-    if not exists(dirname(file_path)):
+def create_path(path) -> None:
+    # Determine if (future) target is appropriate data file
+    if splitext(path)[1].lower() in ['.csv', '.json', '.pdf']:
+        path = dirname(path)
+
+    if not exists(path):
         try:
-            makedirs(dirname(file_path))
+            makedirs(path)
 
         # Guard against race condition
         except OSError:
