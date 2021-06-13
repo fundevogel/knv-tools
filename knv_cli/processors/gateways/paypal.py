@@ -43,15 +43,15 @@ class Paypal(Gateway):
             payment = {}
 
             payment['Datum'] = self.date2string(item['Datum'])
+            payment['Art'] = 'H'
             payment['Treffer'] = 'unsicher'
-            payment['Auftrag'] = 'nicht zugeordnet'
-            payment['Rechnungen'] = 'nicht zugeordnet'
+            payment['Auftragsnummer'] = 'nicht zugeordnet'
+            payment['Rechnungsnummer'] = 'nicht zugeordnet'
             payment['Name'] = item['Name']
-            payment['Brutto'] = self.number2string(item['Brutto'])
+            payment['Betrag'] = self.number2string(item['Brutto'])
             payment['Gebühr'] = self.number2string(item['Gebühr'])
             payment['Netto'] = self.number2string(item['Netto'])
             payment['Währung'] = item['Währung']
-            payment['Steuern'] = 'keine Angabe'
             payment['Anschrift'] = item['Adresszeile 1']
             payment['PLZ'] = self.normalize(item['PLZ'])
             payment['Ort'] = item['Ort']
@@ -59,7 +59,7 @@ class Paypal(Gateway):
             payment['Telefon'] = self.normalize(item['Telefon'])
             payment['Email'] = item['Absender E-Mail-Adresse']
             payment['Dienstleister'] = 'PayPal'
-            payment['Zahlungsart'] = 'Shopbestellung'
+            payment['Zahlungsart'] = 'Sofortzahlung'
             payment['Transaktion'] = code
 
             if payment['Telefon'] != '':

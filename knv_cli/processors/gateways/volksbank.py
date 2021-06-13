@@ -56,28 +56,27 @@ class Volksbank(Gateway):
             payment = {}
 
             payment['Datum'] = self.date2string(item['Valuta'])
-            payment['Status'] = 'Haben'
+            payment['Art'] = 'H'
             payment['Treffer'] = 'unsicher'
-            payment['Auftrag'] = 'nicht zugeordnet'
-            payment['Rechnungen'] = 'nicht zugeordnet'
-            payment['FitBis'] = 'nicht zugeordnet'
+            payment['Auftragsnummer'] = 'nicht zugeordnet'
+            payment['Rechnungsnummer'] = 'nicht zugeordnet'
             payment['Name'] = item['Empfänger/Zahlungspflichtiger']
-            payment['Brutto'] = self.number2string(item['Umsatz'])
-            payment['Steuern'] = 'keine Angabe'
+            payment['Betrag'] = self.number2string(item['Umsatz'])
             payment['Währung'] = item['Währung']
             payment['Dienstleister'] = 'Volksbank'
+            payment['Zahlungsart'] = 'Überweisung'
             payment['Verwendungszweck'] = reference
             payment['Rohdaten'] = item['Vorgang/Verwendungszweck']
 
             # As KNV transfers all its claims against stores to a certain Raiffeisen subsidiary ..
             if payment['Name'] == 'Raiffeisen Factor Bank AG':
                 # .. coming across it, look for invoice numbers & collect them
-                payment['Status'] = 'Soll'
+                payment['Art'] = 'S'
                 pattern = r"(Rg\s\d{10})"
-                fitbis_invoices = [invoice.replace('Rg 00', '') for invoice in findall(pattern, reference)]
+                expenses = [invoice.replace('Rg 00', '') for invoice in findall(pattern, reference)]
 
                 # Apply matched fitbis invoices
-                if fitbis_invoices: payment['FitBis'] = dedupe(fitbis_invoices)
+                if expenses: payment['Rechnungsnummer'] = dedupe(expenses)
 
                 payments[code] = payment
 
@@ -126,7 +125,7 @@ class Volksbank(Gateway):
                         order_candidates.append(self.VKN + '-' + order_candidate[0])
 
             # Apply matched order(s)
-            if order_candidates: payment['ID'] = order_candidates
+            if order_candidates: payment['Auftragsnummer'] = order_candidates
 
             # Prepare reference string for further investigation by removing ..
             # (1) .. punctuation
@@ -141,16 +140,16 @@ class Volksbank(Gateway):
             invoice_candidates = findall(pattern, reference)
 
             if invoice_candidates:
-                payment['Rechnungen'] = []
+                payment['Rechnungsnummer'] = []
 
                 for invoice in invoice_candidates:
                     # Normalize matched invoices
                     if invoice[:1] == '2': invoice = 'R' + invoice
 
-                    payment['Rechnungen'].append(invoice)
+                    payment['Rechnungsnummer'].append(invoice)
 
                 # Remove duplicates AFTER normalization
-                payment['Rechnungen'] = dedupe(payment['Rechnungen'])
+                payment['Rechnungsnummer'] = dedupe(payment['Rechnungsnummer'])
 
             payments[code] = payment
 

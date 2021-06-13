@@ -32,10 +32,13 @@ class SammelInvoiceProcessor(InvoiceProcessor):
                 'Datum': invoice_date,
                 'Vorgang': invoice_number,
                 'Datei': invoice,
+                'Kontierung': 'S',
                 'Zeitraum': 'keine Angabe',
                 'Skonto': 'keine Angabe',
                 'Brutto': 'keine Angabe',
+                'Netto': 'keine Angabe',
                 'MwSt': 'keine Angabe',
+                'Rechnungsart': 'Sammelrechnung',
             }
 
             # Remove 'Korrekturaufstellung' pages from content
