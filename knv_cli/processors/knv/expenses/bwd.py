@@ -4,18 +4,18 @@ from __future__ import annotations
 
 from re import findall
 
-from .invoices import InvoiceProcessor
+from ..invoices import InvoiceProcessor
 
 
-class EdvInvoiceProcessor(InvoiceProcessor):
+class BwdInvoiceProcessor(InvoiceProcessor):
     # PROPS
 
-    regex = 'EDV_*.zip'
+    regex = 'BWD_*.zip'
 
 
     # CORE methods
 
-    def process(self) -> EdvInvoiceProcessor:
+    def process(self) -> BwdInvoiceProcessor:
         '''
         Processes 'RE_{Ymd}_{VKN}_*.PDF' files
         '''

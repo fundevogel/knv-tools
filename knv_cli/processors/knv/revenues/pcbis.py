@@ -2,7 +2,7 @@
 # See https://stackoverflow.com/a/33533514
 from __future__ import annotations
 
-from .invoices import InvoiceProcessor
+from ..invoices import InvoiceProcessor
 
 
 class PcBisInvoiceProcessor(InvoiceProcessor):
@@ -147,11 +147,6 @@ class PcBisInvoiceProcessor(InvoiceProcessor):
                     reduced_tax = costs_list[0]
                     full_tax = costs_list[1]
 
-                    if len(costs_list) < 3:
-                        # TODO: NEEDS TESTING
-                        # print(reduced_net, full_net)
-                        full_tax = costs[5]
-
                 elif len(costs) == 9:
                     reduced_tax = costs[4].split(':')[-1]
                     full_tax = costs[5]
@@ -165,7 +160,6 @@ class PcBisInvoiceProcessor(InvoiceProcessor):
                     if 'MwSt. gesamt' in costs[6]:
                         reduced_tax = costs[6].split(':')[-1]
                         full_tax = costs[7]
-
 
                 elif len(costs) in [10, 11]:
                     index = 5

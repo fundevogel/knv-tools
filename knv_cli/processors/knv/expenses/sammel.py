@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from re import findall
 
-from .invoices import InvoiceProcessor
+from ..invoices import InvoiceProcessor
 
 
 class SammelInvoiceProcessor(InvoiceProcessor):
@@ -33,8 +33,8 @@ class SammelInvoiceProcessor(InvoiceProcessor):
                 'Vorgang': invoice_number,
                 'Datei': invoice,
                 'Zeitraum': 'keine Angabe',
-                'Betrag': 'keine Angabe',
                 'Skonto': 'keine Angabe',
+                'Brutto': 'keine Angabe',
                 'MwSt': 'keine Angabe',
             }
 

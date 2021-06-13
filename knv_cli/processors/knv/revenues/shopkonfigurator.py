@@ -2,7 +2,7 @@
 # See https://stackoverflow.com/a/33533514
 from __future__ import annotations
 
-from .invoices import InvoiceProcessor
+from ..invoices import InvoiceProcessor
 
 
 class ShopkonfiguratorInvoiceProcessor(InvoiceProcessor):
