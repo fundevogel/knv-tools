@@ -62,7 +62,7 @@ class Volksbank(Gateway):
             payment['Rechnungen'] = 'nicht zugeordnet'
             payment['FitBis'] = 'nicht zugeordnet'
             payment['Name'] = item['Empfänger/Zahlungspflichtiger']
-            payment['Betrag'] = self.number2string(item['Umsatz'])
+            payment['Brutto'] = self.number2string(item['Umsatz'])
             payment['Steuern'] = 'keine Angabe'
             payment['Währung'] = item['Währung']
             payment['Dienstleister'] = 'Volksbank'

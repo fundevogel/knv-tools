@@ -96,15 +96,15 @@ class Payment(Molecule):
     # HELPER methods
 
     def identifier(self) -> str:
-        # Use transaction number for PayPal payments
+        # Use transaction number for PayPal payments, otherwise ..
         if 'Transaktion' in self.data:
             return self.data['Transaktion']
 
-        # Build unique string based on various properties
+        # .. build unique string based on various properties
         return md5(str([
             self.data['Datum'],
             self.data['Name'],
-            self.data['Betrag'],
+            self.data['Brutto'],
             self.data['Rohdaten'],
         ]).encode('utf-8')).hexdigest()
 
