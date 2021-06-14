@@ -762,7 +762,7 @@ def report(config, year, quarter, years_back, enable_chart):
 
     for i in range(0, 1 + int(years_back)):
         this_year = str(int(year) - i)
-        data[this_year] = handler.amount(this_year, quarter)
+        data[this_year] = handler.profit_report(this_year, quarter)
 
     df = DataFrame(data, index=list(data.values())[0].keys())
 

@@ -16,9 +16,3 @@ class Invoices(Waypoint):
         # Build composite structure
         for data in invoices.values():
             self.add(self.invoice_types[data['Rechnungsart']](data))
-
-
-    # ACCOUNTING methods
-
-    # def taxes(self):
-    #     pass

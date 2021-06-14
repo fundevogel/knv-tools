@@ -46,18 +46,6 @@ class Framework(metaclass=ABCMeta):
         return self.data['Datum'].split('-')[-1]
 
 
-    # ACCOUNTING methods
-
-    # @abstractmethod
-    # def revenues(self) -> None:
-    #     pass
-
-
-    # @abstractmethod
-    # def taxes(self) -> None:
-    #     pass
-
-
     # HELPER methods
 
     def number2string(self, string: str) -> str:

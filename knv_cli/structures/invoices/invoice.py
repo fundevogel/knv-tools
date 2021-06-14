@@ -4,22 +4,6 @@ from ..endpoint import Endpoint
 class Invoice(Endpoint):
     # CORE methods
 
-    # def export(self) -> None:
-    #     pass
-
-
-    # ACCOUNTING methods
-
-    # def revenues(self) -> float:
-    #     return float(self.data['Gesamtbetrag'])
-
-
-    # def taxes(self) -> float:
-    #     return self.data['Steuern']
-
-
-    # HELPER methods
-
     def identifier(self) -> str:
         return self.data['Vorgang']
 
