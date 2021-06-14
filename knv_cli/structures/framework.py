@@ -7,18 +7,19 @@ from abc import ABCMeta, abstractmethod
 from ..utils import number2string
 
 
-class Component(metaclass=ABCMeta):
+class Framework(metaclass=ABCMeta):
     # PROPS
 
     data = None
 
+
     @property
-    def parent(self) -> Component:
+    def parent(self) -> Framework:
         return self._parent
 
 
     @parent.setter
-    def parent(self, parent: Component):
+    def parent(self, parent: Framework):
         self._parent = parent
 
 
@@ -28,20 +29,6 @@ class Component(metaclass=ABCMeta):
     def export(self) -> None:
         pass
 
-
-    # ACCOUNTING methods
-
-    @abstractmethod
-    def revenues(self) -> None:
-        pass
-
-
-    @abstractmethod
-    def taxes(self) -> None:
-        pass
-
-
-    # CORE HELPER methods
 
     def date(self) -> str:
         return self.data['Datum']
@@ -57,6 +44,18 @@ class Component(metaclass=ABCMeta):
 
     def day(self) -> str:
         return self.data['Datum'].split('-')[-1]
+
+
+    # ACCOUNTING methods
+
+    # @abstractmethod
+    # def revenues(self) -> None:
+    #     pass
+
+
+    # @abstractmethod
+    # def taxes(self) -> None:
+    #     pass
 
 
     # HELPER methods

@@ -1,3 +1,4 @@
+from datetime import datetime, timedelta
 from operator import itemgetter
 
 from ..invoices.invoice import Invoice
@@ -6,26 +7,31 @@ from .payments import Payments
 from .payment import Payment
 
 
-class PaypalPayments(Payments):
-    def __init__(self, payments: dict, orders: dict, invoices: dict) -> None:
-        # Initialize 'Molecule' props
-        super().__init__()
+class PaypalPayment(Payment):
+    # CORE methods
 
+    def identifier(self) -> str:
+        # Use transaction number as identifier
+        return self.data['Transaktion']
+
+
+class PaypalPayments(Payments):
+    # CORE methods
+
+    def process(self, payments: dict, orders: dict, invoices: dict) -> None:
         # Build composite structure
         for data in payments.values():
-            payment = Payment(data)
-
             # Search for matching order
             matched_order = {}
 
             # (1) Distinguish between online shop payments ..
-            if data['Zahlungsart'] == 'Shopbestellung':
+            if data['Zahlungsart'] == 'Sofortzahlung':
                 # Find matching order for current payment
                 for order in orders.values():
                     # .. whose transaction codes will match ..
-                    if payment.identifier() == order['Abwicklung']['Transaktionscode']:
+                    if data['Transaktion'] == order['Abwicklung']['Transaktionscode']:
                         # .. which represents a one-to-one match
-                        payment.mark('sicher')
+                        data['Treffer'] = 'sicher'
 
                         # Save result
                         matched_order = order
@@ -47,11 +53,11 @@ class PaypalPayments(Payments):
 
             if matched_order:
                 # Add matching order
-                payment.add(Order(matched_order))
-                payment.add_order_numbers(matched_order['ID'])
+                data['Auftragsnummer'] = matched_order['ID']
 
                 if isinstance(matched_order['Rechnungen'], dict):
-                    matched_invoices = list(matched_order['Rechnungen'].keys())
+                    # Consider only valid (= currently available) invoices
+                    matched_invoices = [invoice_number for invoice_number in list(matched_order['Rechnungen'].keys()) if invoice_number in invoices]
 
             # .. without matching order, this can only be achieved by going through invoices ..
             else:
@@ -60,29 +66,33 @@ class PaypalPayments(Payments):
                 # .. but never say never
                 if matched_invoice: matched_invoices = [matched_invoice['Vorgang']]
 
-            # Apply matching invoices, but ..
-            if matched_invoices:
-                # .. only considering valid (= currently available) invoices
-                matched_invoices = matched_invoices = [Invoice(invoices[invoice]) for invoice in matched_invoices if invoice in invoices]
+            # Apply matching invoices
+            if matched_invoices: data['Rechnungsnummer'] = matched_invoices
 
-                # Add invoice number(s) to payment data
-                payment.add_invoice_numbers(invoice.identifier() for invoice in matched_invoices)
+            # Initialize payment
+            payment = PaypalPayment(data)
 
-                for invoice in matched_invoices:
-                    # Add invoices to payment
-                    payment.add(invoice)
+            # Add invoices to payment
+            for invoice_number in matched_invoices:
+                invoice = invoices[invoice_number]
+                payment.add(self.invoice_types[invoice['Rechnungsart']](invoice))
+
+            # Determine if invoice(s) amount to payment amount ..
+            if not payment.assigned() and payment.amount() == payment.invoices_amount():
+                # .. which makes them a one-to-one hit
+                payment.assign('fast sicher')
 
             self.add(payment)
 
 
-    # MATCHING methods
+    # HELPER methods
 
     def match_order(self, payment: dict, orders: dict) -> dict:
         for order in orders.values():
             candidates = []
 
             # Check if payment amount matches order costs, and only then ..
-            if payment['Brutto'] == order['Gesamtbetrag']:
+            if payment['Betrag'] == order['Gesamtbetrag']:
                 # .. for last two weeks ..
                 for days in range(1, 14):
                     # .. determine matching orders by highest probability, but only those ..
@@ -137,17 +147,25 @@ class PaypalPayments(Payments):
 
 
     def match_invoice(self, payment: dict, invoices: dict) -> dict:
-        for invoice in invoices.values():
+        for invoice_data in invoices.values():
+            invoice = self.invoice_types[invoice_data['Rechnungsart']](invoice_data)
+
             # Check if payment amount matches invoice costs, and only then ..
-            if payment['Brutto'] == invoice['Gesamtbetrag']:
+            if payment['Betrag'] == invoice.amount():
                 # .. within next two months ..
                 for days in range(1, 60):
-                    # check if payment date matches invoices within two months, and only then ..
-                    if self.match_dates(payment['Datum'], invoice['Datum'], days):
+                    # .. check if payment date matches invoices within two months, and only then ..
+                    if self.match_dates(payment['Datum'], invoice.date(), days):
                         # .. return matching invoice
-                        return invoice
+                        return invoice_data
 
         return {}
+
+
+    def match_dates(self, test_date, start_date, days=1, before: bool = False) -> bool:
+        end_date = (datetime.strptime(start_date, '%Y-%m-%d') + timedelta(days=days)).strftime('%Y-%m-%d')
+
+        return start_date >= test_date >= end_date if before else start_date <= test_date <= end_date
 
 
     # # MATCHING OUTPUT methods
@@ -162,8 +180,8 @@ class PaypalPayments(Payments):
     #             del item['Transaktion']
 
     #             # Convert invoice numbers to string
-    #             if isinstance(item['Rechnungen'], list):
-    #                 item['Rechnungen'] = ';'.join(item['Rechnungen'])
+    #             if isinstance(item['Rechnungsnummer'], list):
+    #                 item['Rechnungsnummer'] = ';'.join(item['Rechnungsnummer'])
 
     #             # Extract tax rates & their respective amount
     #             if isinstance(item['Steuern'], dict):
@@ -176,7 +194,7 @@ class PaypalPayments(Payments):
 
     #                 # Add share of payment fees for each tax rate
     #                 # (1) Calculate total amount of taxes
-    #                 total_taxes = [taxes for invoice_number, taxes in item['Steuern'].items() if invoice_number in item['Rechnungen']]
+    #                 total_taxes = [taxes for invoice_number, taxes in item['Steuern'].items() if invoice_number in item['Rechnungsnummer']]
 
 
     #                 # (2) Calculate share for each tax rate

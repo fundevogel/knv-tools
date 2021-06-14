@@ -2,14 +2,14 @@ from operator import itemgetter
 
 import pendulum
 
-from ..components import Molecule
+from ..waypoint import Waypoint
 from ..invoices.invoice import Invoice
 from .order import Order
 
 
-class Orders(Molecule):
+class Orders(Waypoint):
     def __init__(self, orders: dict, invoices: dict) -> None:
-        # Initialize 'Molecule' props
+        # Initialize 'Waypoint' props
         super().__init__()
 
         # Build composite structure
@@ -19,7 +19,7 @@ class Orders(Molecule):
             if isinstance(data['Rechnungen'], dict):
                 # Ensure validity & availability of each invoice
                 for invoice in [invoices[invoice] for invoice in data['Rechnungen'].keys() if invoice in invoices]:
-                    order.add(Invoice(invoice))
+                    order.add(self.invoice_types[invoice['Rechnungsart']](invoice))
 
             self.add(order)
 

@@ -2,21 +2,23 @@ from operator import itemgetter
 
 import pendulum
 
-from ..components import Molecule
+from ..waypoint import Waypoint
+from .expense import Expense
 from .invoice import Invoice
+from .revenue import Revenue
 
 
-class Invoices(Molecule):
+class Invoices(Waypoint):
     def __init__(self, invoices: dict) -> None:
         # Initialize 'Molecule' props
         super().__init__()
 
         # Build composite structure
         for data in invoices.values():
-            self.add(Invoice(data))
+            self.add(self.invoice_types[data['Rechnungsart']](data))
 
 
     # ACCOUNTING methods
 
-    def taxes(self):
-        pass
+    # def taxes(self):
+    #     pass

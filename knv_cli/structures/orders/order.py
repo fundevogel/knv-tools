@@ -1,12 +1,12 @@
-from ..components import Molecule
+from ..waypoint import Waypoint
 
 
-class Order(Molecule):
+class Order(Waypoint):
     def __init__(self, data: dict) -> None:
-        self.data = data
-
-        # Initialize 'Molecule' props
+        # Initialize 'Waypoint' props
         super().__init__()
+
+        self.data = data
 
 
     # CORE methods
@@ -27,8 +27,8 @@ class Order(Molecule):
 
     # ACCOUNTING methods
 
-    def revenues(self) -> float:
-        return float(self.data['Gesamtbetrag'])
+    def amount(self) -> str:
+        return self.data['Gesamtbetrag']
 
 
     def taxes(self) -> dict:
@@ -41,6 +41,10 @@ class Order(Molecule):
         return self.data['ID']
 
 
+    def form_of_address(self) -> str:
+        return self.data['Anrede']
+
+
     def first_name(self) -> str:
         return self.data['Vorname']
 
@@ -50,7 +54,3 @@ class Order(Molecule):
 
     def mail(self) -> str:
         return self.data['Email']
-
-
-    def form_of_address(self) -> str:
-        return self.data['Anrede']
