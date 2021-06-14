@@ -119,19 +119,17 @@ def build_path(
     create_path(base_path)
 
     # No year => all files
-    if year is None:
-        return sorted(file_glob(base_path, regex))
+    if year is None: return sorted(file_glob(base_path, regex))
 
-    # Generate months if quarter was given
+    # Valid quarter => generate months
     if quarter is not None and 1 <= int(quarter) <= 4:
         months = [month + 3 * (int(quarter) - 1) for month in [1, 2, 3]]
 
-    # Year, but no months => given year
-    if months is None:
-        return sorted(file_glob(base_path, str(year) + '-' + regex))
-
     # Year & months => given months for given year
-    return sorted([join(base_path, '-'.join([str(year), str(month).zfill(2) + '.json'])) for month in months])
+    if months is not None: return sorted([join(base_path, '-'.join([str(year), str(month).zfill(2) + '.json'])) for month in months])
+
+    # No year, no quarter, invalid quarter, no months =>
+    return sorted(file_glob(base_path, str(year) + regex))
 
 
 def create_path(path) -> None:
