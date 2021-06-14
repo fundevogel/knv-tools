@@ -2,7 +2,7 @@
 # See https://stackoverflow.com/a/33533514
 from __future__ import annotations
 
-from .invoices import InvoiceProcessor
+from ..invoices import InvoiceProcessor
 
 
 class PcBisInvoiceProcessor(InvoiceProcessor):
@@ -30,10 +30,12 @@ class PcBisInvoiceProcessor(InvoiceProcessor):
                 'Datum': invoice_date,
                 'Vorgang': invoice_number,
                 'Datei': invoice,
+                'Kontierung': 'H',
                 'Versandkosten': self.number2string(0),
                 'Gesamtbetrag': 'keine Angabe',
                 'Steuern': 'keine Angabe',
                 'Gutscheine': 'keine Angabe',
+                'Rechnungsart': 'Kundenrechnung',
             }
 
             taxes = {
@@ -147,11 +149,6 @@ class PcBisInvoiceProcessor(InvoiceProcessor):
                     reduced_tax = costs_list[0]
                     full_tax = costs_list[1]
 
-                    if len(costs_list) < 3:
-                        # TODO: NEEDS TESTING
-                        # print(reduced_net, full_net)
-                        full_tax = costs[5]
-
                 elif len(costs) == 9:
                     reduced_tax = costs[4].split(':')[-1]
                     full_tax = costs[5]
@@ -165,7 +162,6 @@ class PcBisInvoiceProcessor(InvoiceProcessor):
                     if 'MwSt. gesamt' in costs[6]:
                         reduced_tax = costs[6].split(':')[-1]
                         full_tax = costs[7]
-
 
                 elif len(costs) in [10, 11]:
                     index = 5
@@ -204,9 +200,9 @@ class PcBisInvoiceProcessor(InvoiceProcessor):
                 reduced_net, full_net = self.number2string(reduced_net), self.number2string(full_net)
 
                 taxes['Anteil'][tax_rates[0]] = reduced_tax
-                taxes['Anteil'][tax_rates[1]] = full_tax
-
                 taxes['Brutto'][tax_rates[0]] = self.number2string(float(reduced_net) + float(reduced_tax))
+
+                taxes['Anteil'][tax_rates[1]] = full_tax
                 taxes['Brutto'][tax_rates[1]] = self.number2string(float(full_net) + float(full_tax))
 
             # Apply (only successfully) extracted taxes

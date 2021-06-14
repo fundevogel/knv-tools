@@ -37,7 +37,7 @@ class Volksbank(Gateway):
         for code, item in enumerate(self.data):
             # Skip all payments not related to customers
             # (1) Skip withdrawals
-            if item[' '] == 'S':
+            if item[' '] == 'S' and item['Empfänger/Zahlungspflichtiger'] not in ['Raiffeisen Factor Bank AG']:
                 continue
 
             # (2) Skip opening & closing balance
@@ -56,16 +56,32 @@ class Volksbank(Gateway):
             payment = {}
 
             payment['Datum'] = self.date2string(item['Valuta'])
+            payment['Art'] = 'H'
             payment['Treffer'] = 'unsicher'
-            payment['Auftrag'] = 'nicht zugeordnet'
-            payment['Rechnungen'] = 'nicht zugeordnet'
+            payment['Auftragsnummer'] = 'nicht zugeordnet'
+            payment['Rechnungsnummer'] = 'nicht zugeordnet'
             payment['Name'] = item['Empfänger/Zahlungspflichtiger']
             payment['Betrag'] = self.number2string(item['Umsatz'])
-            payment['Steuern'] = 'keine Angabe'
             payment['Währung'] = item['Währung']
             payment['Dienstleister'] = 'Volksbank'
+            payment['Zahlungsart'] = 'Überweisung'
             payment['Verwendungszweck'] = reference
             payment['Rohdaten'] = item['Vorgang/Verwendungszweck']
+
+            # As KNV transfers all its claims against stores to a certain Raiffeisen subsidiary ..
+            if payment['Name'] == 'Raiffeisen Factor Bank AG':
+                # .. coming across it, look for invoice numbers & collect them
+                payment['Art'] = 'S'
+                pattern = r"(Rg\s\d{10})"
+                expenses = [invoice.replace('Rg 00', '') for invoice in findall(pattern, reference)]
+
+                # Apply matched fitbis invoices
+                if expenses: payment['Rechnungsnummer'] = dedupe(expenses)
+
+                payments[code] = payment
+
+                # Proceed to next payment
+                continue
 
             # Skip blocked payers by ..
             is_blocklisted = False
@@ -90,7 +106,7 @@ class Volksbank(Gateway):
             # Extract order identifiers
             order_candidates = []
 
-            for line in reference.split(' '):
+            for line in reference.split():
                 # Skip VKN
                 if line == self.VKN:
                     continue
@@ -108,8 +124,8 @@ class Volksbank(Gateway):
                         # .. we got a hit
                         order_candidates.append(self.VKN + '-' + order_candidate[0])
 
-            if order_candidates:
-                payment['ID'] = order_candidates
+            # Apply matched order(s)
+            if order_candidates: payment['Auftragsnummer'] = order_candidates
 
             # Prepare reference string for further investigation by removing ..
             # (1) .. punctuation
@@ -124,16 +140,16 @@ class Volksbank(Gateway):
             invoice_candidates = findall(pattern, reference)
 
             if invoice_candidates:
-                payment['Rechnungen'] = []
+                payment['Rechnungsnummer'] = []
 
                 for invoice in invoice_candidates:
-                    if invoice[:1] == '2':
-                        invoice = 'R' + invoice
+                    # Normalize matched invoices
+                    if invoice[:1] == '2': invoice = 'R' + invoice
 
-                    payment['Rechnungen'].append(invoice)
+                    payment['Rechnungsnummer'].append(invoice)
 
                 # Remove duplicates AFTER normalization
-                payment['Rechnungen'] = dedupe(payment['Rechnungen'])
+                payment['Rechnungsnummer'] = dedupe(payment['Rechnungsnummer'])
 
             payments[code] = payment
 

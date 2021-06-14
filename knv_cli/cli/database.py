@@ -4,22 +4,20 @@ from zipfile import ZipFile
 
 import pendulum
 
-from ..structure.payments.payments import Payments
-from ..structure.payments.paypal import PaypalPayments
-from ..structure.payments.volksbank import VolksbankPayments
 from ..processors.gateways.paypal import Paypal
 from ..processors.gateways.volksbank import Volksbank
 from ..processors.knv.infos import InfoProcessor
-from ..processors.knv.invoices.pcbis import PcBisInvoiceProcessor
-from ..processors.knv.invoices.shopkonfigurator import ShopkonfiguratorInvoiceProcessor
-from ..processors.knv.invoices.bwd import BwdInvoiceProcessor
-from ..processors.knv.invoices.edv import EdvInvoiceProcessor
-from ..processors.knv.invoices.sammel import SammelInvoiceProcessor
+from ..processors.knv.revenues.pcbis import PcBisInvoiceProcessor
+from ..processors.knv.revenues.shopkonfigurator import ShopkonfiguratorInvoiceProcessor
+from ..processors.knv.expenses.bwd import BwdInvoiceProcessor
+from ..processors.knv.expenses.edv import EdvInvoiceProcessor
+from ..processors.knv.expenses.sammel import SammelInvoiceProcessor
 from ..processors.knv.orders import OrderProcessor
 from ..processors.knv.shopkonfigurator import ShopkonfiguratorProcessor
-from ..structure.invoices.invoices import Invoices
-from ..structure.orders.orders import Orders
-from ..structure.payments.payments import Payments
+from ..structures.invoices.invoices import Invoices
+from ..structures.orders.orders import Orders
+from ..structures.payments.paypal import PaypalPayments
+from ..structures.payments.volksbank import VolksbankPayments
 from ..utils import load_json, dump_json
 from ..utils import build_path, dedupe, group_data, sort_data
 from .session import Session
@@ -41,7 +39,7 @@ class Database:
         'volksbank': Volksbank,
     }
 
-    data_structures = {
+    payment_structures = {
         'paypal': PaypalPayments,
         'volksbank': VolksbankPayments,
     }
@@ -208,13 +206,15 @@ class Database:
         payments = load_json(payment_files)
 
         # Merge with manually assigned payment files
-        for identifier in self.payment_processors.keys():
-            payments.update(load_json(self.session_files[identifier]))
+        payments.update(load_json(self.session_files[identifier]))
 
-        # Select appropriate invoice files
-        invoice_files = self.invoice_files['shopkonfigurator']['data'] + self.invoice_files['pcbis']['data']
+        # Select all invoice files
+        invoice_files = []
 
-        return self.data_structures[identifier](payments, load_json(self.db_files), load_json(invoice_files))
+        for processor in self.invoice_processors.keys():
+            invoice_files += self.invoice_files[processor]['data']
+
+        return self.payment_structures[identifier](payments, load_json(self.db_files), load_json(invoice_files))
 
 
     def get_data(self, identifier: str) -> dict:
@@ -288,7 +288,7 @@ class Database:
 
 
     def import_session(self, identifier: str) -> None:
-        if not identifier in self.data_structures:
+        if not identifier in self.payment_structures:
             raise Exception
 
         session_data = load_json(build_path(self.sessions_dir, identifier + '_*.json'))

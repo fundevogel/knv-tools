@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from re import findall
 
-from .invoices import InvoiceProcessor
+from ..invoices import InvoiceProcessor
 
 
 class SammelInvoiceProcessor(InvoiceProcessor):
@@ -32,10 +32,13 @@ class SammelInvoiceProcessor(InvoiceProcessor):
                 'Datum': invoice_date,
                 'Vorgang': invoice_number,
                 'Datei': invoice,
+                'Status': 'S',
                 'Zeitraum': 'keine Angabe',
-                'Betrag': 'keine Angabe',
                 'Skonto': 'keine Angabe',
-                'MwSt': 'keine Angabe',
+                'Brutto': 'keine Angabe',
+                'Netto': 'keine Angabe',
+                'Steuern': 'keine Angabe',
+                'Rechnungsart': 'Sammelrechnung',
             }
 
             # Remove 'Korrekturaufstellung' pages from content
@@ -75,7 +78,10 @@ class SammelInvoiceProcessor(InvoiceProcessor):
             # Combine results
             if sum([starting_point, terminal_point]) > 0:
                 invoice['Skonto'] = {}
-                invoice['MwSt'] = {}
+                invoice['Steuern'] = {
+                    'Brutto': {},
+                    'Anteil': {},
+                }
 
                 tax_list = last_page[starting_point:terminal_point]
 
@@ -89,20 +95,16 @@ class SammelInvoiceProcessor(InvoiceProcessor):
 
                     # TODO: Act on hyphens (= credit notes)
                     invoice['Skonto'][full_tax] = self.number2string(float(self.number2string(full_amount.replace('-', ''))) / 100 * 2)
-                    invoice['MwSt'][full_tax] = {
-                        'Brutto': self.number2string(full_amount.replace('-', '')),
-                        'Anteil': self.number2string(full_share.replace('-', '')),
-                    }
+                    invoice['Steuern']['Brutto'][full_tax] = self.number2string(full_amount.replace('-', ''))
+                    invoice['Steuern']['Anteil'][full_tax] = self.number2string(full_share.replace('-', ''))
 
                 # TODO: Never happened so far, gotta investigate
                 else: raise Exception
 
                 # TODO: Act on hyphens (= credit notes)
                 invoice['Skonto'][reduced_tax] = self.number2string(float(self.number2string(reduced_amount.replace('-', ''))) / 100 * 2)
-                invoice['MwSt'][reduced_tax] = {
-                    'Brutto': self.number2string(reduced_amount.replace('-', '')),
-                    'Anteil': self.number2string(reduced_share.replace('-', '')),
-                }
+                invoice['Steuern']['Brutto'][reduced_tax] = self.number2string(reduced_amount.replace('-', ''))
+                invoice['Steuern']['Anteil'][reduced_tax] = self.number2string(reduced_share.replace('-', ''))
 
             invoices[invoice_number] = invoice
 

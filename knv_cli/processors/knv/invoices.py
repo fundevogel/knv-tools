@@ -12,7 +12,7 @@ from zipfile import ZipFile
 from PyPDF2 import PdfFileReader
 from PyPDF2.utils import PdfReadError
 
-from ...processor import Processor
+from ..processor import Processor
 
 
 class InvoiceProcessor(Processor):
@@ -81,35 +81,34 @@ class InvoiceProcessor(Processor):
         delimiter = '-'
 
         # (2) .. underscore ('Barsortiment')
-        if delimiter not in string:
-            delimiter = '_'
+        if delimiter not in string: delimiter = '_'
 
         return string.split(delimiter)
 
 
     def invoice2date(self, string: str) -> str:
-        date_string = self.split_string(string)[1]
-
-        return datetime.strptime(date_string, '%Y%m%d').strftime('%Y-%m-%d')
+        return datetime.strptime(self.split_string(string)[1], '%Y%m%d').strftime('%Y-%m-%d')
 
 
     def invoice2number(self, string: str) -> str:
         string_list = self.split_string(string)
 
         # Sort out invoice numbers
-        if len(string_list) == 1:
-            return string
+        if len(string_list) == 1: return string
 
         return string_list[-1]
 
 
     def number2string(self, string) -> str:
-        # Strip all letters ..
-        hit = match(r'^(.*?)[a-zA-Z]', str(string))
+        # Apply procedures specific to strings occuring in PDF invoice files
+        # (1) Remove 'EUR'
+        string = str(string).replace('EUR', '')
+
+        # (2) Strip all letters ..
+        hit = match(r'(.*?)[a-zA-Z]', string)
 
         # .. if there are any
-        if hit is not None:
-            string = hit[1]
+        if hit is not None: string = hit[1]
 
         return super().number2string(string)
 

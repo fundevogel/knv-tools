@@ -21,6 +21,10 @@ class Config(object):
             'export_dir': './dist',
         }
 
+        config['api'] = {
+            'credentials': './login.log',
+        }
+
         # Load config provided by user
         config_file = join(xdg_config_home(), 'knv-cli', 'config')
 

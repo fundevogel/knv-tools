@@ -4,18 +4,18 @@ from __future__ import annotations
 
 from re import findall
 
-from .invoices import InvoiceProcessor
+from ..invoices import InvoiceProcessor
 
 
-class BwdInvoiceProcessor(InvoiceProcessor):
+class EdvInvoiceProcessor(InvoiceProcessor):
     # PROPS
 
-    regex = 'BWD_*.zip'
+    regex = 'EDV_*.zip'
 
 
     # CORE methods
 
-    def process(self) -> BwdInvoiceProcessor:
+    def process(self) -> EdvInvoiceProcessor:
         '''
         Processes 'RE_{Ymd}_{VKN}_*.PDF' files
         '''
@@ -32,10 +32,16 @@ class BwdInvoiceProcessor(InvoiceProcessor):
                 'Datum': invoice_date,
                 'Vorgang': invoice_number,
                 'Datei': invoice,
+                'Status': 'S',
                 'Zeitraum': 'keine Angabe',
+                'Skonto': 'keine Angabe',
                 'Brutto': 'keine Angabe',
                 'Netto': 'keine Angabe',
-                'MwSt': 'keine Angabe',
+                'Steuern': {
+                    'Brutto': {},
+                    'Anteil': {},
+                },
+                'Rechnungsart': 'EDV',
             }
 
             # Extract accounting period from first page
@@ -51,9 +57,21 @@ class BwdInvoiceProcessor(InvoiceProcessor):
             # Extract essential information from ..
             # (1) .. last page
             content = content[len(content) - 1].split()
+
             # (2) .. last three costs, indicated by 'EUR'
             # TODO: Act on hyphens (= credit notes)
-            invoice['Netto'], invoice['MwSt'], invoice['Brutto'] = [self.number2string(content[index + 1].replace('-', '')) for index in self.build_indices(content, 'EUR')[-3:]]
+            invoice['Netto'], tax_amount, invoice['Brutto'] = [self.number2string(content[index + 1].replace('-', '')) for index in self.build_indices(content, 'EUR')[-3:]]
+
+            # Add taxes
+            # (1) Determine relevant position
+            index = self.get_index(content, 'MWSt')
+
+            # (2) Extract tax amount, which is either one or two strings in front of index
+            tax_rate = ''.join([content[index - 2], content[index - 1]]) if content[index - 1] == '%' else content[index - 1]
+
+            # (3) Apply extracted values
+            invoice['Steuern']['Brutto'][tax_rate.replace('+', '')] = invoice['Brutto']
+            invoice['Steuern']['Anteil'][tax_rate.replace('+', '')] = tax_amount
 
             invoices[invoice_number] = invoice
 
