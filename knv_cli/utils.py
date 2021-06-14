@@ -136,7 +136,7 @@ def build_path(
 
 def create_path(path) -> None:
     # Determine if (future) target is appropriate data file
-    if splitext(path)[1].lower() in ['.csv', '.json', '.pdf']:
+    if splitext(path)[1].lower() in ['.csv', '.json', '.pdf', 'png']:
         path = dirname(path)
 
     if not exists(path):
