@@ -7,14 +7,6 @@ from .payments import Payments
 from .payment import Payment
 
 
-class PaypalPayment(Payment):
-    # CORE methods
-
-    def identifier(self) -> str:
-        # Use transaction number as identifier
-        return self.data['Transaktion']
-
-
 class PaypalPayments(Payments):
     # CORE methods
 
@@ -168,44 +160,52 @@ class PaypalPayments(Payments):
         return start_date >= test_date >= end_date if before else start_date <= test_date <= end_date
 
 
-    # # MATCHING OUTPUT methods
+class PaypalPayment(Payment):
+    # CORE methods
 
-    # def matched_payments(self, csv_compatible: bool = False) -> list:
-    #     if csv_compatible:
-    #         # Output 'flat' data, also removing irrelevant information ..
-    #         csv_data = []
-
-    #         for item in self._matched_payments:
-    #             # .. like unique transaction identifiers
-    #             del item['Transaktion']
-
-    #             # Convert invoice numbers to string
-    #             if isinstance(item['Rechnungsnummer'], list):
-    #                 item['Rechnungsnummer'] = ';'.join(item['Rechnungsnummer'])
-
-    #             # Extract tax rates & their respective amount
-    #             if isinstance(item['Steuern'], dict):
-    #                 # Add taxe rates
-    #                 taxes = {}
-
-    #                 # for invoice_number,
-    #                 for tax_rate, tax_amount in item['Steuern'].items():
-    #                     item[tax_rate + ' MwSt'] = tax_amount
-
-    #                 # Add share of payment fees for each tax rate
-    #                 # (1) Calculate total amount of taxes
-    #                 total_taxes = [taxes for invoice_number, taxes in item['Steuern'].items() if invoice_number in item['Rechnungsnummer']]
+    def identifier(self) -> str:
+        # Use transaction number as identifier
+        return self.data['Transaktion']
 
 
-    #                 # (2) Calculate share for each tax rate
-    #                 # for tax_rate, tax_amount in item['Steuern'].items():
-    #                 #     ratio = total_taxes / tax_amount
-    #                 #     share = float(item['Gebühr'].replace('-', '')) / ratio
+    # ACCOUNTING methods
 
-    #                 #     item['Gebührenanteil ' + tax_rate] = self.number2string(share)
+    def tax_report(self) -> dict:
+        # Prepare output data
+        data = {
+            'Datum': self.data['Datum'],
+            'Art': self.data['Art'],
+            'Treffer': self.data['Treffer'],
+            'Auftragsnummer': 'nicht zugeordnet',
+            'Rechnungsnummer': 'nicht zugeordnet',
+            'Name': self.data['Name'],
+            'Betrag': self.data['Betrag'],
+            'Gebühr': self.data['Gebühr'],
+            'Netto': self.data['Netto'],
+        }
 
-    #             csv_data.append(item)
+        # Add order & invoice numbers as strings
+        for identifier in ['Auftragsnummer', 'Rechnungsnummer']:
+            if isinstance(self.data[identifier], list):
+                data[identifier] = ';'.join(self.data[identifier])
 
-    #         return sorted(csv_data, key=itemgetter('Datum'))
+        # Add taxes
+        taxes = self.taxes()
 
-    #     return sorted(self._matched_payments, key=itemgetter('Datum'))
+        for rate, amount in taxes.items():
+            data[rate + ' MwSt'] = amount
+
+        # Add payment fee shares
+        for rate, amount in taxes.items():
+            # Calculate share for tax rates ..
+            if float(amount) > 0:
+                # .. if tax rate is available
+                ratio = float(data['Betrag']) / float(amount)
+                share = float(data['Gebühr']) / ratio
+
+            # .. otherwise, add zero
+            else: share = 0
+
+            data['Gebührenanteil {} MwSt'.format(rate)] = self.number2string(share)
+
+        return data

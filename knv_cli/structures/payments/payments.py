@@ -19,3 +19,9 @@ class Payments(Waypoint):
     @abstractmethod
     def process(self, payments: dict, orders: dict, invoices: dict) -> None:
         pass
+
+
+    # ACCOUNTING methods
+
+    def tax_report(self) -> list:
+        return [item.tax_report() for item in self._children]

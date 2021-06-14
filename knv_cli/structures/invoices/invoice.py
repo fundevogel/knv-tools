@@ -18,3 +18,7 @@ class Invoice(Endpoint):
 
     def is_expense(self) -> str:
         return self.data['Art'] == 'S'
+
+
+    def taxes(self) -> dict:
+        return self.data['Steuern']['Brutto'] if isinstance(self.data['Steuern'], dict) else {}

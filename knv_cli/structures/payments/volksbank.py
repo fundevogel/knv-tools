@@ -6,19 +6,6 @@ from .payments import Payments
 from .payment import Payment
 
 
-class VolksbankPayment(Payment):
-    # CORE methods
-
-    def identifier(self) -> str:
-        # Build unique string based on various properties
-        return md5(str([
-            self.data['Datum'],
-            self.data['Name'],
-            self.data['Brutto'],
-            self.data['Rohdaten'],
-        ]).encode('utf-8')).hexdigest()
-
-
 class VolksbankPayments(Payments):
     # CORE methods
 
@@ -63,17 +50,40 @@ class VolksbankPayments(Payments):
             self.add(payment)
 
 
-    # MATCHING HELPER methods
+class VolksbankPayment(Payment):
+    # CORE methods
 
-    # def extract_taxes(self, invoice_candidates: list, invoices: dict) -> dict:
-    #     taxes = {}
+    def identifier(self) -> str:
+        # Build unique string based on various properties
+        return md5(str([
+            self.data['Datum'],
+            self.data['Name'],
+            self.data['Brutto'],
+            self.data['Rohdaten'],
+        ]).encode('utf-8')).hexdigest()
 
-    #     for invoice_number, invoice in invoices.items():
-    #         if invoice_number in invoice_candidates and isinstance(invoice['Steuern'], dict):
-    #             for tax_rate, tax_amount in invoice['Steuern'].items():
-    #                 if tax_rate not in taxes:
-    #                     taxes[tax_rate] = '0'
 
-    #                 taxes[tax_rate] = self.number2string(float(taxes[tax_rate]) + float(tax_amount))
+    # ACCOUNTING methods
 
-    #     return taxes
+    def tax_report(self) -> dict:
+        # Prepare output data
+        data = {
+            'Datum': self.data['Datum'],
+            'Art': self.data['Art'],
+            'Treffer': self.data['Treffer'],
+            'Auftragsnummer': 'nicht zugeordnet',
+            'Rechnungsnummer': 'nicht zugeordnet',
+            'Name': self.data['Name'],
+            'Betrag': self.data['Betrag'],
+        }
+
+        # Add order & invoice numbers as strings
+        for identifier in ['Auftragsnummer', 'Rechnungsnummer']:
+            if isinstance(self.data[identifier], list):
+                data[identifier] = ';'.join(self.data[identifier])
+
+        # Add taxes
+        for rate, amount in self.taxes().items():
+            data[rate + ' MwSt'] = amount
+
+        return data

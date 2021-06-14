@@ -48,6 +48,26 @@ class Payment(Waypoint):
         return self.data['Auftragsnummer'] if isinstance(self.data['Auftragsnummer'], list) else []
 
 
+    # ACCOUNTING methods
+
+    @abstractmethod
+    def tax_report(self) -> None:
+        pass
+
+
+    def taxes(self) -> dict:
+        data = {}
+
+        for child in self._children:
+            for rate, amount in child.taxes().items():
+                if rate not in data:
+                    data[rate] = 0
+
+                data[rate] = data[rate] + float(amount)
+
+        return {k: self.number2string(v) for k, v in data.items()}
+
+
     # INVOICE methods
 
     def invoices_amount(self) -> str:
