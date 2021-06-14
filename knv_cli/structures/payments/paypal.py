@@ -182,6 +182,7 @@ class PaypalPayment(Payment):
             'Betrag': self.data['Betrag'],
             'Gebühr': self.data['Gebühr'],
             'Netto': self.data['Netto'],
+            'Transaktion': self.data['Transaktion'],
         }
 
         # Add order & invoice numbers as strings

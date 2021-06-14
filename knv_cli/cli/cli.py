@@ -65,12 +65,10 @@ def rank(config, year, quarter, months, enable_chart, limit):
     '''
 
     # Fallback to current year
-    if year is None:
-        year = pendulum.today().year
+    if year is None: year = pendulum.today().year
 
     # Make months into list if provided
-    if months is not None:
-        months = list(months)
+    months = list(months) if months else None
 
     # Exit if database is empty
     data_files = build_path(config.database_dir, year=year, quarter=quarter, months=months)
@@ -239,7 +237,7 @@ def search(config, source, query):
     if source == 'payments':
         blocked_keys = ['Gebühr', 'Netto', 'Steuern']
 
-        for identifier in db.data_structures.keys():
+        for identifier in db.payment_structures.keys():
             data += db.get_payments(identifier).export()
 
     # Start search
@@ -410,22 +408,20 @@ def reset(config):
 @click.option('-m', '--months', default=None, multiple=True, help='Month(s)')
 def prepare(config, year, quarter, months):
     '''
-    Match payments & invoices
+    Generate cheatsheet for accounting mode
     '''
 
     # Fallback to current year
-    if year is None:
-        year = pendulum.today().year
+    if year is None: year = pendulum.today().year
 
     # Make months into list if provided
-    if months is not None:
-        months = list(months)
+    months = list(months) if months else None
 
     # Initialize database
     db = Database(config)
 
     # Match payments for all available gateways
-    for identifier in db.data_structures.keys():
+    for identifier in db.payment_structures.keys():
         # Exit if database is empty
         data_files = build_path(join(config.payment_dir, identifier), year=year, quarter=quarter, months=months)
 
@@ -434,11 +430,11 @@ def prepare(config, year, quarter, months):
             click.echo('Exiting ..')
             click.Context.exit(1)
 
-        click.echo('Matching {} data ..'.format(identifier))
+        click.echo('Preparing cheatsheet for {} data ..'.format(identifier))
 
         # Initialize payment handler
         handler = db.get_payments(identifier, data_files)
-        payment_data = handler.export()
+        payment_data = handler.tax_report()
 
         if config.verbose:
             # Write matches to stdout
@@ -466,18 +462,16 @@ def run(config, year, quarter, months):
     click.echo('Accounting mode ON')
 
     # Fallback to current year
-    if year is None:
-        year = pendulum.today().year
+    if year is None: year = pendulum.today().year
 
     # Make months into list if provided
-    if months is not None:
-        months = list(months)
+    months = list(months) if months else None
 
     # Initialize database
     db = Database(config)
 
     # Match payments for all available gateways
-    for identifier in db.data_structures.keys():
+    for identifier in db.payment_structures.keys():
         # Take a deep breath, relax ..
         if not click.confirm('Ready to proceed with {} data?'.format(identifier), default=True):
             continue
@@ -634,7 +628,7 @@ def save(config):
         click.Context.exit(0)
 
     # Import session files
-    for identifier in db.data_structures.keys():
+    for identifier in db.payment_structures.keys():
         click.echo('Importing {} session ..'.format(identifier), nl=False)
         db.import_session(identifier)
         click.echo(' done.')
@@ -651,12 +645,10 @@ def pdf(config, year, quarter, months):
     '''
 
     # Fallback to current year
-    if year is None:
-        year = pendulum.today().year
+    if year is None: year = pendulum.today().year
 
     # Make months into list if provided
-    if months is not None:
-        months = list(months)
+    months = list(months) if months else None
 
     # Initialize database
     db = Database(config)
@@ -665,7 +657,7 @@ def pdf(config, year, quarter, months):
     invoices = db.get_invoices()
 
     # Merge PDF invoices
-    for identifier in db.data_structures.keys():
+    for identifier in db.payment_structures.keys():
         # Exit if database is empty
         data_files = build_path(join(config.payment_dir, identifier), year=year, quarter=quarter, months=months)
 
@@ -747,8 +739,7 @@ def report(config, year, quarter, years_back, enable_chart):
     '''
 
     # Fallback to current year
-    if year is None:
-        year = pendulum.today().year
+    if year is None: year = pendulum.today().year
 
     # Initialize database
     db = Database(config)

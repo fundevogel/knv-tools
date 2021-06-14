@@ -49,7 +49,7 @@ class Paypal(Gateway):
             payment['Rechnungsnummer'] = 'nicht zugeordnet'
             payment['Name'] = item['Name']
             payment['Betrag'] = self.number2string(item['Brutto'])
-            payment['Gebühr'] = self.number2string(item['Gebühr'])
+            payment['Gebühr'] = self.number2string(item['Gebühr'][1:])
             payment['Netto'] = self.number2string(item['Netto'])
             payment['Währung'] = item['Währung']
             payment['Anschrift'] = item['Adresszeile 1']

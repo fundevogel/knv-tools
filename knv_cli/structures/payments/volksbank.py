@@ -75,6 +75,7 @@ class VolksbankPayment(Payment):
             'Rechnungsnummer': 'nicht zugeordnet',
             'Name': self.data['Name'],
             'Betrag': self.data['Betrag'],
+            'Verwendungszweck': self.data['Verwendungszweck'],
         }
 
         # Add order & invoice numbers as strings

@@ -39,7 +39,7 @@ class Database:
         'volksbank': Volksbank,
     }
 
-    data_structures = {
+    payment_structures = {
         'paypal': PaypalPayments,
         'volksbank': VolksbankPayments,
     }
@@ -214,7 +214,7 @@ class Database:
         for processor in self.invoice_processors.keys():
             invoice_files += self.invoice_files[processor]['data']
 
-        return self.data_structures[identifier](payments, load_json(self.db_files), load_json(invoice_files))
+        return self.payment_structures[identifier](payments, load_json(self.db_files), load_json(invoice_files))
 
 
     def get_data(self, identifier: str) -> dict:
@@ -288,7 +288,7 @@ class Database:
 
 
     def import_session(self, identifier: str) -> None:
-        if not identifier in self.data_structures:
+        if not identifier in self.payment_structures:
             raise Exception
 
         session_data = load_json(build_path(self.sessions_dir, identifier + '_*.json'))
