@@ -22,3 +22,7 @@ class Invoice(Endpoint):
 
     def taxes(self) -> dict:
         return self.data['Steuern']['Brutto'] if isinstance(self.data['Steuern'], dict) else {}
+
+
+    def has_cashback(self) -> bool:
+        return self.data['Rechnungsart'] == 'Sammelrechnung'

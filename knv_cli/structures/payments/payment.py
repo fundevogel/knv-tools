@@ -25,6 +25,14 @@ class Payment(Waypoint):
         return self.data
 
 
+    def is_revenue(self) -> str:
+        return self.data['Art'] == 'H'
+
+
+    def is_expense(self) -> str:
+        return self.data['Art'] == 'S'
+
+
     def assign(self, identifier: str) -> None:
         if identifier not in ['sicher', 'fast sicher', 'unsicher', 'manuell']:
             raise Exception
@@ -71,4 +79,13 @@ class Payment(Waypoint):
     # INVOICE methods
 
     def invoices_amount(self) -> str:
-        return self.number2string(sum([float(child.amount()) for child in self._children]))
+        total = sum([float(child.amount()) for child in self._children])
+
+        cashback = 0
+
+        for child in self._children:
+            if child.has_cashback():
+                cashback += sum([float(amount) for amount in child.data['Skonto'].values()])
+
+        print(total, cashback, total - cashback)
+        return self.number2string(total - cashback)
