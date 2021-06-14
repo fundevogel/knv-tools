@@ -33,6 +33,9 @@ verbose = off                      # Enable verbose mode
 data_dir = ~/.local/share/knv-cli  # database directory
 import_dir = ./imports             # files to be processed & imported to database
 export_dir = ./dist                # generated spreadsheets & graphs
+
+[api]
+credentials = ./login.log            # JSON file containing KNV credentials
 ```
 
 As you can see, many config options refer to the directory from which `knvcli` is being called.
