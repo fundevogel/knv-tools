@@ -87,5 +87,4 @@ class Payment(Waypoint):
             if child.has_cashback():
                 cashback += sum([float(amount) for amount in child.data['Skonto'].values()])
 
-        print(total, cashback, total - cashback)
         return self.number2string(total - cashback)

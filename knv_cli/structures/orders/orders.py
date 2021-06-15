@@ -1,9 +1,8 @@
 from operator import itemgetter
 
-import pendulum
-
-from ..waypoint import Waypoint
 from ..invoices.invoice import Invoice
+from ..shared import get_contacts
+from ..waypoint import Waypoint
 from .order import Order
 
 
@@ -54,33 +53,7 @@ class Orders(Waypoint):
     # CONTACTS methods
 
     def contacts(self, cutoff_date: str = None, blocklist = []) -> list:
-        # Set default date
-        if cutoff_date is None:
-            today = pendulum.today()
-            cutoff_date = today.subtract(years=2).to_datetime_string()[:10]
-
-        codes = set()
-        contacts  = []
-
-        for order in self._children:
-            mail_address = order.mail()
-
-            # Check for blocklisted mail addresses
-            if mail_address in blocklist:
-                continue
-
-            # Throw out everything before cutoff date (if provided)
-            if order.date() < cutoff_date:
-                continue
-
-            if mail_address not in codes:
-                codes.add(mail_address)
-                contacts.append(order.contact())
-
-        # Sort by date & lastname, in descending order
-        contacts.sort(key=itemgetter('Letzte Bestellung', 'Nachname'), reverse=True)
-
-        return contacts
+        return get_contacts(self._children, cutoff_date, blocklist)
 
 
     # RANKING methods

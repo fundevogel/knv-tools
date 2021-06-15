@@ -53,11 +53,11 @@ class Paypal(Gateway):
             payment['Netto'] = self.number2string(item['Netto'])
             payment['Währung'] = item['Währung']
             payment['Anschrift'] = item['Adresszeile 1']
-            payment['PLZ'] = self.normalize(item['PLZ'])
+            payment['PLZ'] = self.normalize_number(item['PLZ'])
             payment['Ort'] = item['Ort']
             payment['Land'] = item['Land']
-            payment['Telefon'] = self.normalize(item['Telefon'])
-            payment['Email'] = item['Absender E-Mail-Adresse']
+            payment['Telefon'] = self.normalize_number(item['Telefon'])
+            payment['Email'] = self.normalize_string(item['Absender E-Mail-Adresse'])
             payment['Dienstleister'] = 'PayPal'
             payment['Zahlungsart'] = 'Sofortzahlung'
             payment['Transaktion'] = code

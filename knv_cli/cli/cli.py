@@ -126,20 +126,24 @@ def rank(config, year, quarter, months, enable_chart, limit):
 
 @cli.command()
 @pass_config
+@click.option('-s', '--source', default=None, help='Source of contact details.')
 @click.option('-d', '--date', default=None, help='Cutoff date in ISO date format, eg \'YYYY-MM-DD\'. Default: today two years ago')
 @click.option('-b', '--blocklist', type=click.File('r'), help='Path to file containing mail addresses that should be ignored.')
-def contacts(config, date, blocklist):
+def contacts(config, source, date, blocklist):
     '''
     Generate customer contact list
     '''
+
+    # Determine source of contact details
+    source = source if source in ['orders', 'paypal'] else 'orders'
 
     # Initialize database
     db = Database(config)
 
     # Initialize handler
-    handler = db.get_orders()
+    handler = db.get_orders() if source == 'orders' else db.get_payments('paypal')
 
-    click.echo('Generating contact list ..', nl=config.verbose)
+    click.echo('Generating contact list from {} ..'.format(source), nl=config.verbose)
 
     # Generate contact list
     # (1) Set default date

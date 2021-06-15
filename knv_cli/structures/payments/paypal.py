@@ -3,6 +3,7 @@ from operator import itemgetter
 
 from ..invoices.invoice import Invoice
 from ..orders.order import Order
+from ..shared import get_contacts
 from .payments import Payments
 from .payment import Payment
 
@@ -160,12 +161,31 @@ class PaypalPayments(Payments):
         return start_date >= test_date >= end_date if before else start_date <= test_date <= end_date
 
 
+    # CONTACTS methods
+
+    def contacts(self, cutoff_date: str = None, blocklist = []) -> list:
+        return get_contacts(self._children, cutoff_date, blocklist)
+
+
 class PaypalPayment(Payment):
     # CORE methods
 
     def identifier(self) -> str:
         # Use transaction number as identifier
         return self.data['Transaktion']
+
+
+    def contact(self) -> dict:
+        return {
+            'Letzte Zahlung': self.data['Datum'],
+            'Name': self.data['Name'],
+            'Email': self.data['Email'],
+            'Anschrift': self.data['Anschrift'],
+            'PLZ': self.data['PLZ'],
+            'Ort': self.data['Ort'],
+            'Land': self.data['Land'],
+            'Telefon': self.data['Telefon'],
+        }
 
 
     # ACCOUNTING methods
