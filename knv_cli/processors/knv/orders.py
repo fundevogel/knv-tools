@@ -29,7 +29,7 @@ class OrderProcessor(Processor):
                 isbn = item['isbn']
 
             # .. and - more often than not - formatted as floats with a trailing zero
-            isbn = self.normalize(isbn)
+            isbn = self.normalize_number(isbn)
 
             # Assign identifier
             code = item['ormorderid']
@@ -42,13 +42,13 @@ class OrderProcessor(Processor):
                 order['Anrede'] = item['rechnungaddresstitle']
                 order['Vorname'] = item['rechnungaddressfirstname']
                 order['Nachname'] = item['rechnungaddresslastname']
-                order['Straße'] = self.normalize(item['rechnungaddressstreet'])
-                order['Hausnummer'] = self.normalize(item['rechnungaddresshousenumber'])
-                order['PLZ'] = self.normalize(item['rechnungaddresszipcode'])
-                order['Ort'] = self.normalize(item['rechnungaddresscity'])
-                order['Land'] = self.normalize(item['rechnungaddresscountry'])
-                order['Telefon'] = self.normalize(item['rechnungaddressphonenumber'])
-                order['Email'] = item['rechnungaddressemail']
+                order['Straße'] = self.normalize_string(item['rechnungaddressstreet'])
+                order['Hausnummer'] = self.normalize_number(item['rechnungaddresshousenumber'])
+                order['PLZ'] = self.normalize_number(item['rechnungaddresszipcode'])
+                order['Ort'] = self.normalize_string(item['rechnungaddresscity'])
+                order['Land'] = self.normalize_string(item['rechnungaddresscountry'])
+                order['Telefon'] = self.normalize_number(item['rechnungaddressphonenumber'])
+                order['Email'] = self.normalize_string(item['rechnungaddressemail'])
                 order['Bestellung'] = []
                 order['Rechnungen'] = 'nicht zugeordnet'
                 order['Gutscheine'] = 'keine Angabe'

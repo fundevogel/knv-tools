@@ -71,5 +71,9 @@ class Processor(metaclass=ABCMeta):
         return number2string(string)
 
 
-    def normalize(self, string: str) -> str:
-        return str(string).replace('.0', '') if str(string) != 'nan' else ''
+    def normalize_number(self, string: str) -> str:
+        return self.normalize_string(string).replace('.0', '')
+
+
+    def normalize_string(self, string: str) -> str:
+        return str(string) if str(string) != 'nan' else ''

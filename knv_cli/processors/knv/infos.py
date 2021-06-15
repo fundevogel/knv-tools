@@ -26,7 +26,7 @@ class InfoProcessor(Processor):
                 continue
 
             # Standardize invoice number & costs
-            invoice_number = self.normalize(item['Invoice Number'])
+            invoice_number = self.normalize_number(item['Invoice Number'])
             item_number = str(item['Order Item Id'])
 
             # Assign identifier
