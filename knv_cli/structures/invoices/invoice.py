@@ -13,11 +13,22 @@ class Invoice(Endpoint):
 
 
     def is_revenue(self) -> str:
-        return self.data['Art'] == 'H'
+        return self.data['Kontierung'] == 'H'
 
 
     def is_expense(self) -> str:
-        return self.data['Art'] == 'S'
+        return self.data['Kontierung'] == 'S'
+
+
+    def assign(self, identifier: str) -> None:
+        if identifier not in ['offen', 'abgeschlossen']:
+            raise Exception
+
+        self.data['Status'] = identifier
+
+
+    def assigned(self) -> bool:
+        return self.data['Status'] == 'abgeschlossen'
 
 
     def taxes(self) -> dict:

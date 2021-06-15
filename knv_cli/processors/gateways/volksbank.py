@@ -56,7 +56,7 @@ class Volksbank(Gateway):
             payment = {}
 
             payment['Datum'] = self.date2string(item['Valuta'])
-            payment['Art'] = 'H'
+            payment['Kontierung'] = 'H'
             payment['Treffer'] = 'unsicher'
             payment['Auftragsnummer'] = 'nicht zugeordnet'
             payment['Rechnungsnummer'] = 'nicht zugeordnet'
@@ -71,7 +71,7 @@ class Volksbank(Gateway):
             # As KNV transfers all its claims against stores to a certain Raiffeisen subsidiary ..
             if payment['Name'] == 'Raiffeisen Factor Bank AG':
                 # .. coming across it, look for invoice numbers & collect them
-                payment['Art'] = 'S'
+                payment['Kontierung'] = 'S'
                 pattern = r"(Rg\s\d{10})"
                 expenses = [invoice.replace('Rg 00', '') for invoice in findall(pattern, reference)]
 

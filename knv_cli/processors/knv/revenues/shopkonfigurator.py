@@ -31,6 +31,8 @@ class ShopkonfiguratorInvoiceProcessor(InvoiceProcessor):
                 'Vorgang': invoice_number,
                 'Datei': invoice,
                 'Kontierung': 'H',
+                'Status': 'offen',
+                'Zahlung': 'nicht zugeordnet',
                 'Versandkosten': self.number2string(0),
                 'Gesamtbetrag': 'keine Angabe',
                 'Steuern': 'keine Angabe',

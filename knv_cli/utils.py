@@ -179,7 +179,7 @@ def group_list(ungrouped_data: list) -> dict:
 
         code = '-'.join([str(year), str(month)])
 
-        if code not in grouped_data.keys():
+        if code not in grouped_data:
             grouped_data[code] = []
 
         grouped_data[code].append(item)
@@ -200,7 +200,7 @@ def group_dict(ungrouped_data: dict) -> dict:
 
         code = '-'.join([str(year), str(month)])
 
-        if code not in grouped_data.keys():
+        if code not in grouped_data:
             grouped_data[code] = {}
 
         grouped_data[code][identifier] = item

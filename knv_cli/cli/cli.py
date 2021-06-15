@@ -474,6 +474,9 @@ def run(config, year, quarter, months):
     # Initialize database
     db = Database(config)
 
+    # Exit gracefully, save exit status
+    exited = False
+
     # Match payments for all available gateways
     for identifier in db.payment_structures.keys():
         # Take a deep breath, relax ..
@@ -500,21 +503,13 @@ def run(config, year, quarter, months):
 
         click.echo(' done.')
 
-        # Load invoice numbers marked as paid
-        already_paid = db.open_paid()
-
-        manual_payments = {}
+        manual_payments = []
 
         # Go through all unmatched payments
-        for count, payment in enumerate(handler.payments()):
+        # TODO: Substitute '_children'
+        for count, payment in enumerate(handler._children):
             # Skip payments already marked in previous session
-            if last_session.has(payment) or payment.is_paid():
-                # Add invoices to 'paid' invoices
-                if not payment.year() in already_paid:
-                    already_paid[payment.year()] = []
-
-                already_paid[payment.year()] += payment.invoice_numbers()
-
+            if payment.assigned() or last_session.has(payment, identifier):
                 # Proceed to next payment
                 continue
 
@@ -524,25 +519,24 @@ def run(config, year, quarter, months):
                 click.echo('Payment No. {}:'.format(str(count + 1)))
                 pretty_print(payment.export())
 
+                # Declare payment hit accuracy as 'manually assigned'
+                payment.assign('manuell')
+
                 if payment.invoice_numbers():
-                    for index, invoice in enumerate(payment.invoices()):
+                    for index, invoice in enumerate(payment._children):
                         click.echo('Invoice No. {}: '.format(str(index + 1)))
                         pretty_print(invoice.export())
 
                     if click.confirm('Does payment match the invoice(s)?', default=False):
-                        # Mark direct hit
-                        payment.mark('manuell')
-
                         # Add payment data
-                        manual_payments[payment.identifier()] = payment.export()
+                        manual_payments.append(payment)
 
                         # Proceed to next payment
                         continue
 
                     if click.confirm('Skip payment?', default=False): continue
 
-                else:
-                    click.echo('No matching invoices found, entering manual mode ..')
+                else: click.echo('No matching invoices found, entering manual mode ..')
 
                 manual_invoices = []
 
@@ -559,24 +553,18 @@ def run(config, year, quarter, months):
                         click.echo('You have entered the following invoice numbers:')
                         click.echo(manual_invoices)
 
+                        # If selected ..
                         if not click.confirm('Confirm choice(s)?', default=True):
-                            # Start from scratch
+                            # .. start from scratch
                             manual_invoices = []
 
-                    else:
-                        if click.confirm('Skip payment?', default=False): break
+                    elif click.confirm('Skip payment?', default=False): break
 
                 # Add matched invoice numbers to payment
-                payment.add_invoice_numbers(manual_invoices)
+                payment.data['Rechnungsnummer'] = manual_invoices
 
                 # Make payment 'manually assigned'
-                manual_payments[payment.identifier()] = payment.export()
-
-                # Add invoices to 'paid' invoices
-                if not payment.year() in already_paid:
-                    already_paid[payment.year()] = []
-
-                already_paid[payment.year()] += manual_invoices
+                manual_payments.append(payment)
 
             # Take care of aborted sessions
             except click.Abort:
@@ -584,35 +572,45 @@ def run(config, year, quarter, months):
                 click.echo("\n")
 
                 if click.confirm('Save results before exiting?', default=True):
-                    # Save paid invoices
-                    db.save_paid(already_paid)
+                    exited = True
 
-                    if manual_payments:
-                        # Save manually assigned payments
-                        click.echo('Saving {} payment(s) ..'.format(str(len(manual_payments))), nl=False)
-                        db.save_session(manual_payments, identifier)
-                        click.echo(' done.')
+                    # Skip payments
+                    break
 
-                    # Shut down
-                    click.echo('Accounting mode OFF')
+        if manual_payments:
+            # Save results
+            # (1) Payments
+            click.echo('Saving {} payment(s) ..'.format(str(len(manual_payments))), nl=False)
+            db.save_session(manual_payments, identifier)
+            click.echo(' done.')
 
+            # (2) Invoices
+            paid_invoices = []
+
+            for payment in manual_payments:
+                for invoice in payment._children:
+                    # Declare invoice status as 'paid'
+                    invoice.assign('abgeschlossen')
+
+                    # Add invoice to paid invoices
+                    paid_invoices.append(invoice)
+
+            click.echo('Saving {} invoice(s) ..'.format(str(len(paid_invoices))), nl=False)
+            db.save_session(paid_invoices, 'invoices')
+            click.echo(' done.')
+
+            # Shut down
+            if exited:
                 click.Context.exit(0)
 
-
-        if not manual_payments:
+        else:
             click.echo('Nothing to do, moving on ..')
 
             # Proceed to next payment
             continue
 
-        # Save paid invoices
-        db.save_paid(already_paid)
-
-        # Save results
-        click.echo('Saving {} payment(s) ..'.format(str(len(manual_payments))), nl=False)
-        db.save_session(manual_payments, identifier)
-        click.echo(' done.')
-
+    click.echo('Goodbye!')
+    click.echo("\n")
     click.echo('Accounting mode OFF')
 
 
@@ -626,16 +624,26 @@ def save(config):
     # Initialize database
     db = Database(config)
 
-    # Prompt about really saving session data
-    if not click.confirm('Save current session?', default=True):
-        click.echo('Exiting ..')
-        click.Context.exit(0)
+    if db.has_session():
+        # Prompt about really saving session data
+        if not click.confirm('Save current session?', default=True):
+            click.echo('Exiting ..')
+            click.Context.exit(0)
 
-    # Import session files
-    for identifier in db.payment_structures.keys():
-        click.echo('Importing {} session ..'.format(identifier), nl=False)
-        db.import_session(identifier)
+        # Import session files
+        click.echo('Importing data for current session ..', nl=False)
+        db.import_session()
         click.echo(' done.')
+
+        if click.confirm('Remove imported session files?', default=True):
+            # Delete session files
+            click.echo('Clearing session ..', nl=False)
+            db.reset_session()
+            click.echo(' done.')
+
+        else: click.echo('Exiting ..')
+
+    else: click.echo('Nothing to save, exiting ..')
 
 
 @acc.command()
