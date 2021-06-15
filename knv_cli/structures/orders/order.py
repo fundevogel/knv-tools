@@ -15,13 +15,23 @@ class Order(Waypoint):
         return self.data
 
 
+    def identifier(self) -> str:
+        return self.data['ID']
+
+
     def contact(self) -> dict:
         return {
-            'Anrede': self.form_of_address(),
-            'Vorname': self.first_name(),
-            'Nachname': self.last_name(),
-            'Email': self.mail(),
-            'Letzte Bestellung': self.date(),
+            'Letzte Bestellung': self.data['Datum'],
+            'Anrede': self.data['Anrede'],
+            'Vorname': self.data['Vorname'],
+            'Nachname': self.data['Nachname'],
+            'Email': self.data['Email'],
+            'Straße': self.data['Straße'],
+            'Hausnummer': self.data['Hausnummer'],
+            'PLZ': self.data['PLZ'],
+            'Ort': self.data['Ort'],
+            'Land': self.data['Land'],
+            'Telefon': self.data['Telefon'],
         }
 
 
@@ -33,24 +43,3 @@ class Order(Waypoint):
 
     def taxes(self) -> dict:
         return self.data['Steuern']
-
-
-    # HELPER methods
-
-    def identifier(self) -> str:
-        return self.data['ID']
-
-
-    def form_of_address(self) -> str:
-        return self.data['Anrede']
-
-
-    def first_name(self) -> str:
-        return self.data['Vorname']
-
-
-    def last_name(self) -> str:
-        return self.data['Nachname']
-
-    def mail(self) -> str:
-        return self.data['Email']
