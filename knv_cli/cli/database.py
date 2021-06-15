@@ -46,7 +46,7 @@ class Database:
 
 
     def __init__(self, config: dict) -> None:
-        # Define database files
+        # Database files
         self.order_files = build_path(config.order_dir)
         self.info_files = build_path(config.info_dir)
 
@@ -63,14 +63,18 @@ class Database:
         for identifier in self.payment_processors.keys():
             self.payment_files[identifier] = build_path(join(config.payment_dir, identifier))
 
-        # Define session files
-        self.session_files = {'session': build_path(join(config.payment_dir, 'sessions'))}
+        # Session files
+        self.session_files = {
+            'sessions': build_path(join(config.session_dir)),
+            'invoices': build_path(join(config.session_dir, 'invoices')),
+        }
+
         for identifier in self.payment_processors.keys():
-            self.session_files[identifier] = build_path(join(config.payment_dir, 'sessions', identifier))
+            self.session_files[identifier] = build_path(join(config.session_dir, identifier))
 
 
         # Define path to session files
-        self.sessions_dir = join(config.payment_dir, 'sessions')
+        self.sessions_dir = join(config.data_dir, 'sessions')
 
         # Define merged data files
         self.db_files = build_path(config.database_dir)
@@ -186,10 +190,20 @@ class Database:
     # GET methods
 
     def get_invoices(self, invoice_files: list = None) -> Invoices:
-        # Select appropriate source files
-        invoice_files = invoice_files if invoice_files else self.invoice_files['shopkonfigurator']['data'] + self.invoice_files['pcbis']['data']
+        # Select appropriate source files (if available), otherwise ..
+        if not invoice_files:
+            # .. select all invoice files
+            invoice_files = []
 
-        return Invoices(load_json(invoice_files))
+            for processor in self.invoice_processors.keys():
+                invoice_files += self.invoice_files[processor]['data']
+
+        invoices = load_json(invoice_files)
+
+        # Update invoices with session data
+        invoices.update(load_json(self.session_files['invoices']))
+
+        return Invoices(invoices)
 
 
     def get_orders(self, order_files: list = None):
@@ -205,7 +219,7 @@ class Database:
         payment_files = payment_files if payment_files else self.payment_files[identifier]
         payments = load_json(payment_files)
 
-        # Merge with manually assigned payment files
+        # Update payments with session data
         payments.update(load_json(self.session_files[identifier]))
 
         # Select all invoice files
@@ -232,8 +246,12 @@ class Database:
     def get_invoice(self, identifier: str) -> dict:
         invoices = {}
 
+        # Fetch invoices from database
         for processor in self.invoice_processors.keys():
             invoices.update(load_json(self.invoice_files[processor]['data']))
+
+        # Update invoices with session data
+        invoices.update(load_json(self.session_files['invoices']))
 
         return {} if identifier not in invoices else invoices[identifier]
 
@@ -245,7 +263,13 @@ class Database:
 
 
     def get_payment(self, identifier: str) -> dict:
-        payments = load_json(self.payment_files['paypal'] + self.payment_files['volksbank'])
+        payments = {}
+
+        # Fetch payments from database
+        for processor in self.payment_processors.keys():
+            payments.update(load_json(self.payment_files[processor]))
+
+        # Update payments with session data
         payments.update(load_json(self.session_files['paypal']))
 
         return {} if identifier not in payments else payments[identifier]
@@ -253,45 +277,49 @@ class Database:
 
     # ACCOUNTING methods
 
-    def open_paid(self) -> dict:
-        data = {}
-
-        for text_file in build_path(self.config.payment_dir, '*-paid.txt'):
-            # Assign year
-            year = basename(text_file).split('-')[0]
-
-            with open(text_file, 'r') as file:
-                data[year] = file.read().splitlines()
-
-        return data
+    def has_session(self) -> bool:
+        return len(self.session_files['sessions']) > 0
 
 
-    def save_paid(self, data: list) -> None:
-        for year, lines in data.items():
-            with open(join(self.config.payment_dir, year + '-paid.txt'), 'w') as file:
-                file.writelines("%s\n" % line for line in dedupe(lines))
+    def import_session(self) -> None:
+        for identifier in self.session_files.keys():
+            # Skip session files
+            if identifier == 'sessions': continue
 
+            # Combine session data, where previous sessions are replaced with current one
+            # (1) Load data of previous sessions
+            session_data = load_json(self.session_files[identifier])
 
-    # ACCOUNTING SESSION methods
+            # (2) Merge data with current session
+            session_data.update(load_json(build_path(self.sessions_dir, identifier + '_*.json')))
 
-    def reset_session(self) -> None:
-        for file in self.session_files['session']:
-            remove(file)
-
-
-    def save_session(self, data: dict, identifier: str) -> None:
-        dump_json(data, join(self.sessions_dir, identifier + '_' + pendulum.now().strftime('%Y-%m-%d_%I-%M-%S') + '.json'))
+            # (3) Write changes to disk
+            for code, data in group_data(session_data).items():
+                dump_json(sort_data(data), join(self.sessions_dir, identifier, code + '.json'))
 
 
     def load_session(self) -> Session:
-        return Session(load_json(build_path(self.sessions_dir)))
+        session_files = {}
+
+        for session_file in build_path(self.sessions_dir):
+            identifier = basename(session_file).split('_')[0]
+
+            if identifier not in session_files:
+                session_files[identifier] = []
+
+            session_files[identifier].append(session_file)
+
+        return Session(session_files)
 
 
-    def import_session(self, identifier: str) -> None:
-        if not identifier in self.payment_structures:
-            raise Exception
+    def reset_session(self) -> None:
+        for file in self.session_files['sessions']:
+            remove(file)
 
-        session_data = load_json(build_path(self.sessions_dir, identifier + '_*.json'))
 
-        for code, data in group_data(session_data).items():
-            dump_json(sort_data(data), join(self.sessions_dir, identifier, code + '.json'))
+    def save_session(self, data: list, identifier: str) -> None:
+        # Convert data
+        data = {item.identifier(): item.export() for item in data}
+
+        # Save results
+        dump_json(data, join(self.sessions_dir, identifier + '_' + pendulum.now().strftime('%Y-%m-%d_%I-%M-%S') + '.json'))

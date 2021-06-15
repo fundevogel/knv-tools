@@ -45,6 +45,7 @@ class Config(object):
         self.order_dir = join(self.data_dir, 'src', 'orders')
         self.payment_dir = join(self.data_dir, 'src', 'payments')
         self.cache_dir = join(self.data_dir, 'webservice')
+        self.session_dir = join(self.data_dir, 'sessions')
 
         # (2) .. when merging data sources
         self.database_dir = join(self.data_dir, 'db')
