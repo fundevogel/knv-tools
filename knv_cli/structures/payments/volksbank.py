@@ -58,7 +58,7 @@ class VolksbankPayment(Payment):
         return md5(str([
             self.data['Datum'],
             self.data['Name'],
-            self.data['Brutto'],
+            self.data['Betrag'],
             self.data['Rohdaten'],
         ]).encode('utf-8')).hexdigest()
 
@@ -69,7 +69,7 @@ class VolksbankPayment(Payment):
         # Prepare output data
         data = {
             'Datum': self.data['Datum'],
-            'Art': self.data['Art'],
+            'Kontierung': self.data['Kontierung'],
             'Treffer': self.data['Treffer'],
             'Auftragsnummer': 'nicht zugeordnet',
             'Rechnungsnummer': 'nicht zugeordnet',

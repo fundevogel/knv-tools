@@ -194,7 +194,7 @@ class PaypalPayment(Payment):
         # Prepare output data
         data = {
             'Datum': self.data['Datum'],
-            'Art': self.data['Art'],
+            'Kontierung': self.data['Kontierung'],
             'Treffer': self.data['Treffer'],
             'Auftragsnummer': 'nicht zugeordnet',
             'Rechnungsnummer': 'nicht zugeordnet',
