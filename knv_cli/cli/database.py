@@ -2,8 +2,6 @@ from os import remove
 from os.path import basename, join
 from zipfile import ZipFile
 
-import pendulum
-
 from ..processors.gateways.paypal import Paypal
 from ..processors.gateways.volksbank import Volksbank
 from ..processors.knv.infos import InfoProcessor
@@ -19,7 +17,7 @@ from ..structures.orders.orders import Orders
 from ..structures.payments.paypal import PaypalPayments
 from ..structures.payments.volksbank import VolksbankPayments
 from ..utils import load_json, dump_json
-from ..utils import build_path, dedupe, group_data, sort_data
+from ..utils import build_path, dedupe, group_data, sort_data, timestamp
 from .session import Session
 
 
@@ -109,7 +107,7 @@ class Database:
         handler.load_files(self.order_files, 'orders', True)
 
         for code, data in group_data(handler.process().data).items():
-            dump_json(sort_data(data), join(self.config.database_dir, code + '.json'))
+            dump_json(sort_data(data), join(self.config.database_dir, '{}.json'.format(code)))
 
 
     def rebuild_infos(self) -> None:
@@ -124,7 +122,7 @@ class Database:
 
         # Split infos per-month & export them
         for code, data in group_data(handler.data).items():
-            dump_json(sort_data(data), join(self.config.info_dir, code + '.json'))
+            dump_json(sort_data(data), join(self.config.info_dir, '{}.json'.format(code)))
 
 
     def rebuild_invoices(self) -> None:
@@ -149,7 +147,7 @@ class Database:
 
             # Split invoice data per-month & export it
             for code, data in group_data(handler.data).items():
-                dump_json(sort_data(data), join(invoice_dir, 'data', code + '.json'))
+                dump_json(sort_data(data), join(invoice_dir, 'data', '{}.json'.format(code)))
 
 
     def rebuild_orders(self) -> None:
@@ -164,7 +162,7 @@ class Database:
 
         # Split orders per-month & export them
         for code, data in group_data(handler.data).items():
-            dump_json(sort_data(data), join(self.config.order_dir, code + '.json'))
+            dump_json(sort_data(data), join(self.config.order_dir, '{}.json'.format(code)))
 
 
     def rebuild_payments(self) -> None:
@@ -184,7 +182,7 @@ class Database:
 
             # Split payments per-month & export them
             for code, data in group_data(handler.data).items():
-                dump_json(sort_data(data), join(self.config.payment_dir, identifier, code + '.json'))
+                dump_json(sort_data(data), join(self.config.payment_dir, identifier, '{}.json'.format(code)))
 
 
     # GET methods
@@ -291,11 +289,11 @@ class Database:
             session_data = load_json(self.session_files[identifier])
 
             # (2) Merge data with current session
-            session_data.update(load_json(build_path(self.sessions_dir, identifier + '_*.json')))
+            session_data.update(load_json(build_path(self.sessions_dir, '{}_*.json'.format(identifier))))
 
             # (3) Write changes to disk
             for code, data in group_data(session_data).items():
-                dump_json(sort_data(data), join(self.sessions_dir, identifier, code + '.json'))
+                dump_json(sort_data(data), join(self.sessions_dir, identifier, '{}.json'.format(code)))
 
 
     def load_session(self) -> Session:
@@ -322,4 +320,4 @@ class Database:
         data = {item.identifier(): item.export() for item in data}
 
         # Save results
-        dump_json(data, join(self.sessions_dir, identifier + '_' + pendulum.now().strftime('%Y-%m-%d_%I-%M-%S') + '.json'))
+        dump_json(data, join(self.sessions_dir, '{identifier}_{timestamp}.json'.format(identifier=identifier, timestamp=timestamp())))

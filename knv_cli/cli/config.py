@@ -25,11 +25,11 @@ class Config(object):
             'credentials': './login.log',
         }
 
-        # Load config provided by user
+        # Load config provided by user ..
         config_file = join(xdg_config_home(), 'knv-cli', 'config')
 
-        if isfile(config_file):
-            config.read(config_file)
+        # .. if it exists
+        if isfile(config_file): config.read(config_file)
 
         # Apply resulting config
         self.config = config

@@ -13,6 +13,8 @@ class Framework(metaclass=ABCMeta):
     data = None
 
 
+    # ADMINISTRATION methods
+
     @property
     def parent(self) -> Framework:
         return self._parent
