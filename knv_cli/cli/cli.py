@@ -753,6 +753,14 @@ def report(config, year, quarter, years_back, enable_chart):
     # Fallback to current year
     if year is None: year = pendulum.today().year
 
+    # Determine report period & time range
+    period = 'year'
+    months = range(1, 13)
+
+    if quarter is not None:
+        period = 'quarter'
+        months = [month + 3 * (int(quarter) - 1) for month in [1, 2, 3]]
+
     # Initialize database
     db = Database(config)
 
@@ -763,9 +771,13 @@ def report(config, year, quarter, years_back, enable_chart):
 
     data = {}
 
-    for i in range(0, 1 + int(years_back)):
-        this_year = str(int(year) - i)
-        data[this_year] = handler.profit_report(this_year, quarter)
+    for gap in range(0, 1 + int(years_back)):
+        current_year = str(int(year) - gap)
+        data[current_year] = handler.filterBy(period, current_year, quarter).profit_report()
+
+        # Fill missing months with zeroes
+        for month in months:
+            if month not in data[current_year]: data[current_year][month] = float(0)
 
     df = DataFrame(data, index=list(data.values())[0].keys())
 

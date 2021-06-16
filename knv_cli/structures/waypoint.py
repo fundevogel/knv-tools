@@ -1,3 +1,4 @@
+from abc import abstractmethod
 from operator import itemgetter
 from typing import List
 
@@ -19,8 +20,12 @@ class Waypoint(Framework):
     }
 
 
-    def __init__(self) -> None:
+    def __init__(self, *data) -> None:
+        # Initialize child list
         self._children: List[Framework] = []
+
+        # Load data (if provided)
+        if data: self.load(data)
 
 
     # ADMINISTRATION methods
@@ -59,6 +64,11 @@ class Waypoint(Framework):
 
 
     # CORE methods
+
+    @abstractmethod
+    def load(self, data) -> None:
+        pass
+
 
     def export(self) -> list:
         data = []
