@@ -54,6 +54,97 @@ def cli(config, verbose, vkn, data_dir, import_dir, export_dir):
 
 @cli.command()
 @pass_config
+@click.option('-s', '--source', default=None, help='Source of contact details.')
+@click.option('-d', '--date', default=None, help='Cutoff date in ISO date format, eg \'YYYY-MM-DD\'. Default: today two years ago')
+@click.option('-b', '--blocklist', type=click.File('r'), help='Path to file containing mail addresses that should be ignored.')
+def contacts(config, source, date, blocklist):
+    '''
+    Generate customer contact list
+    '''
+
+    # Determine source of contact details
+    source = source if source in ['orders', 'paypal'] else 'orders'
+
+    # Initialize database
+    db = Database(config)
+
+    # Initialize handler
+    handler = db.get_orders() if source == 'orders' else db.get_payments('paypal')
+
+    click.echo('Generating contact list from {} ..'.format(source), nl=config.verbose)
+
+    # Generate contact list
+    # (1) Set default date
+    today = pendulum.today()
+
+    if date is None:
+        date = today.subtract(years=2).to_datetime_string()[:10]
+
+    # (2) Apply 'blocklist' CLI option
+    if blocklist is not None:
+        config.blocklist = blocklist.read().splitlines()
+
+    # (3) Extract & export contacts
+    contacts = handler.contacts(date, config.blocklist)
+
+    if config.verbose:
+        # Write contacts to stdout
+        click.echo(contacts)
+
+    else:
+        # Write contacts to CSV file
+        dump_csv(contacts, join(config.contacts_dir, '{date}_{today}.csv'.format(date=date, today=today.to_datetime_string()[:10])))
+
+    click.echo(' done!')
+
+
+@cli.command()
+@pass_config
+@click.argument('source')
+@click.argument('identifier')
+def get(config, source, identifier):
+    '''
+    Retrieve IDENTIFIER from SOURCE in database
+    '''
+
+    # Normalize input
+    source = source.lower()
+
+    if source not in ['data', 'info', 'invoice', 'order', 'payment']:
+        click.echo('Unknown source "{}", exiting ..'.format(source))
+        click.Context.exit(0)
+
+    click.echo('Searching database ..', nl=False)
+
+    # Initialize database
+    db = Database(config)
+
+    if source == 'data':
+        # Extract data record for given order number
+        data = db.get_data(identifier)
+
+    if source == 'info':
+        # Extract info for given order number
+        data = db.get_info(identifier)
+
+    if source == 'invoice':
+        # Extract invoice for given invoice number
+        data = db.get_invoice(identifier)
+
+    if source == 'order':
+        # Extract order for given order number
+        data = db.get_order(identifier)
+
+    if source == 'payment':
+        # Extract payment for given transaction
+        data = db.get_payment(identifier)
+
+    # Print result
+    print_get_result(data, identifier)
+
+
+@cli.command()
+@pass_config
 @click.option('-y', '--year', default=None, help='Year.')
 @click.option('-q', '--quarter', default=None, help='Quarter.')
 @click.option('-m', '--months', default=None, multiple=True, help='Month(s)')
@@ -125,86 +216,6 @@ def rank(config, year, quarter, months, enable_chart, limit):
 
 
 @cli.command()
-@pass_config
-@click.option('-s', '--source', default=None, help='Source of contact details.')
-@click.option('-d', '--date', default=None, help='Cutoff date in ISO date format, eg \'YYYY-MM-DD\'. Default: today two years ago')
-@click.option('-b', '--blocklist', type=click.File('r'), help='Path to file containing mail addresses that should be ignored.')
-def contacts(config, source, date, blocklist):
-    '''
-    Generate customer contact list
-    '''
-
-    # Determine source of contact details
-    source = source if source in ['orders', 'paypal'] else 'orders'
-
-    # Initialize database
-    db = Database(config)
-
-    # Initialize handler
-    handler = db.get_orders() if source == 'orders' else db.get_payments('paypal')
-
-    click.echo('Generating contact list from {} ..'.format(source), nl=config.verbose)
-
-    # Generate contact list
-    # (1) Set default date
-    today = pendulum.today()
-
-    if date is None:
-        date = today.subtract(years=2).to_datetime_string()[:10]
-
-    # (2) Apply 'blocklist' CLI option
-    if blocklist is not None:
-        config.blocklist = blocklist.read().splitlines()
-
-    # (3) Extract & export contacts
-    contacts = handler.contacts(date, config.blocklist)
-
-    if config.verbose:
-        # Write contacts to stdout
-        click.echo(contacts)
-
-    else:
-        # Write contacts to CSV file
-        dump_csv(contacts, join(config.contacts_dir, '{date}_{today}.csv'.format(date=date, today=today.to_datetime_string()[:10])))
-
-    click.echo(' done!')
-
-
-# DATABASE tasks
-
-@cli.group()
-@pass_config
-def db(config):
-    '''
-    Database tasks
-    '''
-
-    pass
-
-
-@db.command()
-@pass_config
-def stats(config):
-    pass
-
-
-@db.command()
-@pass_config
-def flush(config):
-    '''
-    Flush database
-    '''
-
-    # Initialize database
-    db = Database(config)
-
-    # Delete database files
-    click.echo('Flushing database ..', nl=False)
-    db.flush()
-    click.echo(' done.')
-
-
-@db.command()
 @pass_config
 @click.argument('source')
 @click.argument('query')
@@ -279,6 +290,40 @@ def search(config, source, query):
     click.echo('No further results for search term "{}", exiting ..'.format(query))
 
 
+# DATABASE tasks
+
+@cli.group()
+@pass_config
+def db(config):
+    '''
+    Database tasks
+    '''
+
+    pass
+
+
+@db.command()
+@pass_config
+def stats(config):
+    pass
+
+
+@db.command()
+@pass_config
+def flush(config):
+    '''
+    Flush database
+    '''
+
+    # Initialize database
+    db = Database(config)
+
+    # Delete database files
+    click.echo('Flushing database ..', nl=False)
+    db.flush()
+    click.echo(' done.')
+
+
 @db.command()
 @pass_config
 @click.argument('source')
@@ -330,51 +375,6 @@ def rebuild(config, source):
         click.echo(' done.')
 
     if source == 'all': click.echo('Update complete!')
-
-
-@db.command()
-@pass_config
-@click.argument('source')
-@click.argument('identifier')
-def get(config, source, identifier):
-    '''
-    Retrieve IDENTIFIER from database
-    '''
-
-    # Normalize input
-    source = source.lower()
-
-    if source not in ['data', 'info', 'invoice', 'order', 'payment']:
-        click.echo('Unknown source "{}", exiting ..'.format(source))
-        click.Context.exit(0)
-
-    click.echo('Searching database ..', nl=False)
-
-    # Initialize database
-    db = Database(config)
-
-    if source == 'data':
-        # Extract data record for given order number
-        data = db.get_data(identifier)
-
-    if source == 'info':
-        # Extract info for given order number
-        data = db.get_info(identifier)
-
-    if source == 'invoice':
-        # Extract invoice for given invoice number
-        data = db.get_invoice(identifier)
-
-    if source == 'order':
-        # Extract order for given order number
-        data = db.get_order(identifier)
-
-    if source == 'payment':
-        # Extract payment for given transaction
-        data = db.get_payment(identifier)
-
-    # Print result
-    print_get_result(data, identifier)
 
 
 # ACCOUNTING tasks
