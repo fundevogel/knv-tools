@@ -731,10 +731,10 @@ def pdf(config, year, quarter, months):
                     # Mark invoice number as processed
                     invoice_numbers.add(invoice_number)
 
-                # Write merged PDF invoices to disk
-                invoice_file = join(config.matches_dir, identifier, code, code + '.pdf')
-                create_path(invoice_file)
-                merger.write(invoice_file)
+            # Write merged PDF invoices to disk
+            invoice_file = join(config.matches_dir, identifier, code, code + '.pdf')
+            create_path(invoice_file)
+            merger.write(invoice_file)
 
             click.echo(' done.')
 
