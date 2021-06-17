@@ -7,17 +7,17 @@ from .order import Order
 
 
 class Orders(Waypoint):
-    def __init__(self, orders: dict, invoices: dict) -> None:
-        # Initialize 'Waypoint' props
-        super().__init__()
+    # CORE methods
 
-        # Build composite structure
-        for data in orders.values():
-            order = Order(data)
+    def load(self, data: tuple) -> None:
+        orders, invoices = data
 
-            if isinstance(data['Rechnungen'], dict):
+        for item in orders.values():
+            order = Order(item)
+
+            if isinstance(item['Rechnungen'], dict):
                 # Ensure validity & availability of each invoice
-                for invoice in [invoices[invoice] for invoice in data['Rechnungen'].keys() if invoice in invoices]:
+                for invoice in [invoices[invoice] for invoice in item['Rechnungen'].keys() if invoice in invoices]:
                     order.add(self.invoice_types[invoice['Rechnungsart']](invoice))
 
             self.add(order)
@@ -25,26 +25,18 @@ class Orders(Waypoint):
 
     # ACCOUNTING methods
 
-    def profit_report(self, year: str, quarter: str = None) -> dict:
+    def profit_report(self) -> dict:
         data = {}
 
         # Select orders matching given time period
-        for item in self.filter(year, quarter):
-            if item.month() not in data:
-                data[item.month()] = []
+        for child in self._children:
+            if child.month() not in data:
+                data[child.month()] = []
 
-            data[item.month()].append(float(item.amount()))
+            data[child.month()].append(float(child.amount()))
 
         # Assign data to respective month
         data = {int(month): sum(amount) for month, amount in data.items()}
-
-        # Determine appropriate month range
-        month_range = self.month_range(quarter)
-
-        # Fill missing months with zeroes
-        for i in month_range:
-            if i not in data:
-                data[i] = float(0)
 
         # Sort results
         return {k: data[k] for k in sorted(data)}

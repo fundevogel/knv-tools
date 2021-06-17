@@ -2,14 +2,13 @@ from ..waypoint import Waypoint
 
 
 class Order(Waypoint):
-    def __init__(self, data: dict) -> None:
-        # Initialize 'Waypoint' props
-        super().__init__()
+    # CORE methods
 
+    def load(self, data: tuple):
+        # Unpack tuple & load data
+        data, = data
         self.data = data
 
-
-    # CORE methods
 
     def export(self) -> list:
         return self.data

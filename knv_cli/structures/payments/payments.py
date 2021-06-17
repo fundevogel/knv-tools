@@ -6,9 +6,8 @@ from .payment import Payment
 
 
 class Payments(Waypoint):
-    def __init__(self, payments: dict, orders: dict, invoices: dict) -> None:
-        # Initialize 'Waypoint' props
-        super().__init__()
+    def load(self, data: tuple) -> None:
+        payments, orders, invoices = data
 
         # Process ingredients
         self.process(payments, orders, invoices)

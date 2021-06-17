@@ -7,18 +7,17 @@ from ..waypoint import Waypoint
 
 
 class Payment(Waypoint):
-    def __init__(self, data: dict) -> None:
-        # Initialize 'Waypoint' props
-        super().__init__()
-
-        self.data = data
-
-
     # CORE methods
 
     @abstractmethod
     def identifier(self) -> str:
         pass
+
+
+    def load(self, data: tuple):
+        # Unpack tuple & load data
+        data, = data
+        self.data = data
 
 
     def export(self) -> list:

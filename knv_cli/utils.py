@@ -8,6 +8,9 @@ from operator import itemgetter
 from os import listdir, makedirs
 from os.path import exists, dirname, join, splitext
 from re import compile, match, IGNORECASE
+
+import pendulum
+
 from pandas import DataFrame, concat, read_csv
 
 
@@ -81,12 +84,10 @@ def date2string(string: str, reverse: bool = False) -> str:
     # .. unless told otherwise
     if reverse: formats.reverse()
 
-    try:
-        return datetime.strptime(string, formats[0]).strftime(formats[-1])
+    try: return datetime.strptime(string, formats[0]).strftime(formats[-1])
 
-    except ValueError:
-        # Give back unprocessed string if things go south
-        return string
+    # Give back unprocessed string if things go south
+    except ValueError: return string
 
 
 def number2string(string: str) -> str:
@@ -94,8 +95,7 @@ def number2string(string: str) -> str:
     string = str(string).strip()
 
     # Take care of thousands separator, as in '1.234,56'
-    if '.' in string and ',' in string:
-        string = string.replace('.', '')
+    if '.' in string and ',' in string: string = string.replace('.', '')
 
     string = float(string.replace(',', '.'))
 
@@ -209,9 +209,7 @@ def group_dict(ungrouped_data: dict) -> dict:
 
 
 def sort_data(data):
-    data = sort_dict(data) if isinstance(data, dict) else sort_list(data)
-
-    return data
+    return sort_dict(data) if isinstance(data, dict) else sort_list(data)
 
 
 def sort_list(data: list) -> list:
@@ -220,3 +218,7 @@ def sort_list(data: list) -> list:
 
 def sort_dict(data: dict) -> dict:
     return dict(sorted(data.items()))
+
+
+def timestamp() -> str:
+    return pendulum.now().strftime('%Y-%m-%d_%I-%M-%S')

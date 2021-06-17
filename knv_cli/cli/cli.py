@@ -64,7 +64,7 @@ def rank(config, year, quarter, months, enable_chart, limit):
     Rank sales
     '''
 
-    # Fallback to current year
+    # Fall back to current year
     if year is None: year = pendulum.today().year
 
     # Make months into list if provided
@@ -415,7 +415,7 @@ def prepare(config, year, quarter, months):
     Generate cheatsheet for accounting mode
     '''
 
-    # Fallback to current year
+    # Fall back to current year
     if year is None: year = pendulum.today().year
 
     # Make months into list if provided
@@ -465,7 +465,7 @@ def run(config, year, quarter, months):
 
     click.echo('Accounting mode ON')
 
-    # Fallback to current year
+    # Fall back to current year
     if year is None: year = pendulum.today().year
 
     # Make months into list if provided
@@ -507,7 +507,7 @@ def run(config, year, quarter, months):
 
         # Go through all unmatched payments
         # TODO: Substitute '_children'
-        for count, payment in enumerate(handler._children):
+        for index, payment in enumerate(handler._children):
             # Skip payments already marked in previous session
             if payment.assigned() or last_session.has(payment, identifier):
                 # Proceed to next payment
@@ -516,7 +516,7 @@ def run(config, year, quarter, months):
             # Wrap logic in case session gets cut short ..
             try:
                 # Print current payment identifier
-                click.echo('Payment No. {}:'.format(str(count + 1)))
+                click.echo('Payment No. {}:'.format(str(index + 1)))
                 pretty_print(payment.export())
 
                 # Declare payment hit accuracy as 'manually assigned'
@@ -656,7 +656,7 @@ def pdf(config, year, quarter, months):
     Create merged PDF invoices
     '''
 
-    # Fallback to current year
+    # Fall back to current year
     if year is None: year = pendulum.today().year
 
     # Make months into list if provided
@@ -742,6 +742,46 @@ def pdf(config, year, quarter, months):
 @acc.command()
 @pass_config
 @click.option('-y', '--year', default=None, help='Year.')
+@click.option('-m', '--month', default=None, help='Month.')
+def show(config, year, month):
+    '''
+    Show pending invoices
+    '''
+
+    # Fall back to current year
+    if year is None: year = pendulum.today().year
+
+    # Validate month
+    # (1) Convert input to integer
+    month = 0 if month is None else int(month)
+
+    # (2) Ensure validity of provided value
+    while not 1 <= month <= 12: month = click.prompt('Please enter month (1-12)', type=int)
+
+    # Initialize database
+    db = Database(config)
+
+    # Initialize invoices
+    invoices = db.get_invoices().filterBy('month', year, month).unassigned()._children
+
+    # Print
+    try:
+        for index, invoice in enumerate(invoices):
+            if invoice.is_revenue():
+                click.echo('Invoice No. {}:'.format(str(index + 1)))
+                pretty_print(invoice.export())
+
+            if not click.confirm('Show next invoice? ({} left)'.format(len(invoices) - index + 1), default=True):
+                break
+
+    except click.Abort: pass
+
+    click.echo('Exiting ..')
+
+
+@acc.command()
+@pass_config
+@click.option('-y', '--year', default=None, help='Year.')
 @click.option('-q', '--quarter', default=None, help='Quarter.')
 @click.option('-b', '--years_back', default=2, help='Years back.')
 @click.option('-c', '--enable-chart', is_flag=True, help='Create bar chart alongside results.')
@@ -750,8 +790,16 @@ def report(config, year, quarter, years_back, enable_chart):
     Generate revenue report
     '''
 
-    # Fallback to current year
+    # Fall back to current year
     if year is None: year = pendulum.today().year
+
+    # Determine report period & time range
+    period = 'year'
+    months = range(1, 13)
+
+    if quarter is not None:
+        period = 'quarter'
+        months = [month + 3 * (int(quarter) - 1) for month in [1, 2, 3]]
 
     # Initialize database
     db = Database(config)
@@ -763,9 +811,13 @@ def report(config, year, quarter, years_back, enable_chart):
 
     data = {}
 
-    for i in range(0, 1 + int(years_back)):
-        this_year = str(int(year) - i)
-        data[this_year] = handler.profit_report(this_year, quarter)
+    for gap in range(0, 1 + int(years_back)):
+        current_year = str(int(year) - gap)
+        data[current_year] = handler.filterBy(period, current_year, quarter).profit_report()
+
+        # Fill missing months with zeroes
+        for month in months:
+            if month not in data[current_year]: data[current_year][month] = float(0)
 
     df = DataFrame(data, index=list(data.values())[0].keys())
 
