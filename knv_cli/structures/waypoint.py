@@ -1,3 +1,7 @@
+# Works with Python v3.10+
+# See https://stackoverflow.com/a/33533514
+from __future__ import annotations
+
 from abc import abstractmethod
 from operator import itemgetter
 from typing import List
@@ -46,7 +50,7 @@ class Waypoint(Framework):
         return len(self._children) > 0
 
 
-    def filterBy(self, identifier: str, year: str = None, period: str = None) -> list:
+    def filterBy(self, identifier: str, year: str = None, period: str = None) -> Waypoint:
         # Ensure validity of provided time period
         if identifier not in ['year', 'quarter', 'month']: raise Exception
 
