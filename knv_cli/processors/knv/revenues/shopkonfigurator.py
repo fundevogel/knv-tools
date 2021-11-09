@@ -2,6 +2,8 @@
 # See https://stackoverflow.com/a/33533514
 from __future__ import annotations
 
+from re import compile, VERBOSE
+
 from ..invoices import InvoiceProcessor
 
 
@@ -40,11 +42,6 @@ class ShopkonfiguratorInvoiceProcessor(InvoiceProcessor):
                 'Rechnungsart': 'Kundenrechnung',
             }
 
-            taxes = {
-                'Brutto': {},
-                'Anteil': {},
-            }
-
             # Parse content, looking for ..
             # (1) .. general information
             for index, line in enumerate(content):
@@ -71,82 +68,47 @@ class ShopkonfiguratorInvoiceProcessor(InvoiceProcessor):
             costs = content[starting_point:terminal_point + 1]
 
             # (2) .. taxes
-            # Determine tax rates where ..
-            tax_rates = [self.format_tax_rate(tax_rate) for tax_rate in costs[:2]]
+            # Compile regular expression
+            regex = compile(
+                r"""
+                ^Nettobetrag
+                (?P<min_rate>\d).*                              # reduced tax rate, either 5% or 7%
+                (?P<max_rate>\d{2}).*                           # full tax rate, either 16% or 19%
+                (?P<min_net>\d+,\d{2})EUR                       # reduced tax net
+                (?P<max_net>\d+,\d{2})EUR                       # full tax net
+                \d+,\d{2}EUR.*gesamt:                           # net subtotal
+                (?P<min_share>\d+,\d{2})EUR(?:Zwischensumme:)?  # reduced tax amount
+                (?P<max_share>\d+,\d{2})EUR                     # full tax amount
+                """, VERBOSE
+            )
 
-            # .. 'reduced' equals either 5% or 7%
-            reduced_tax = 0
+            # Match named capturing groups
+            match = regex.search(''.join(costs).replace(' ', ''))
 
-            # .. 'full' equals either 16% or 19%
-            full_tax = 0
-
-            if len(costs) < 8:
-                costs_list = costs[4].replace('MwSt. gesamt:', '').split()
-
-                reduced_tax = costs_list[0]
-                full_tax = costs_list[1]
-
-                if len(costs_list) < 3:
-                    # TODO: NEEDS TESTING
-                    # print(reduced_net, full_net)
-                    full_tax = costs[5]
-
-            elif len(costs) == 9:
-                reduced_tax = costs[4].split(':')[-1]
-                full_tax = costs[5]
-
-                if 'MwSt. gesamt' in costs[5]:
-                    costs_list = costs[5].split(':')[-1].split()
-
-                    reduced_tax = costs_list[0]
-                    full_tax = costs_list[1]
-
-                if 'MwSt. gesamt' in costs[6]:
-                    reduced_tax = costs[6].split(':')[-1]
-                    full_tax = costs[7]
-
-
-            elif len(costs) in [10, 11]:
-                index = 5
-
-                if 'MwSt.' in costs[6]:
-                    index = 6
-
-                    reduced_net = costs[index - 4].split(':')[-1]
-                    full_net = costs[index - 3]
-
-                reduced_tax = costs[index].split(':')[-1].split()[0]
-                full_tax = costs[index + 1].split()[0]
-
-            else:
-                reduced_tax = costs[5].split()[0]
-                full_tax = costs[2].split()[2]
-
-                if reduced_tax == 'MwSt.':
-                    reduced_tax = costs[5].split(':')[-1]
-                    full_tax = costs[6]
-
-            # Extract gross values
-            costs_list = costs[2].split(':')[1].split('EUR')
-            reduced_net = costs_list[0]
-            full_net = costs_list[1]
-
-            if costs[2].count('EUR') == 1:
-                reduced_net = costs[2].split(':')[-1]
-                full_net = costs[3]
-
-                if 'MwSt.' in costs[3]:
-                    full_net = costs[3].split()[0]
+            # Determine tax rates
+            reduced_rate = match.group('min_rate') + '%'
+            full_rate = match.group('max_rate') + '%'
 
             # Add taxes
-            reduced_tax, full_tax = self.number2string(reduced_tax), self.number2string(full_tax)
-            reduced_net, full_net = self.number2string(reduced_net), self.number2string(full_net)
+            # (1) Reduced tax
+            reduced_tax = self.number2string(match.group('min_share'))
+            reduced_net = self.number2string(match.group('min_net'))
 
-            taxes['Anteil'][tax_rates[0]] = reduced_tax
-            taxes['Brutto'][tax_rates[0]] = self.number2string(float(reduced_net) + float(reduced_tax))
+            # (2) Full tax
+            full_tax = self.number2string(match.group('max_share'))
+            full_net = self.number2string(match.group('max_net'))
 
-            taxes['Anteil'][tax_rates[1]] = full_tax
-            taxes['Brutto'][tax_rates[1]] = self.number2string(float(full_net) + float(full_tax))
+            # (3) Bring everything together
+            taxes = {
+                'Brutto': {
+                    reduced_rate: self.number2string(float(reduced_tax) + float(reduced_net)),
+                    full_rate: self.number2string(float(full_tax) + float(full_net)),
+                },
+                'Anteil': {
+                    reduced_rate: reduced_tax,
+                    full_rate: full_tax,
+                },
+            }
 
             # Apply (only successfully) extracted taxes
             if {k: v for k, v in taxes.items() if v}: invoice['Steuern'] = taxes
